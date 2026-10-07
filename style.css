@@ -211,18 +211,23 @@ body {
   position: absolute;
   top: 0;
   left: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow: hidden;
 }
 
 .canvas-transform-wrapper {
   position: absolute;
+  top: 0;
+  left: 0;
   width: 1000px;
   height: 1000px;
   transform-origin: 0 0;
+  will-change: transform;
   box-shadow: 0 0 60px rgba(0, 0, 0, 0.9), 0 0 0 1px var(--border-active);
   background: #0a0a0e;
+}
+
+.canvas-transform-wrapper.is-animating {
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 canvas#wall-canvas {
@@ -242,6 +247,24 @@ canvas#wall-canvas {
   display: none;
   box-shadow: 0 0 10px var(--gold-primary);
   z-index: 10;
+}
+
+.slot-selected-indicator {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--gold-primary);
+  pointer-events: none;
+  display: none;
+  box-shadow: 0 0 14px var(--gold-primary), inset 0 0 6px var(--gold-primary);
+  z-index: 15;
+  animation: pulse-reticle 1.8s infinite ease-in-out;
+}
+
+@keyframes pulse-reticle {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.15); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 /* =========================================================================

@@ -21,6 +21,7 @@ const canvasWrapper = document.getElementById('canvas-wrapper');
 const canvas = document.getElementById('wall-canvas');
 const ctx = canvas.getContext('2d');
 const crosshair = document.getElementById('grid-crosshair');
+const selectedIndicator = document.getElementById('slot-selected-indicator');
 
 // HUD elements
 const coordVal = document.getElementById('coord-val');
@@ -55,9 +56,13 @@ const tabPanels = document.querySelectorAll('.codex-tab-panel');
 // Raw JSON action button
 const btnCopyRawJson = document.getElementById('btn-copy-raw-json');
 
-// Memory Cache for Slots
+// Memory Cache
 let currentOpenDossierData = null;
 let censusRoster = [];
+
+// Touch gesture tracking
+let initialPinchDist = null;
+let initialPinchScale = null;
 
 // -----------------------------------------------------------------------------
 // 1. INITIALIZE MASTER CANVAS
@@ -75,22 +80,65 @@ function drawCanvas() {
   ctx.drawImage(masterImg, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
 }
 
-function centerCanvas() {
-  const rect = workspace.getBoundingClientRect();
-  scale = 1.0;
-  panX = (rect.width - CANVAS_SIZE) / 2;
-  panY = (rect.height - CANVAS_SIZE) / 2;
-  updateTransform();
-}
-
 function updateTransform() {
   canvasWrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
   zoomLevelText.textContent = `${Math.round(scale * 100)}%`;
 }
 
+function centerCanvas(animate = false) {
+  const rect = workspace.getBoundingClientRect();
+  const drawerOpen = dossierDrawer.classList.contains('is-open');
+  const drawerWidth = (drawerOpen && window.innerWidth > 900) ? 520 : 0;
+  const visibleWidth = rect.width - drawerWidth;
+
+  const targetScale = Math.min((visibleWidth - 60) / CANVAS_SIZE, (rect.height - 60) / CANVAS_SIZE, 1.0);
+  const targetPanX = (visibleWidth - CANVAS_SIZE * targetScale) / 2;
+  const targetPanY = (rect.height - CANVAS_SIZE * targetScale) / 2;
+
+  if (animate) {
+    canvasWrapper.classList.add('is-animating');
+    scale = targetScale;
+    panX = targetPanX;
+    panY = targetPanY;
+    updateTransform();
+    setTimeout(() => canvasWrapper.classList.remove('is-animating'), 500);
+  } else {
+    scale = targetScale;
+    panX = targetPanX;
+    panY = targetPanY;
+    updateTransform();
+  }
+}
+
 // -----------------------------------------------------------------------------
-// 2. PAN & ZOOM CONTROLS
+// 2. FOCAL-POINT ZOOM & PAN CONTROLS (MOUSE & WHEEL)
 // -----------------------------------------------------------------------------
+
+function zoomAtPoint(factor, clientX, clientY) {
+  const rect = workspace.getBoundingClientRect();
+  const mouseX = clientX - rect.left;
+  const mouseY = clientY - rect.top;
+
+  // Exact point on the 1000x1000 canvas under cursor
+  const canvasX = (mouseX - panX) / scale;
+  const canvasY = (mouseY - panY) / scale;
+
+  let newScale = scale * factor;
+  newScale = Math.min(Math.max(newScale, 0.4), 32.0); // 40% to 3200%
+
+  // Lock canvas point under cursor
+  panX = mouseX - canvasX * newScale;
+  panY = mouseY - canvasY * newScale;
+  scale = newScale;
+
+  updateTransform();
+}
+
+workspace.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const zoomFactor = e.deltaY < 0 ? 1.15 : (1 / 1.15);
+  zoomAtPoint(zoomFactor, e.clientX, e.clientY);
+}, { passive: false });
 
 workspace.addEventListener('mousedown', (e) => {
   if (e.target.closest('.hud-controls') || e.target.closest('.dossier-drawer')) return;
@@ -115,52 +163,90 @@ window.addEventListener('mouseup', () => {
   workspace.classList.remove('is-dragging');
 });
 
-workspace.addEventListener('wheel', (e) => {
-  e.preventDefault();
-  const zoomFactor = 1.15;
+// HUD Zoom Buttons (zoom centered in visible workspace)
+btnZoomIn.addEventListener('click', () => {
+  const rect = workspace.getBoundingClientRect();
+  const drawerOpen = dossierDrawer.classList.contains('is-open');
+  const drawerWidth = (drawerOpen && window.innerWidth > 900) ? 520 : 0;
+  const cx = rect.left + (rect.width - drawerWidth) / 2;
+  const cy = rect.top + rect.height / 2;
+  zoomAtPoint(1.3, cx, cy);
+});
+
+btnZoomOut.addEventListener('click', () => {
+  const rect = workspace.getBoundingClientRect();
+  const drawerOpen = dossierDrawer.classList.contains('is-open');
+  const drawerWidth = (drawerOpen && window.innerWidth > 900) ? 520 : 0;
+  const cx = rect.left + (rect.width - drawerWidth) / 2;
+  const cy = rect.top + rect.height / 2;
+  zoomAtPoint(1 / 1.3, cx, cy);
+});
+
+btnZoomReset.addEventListener('click', () => {
+  centerCanvas(true);
+});
+
+// -----------------------------------------------------------------------------
+// 3. TOUCH & PINCH SUPPORT
+// -----------------------------------------------------------------------------
+
+function getTouchDistance(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.hypot(dx, dy);
+}
+
+workspace.addEventListener('touchstart', (e) => {
+  if (e.target.closest('.hud-controls') || e.target.closest('.dossier-drawer')) return;
+  if (e.touches.length === 1) {
+    isDragging = true;
+    startX = e.touches[0].clientX - panX;
+    startY = e.touches[0].clientY - panY;
+  } else if (e.touches.length === 2) {
+    isDragging = false;
+    initialPinchDist = getTouchDistance(e.touches);
+    initialPinchScale = scale;
+  }
+}, { passive: true });
+
+workspace.addEventListener('touchmove', (e) => {
+  if (isDragging && e.touches.length === 1) {
+    panX = e.touches[0].clientX - startX;
+    panY = e.touches[0].clientY - startY;
+    updateTransform();
+  } else if (e.touches.length === 2 && initialPinchDist) {
+    const currentDist = getTouchDistance(e.touches);
+    const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+    const factor = currentDist / initialPinchDist;
+    zoomAtPoint(factor, midX, midY);
+    initialPinchDist = currentDist;
+  }
+}, { passive: true });
+
+workspace.addEventListener('touchend', () => {
+  isDragging = false;
+  initialPinchDist = null;
+});
+
+// -----------------------------------------------------------------------------
+// 4. COORDINATE CALCULATION & HOVER
+// -----------------------------------------------------------------------------
+
+function getGridCoordFromMouse(e) {
   const rect = workspace.getBoundingClientRect();
   const mouseX = e.clientX - rect.left;
   const mouseY = e.clientY - rect.top;
 
-  let newScale = e.deltaY < 0 ? scale * zoomFactor : scale / zoomFactor;
-  newScale = Math.min(Math.max(newScale, 0.4), 16.0);
+  const canvasX = (mouseX - panX) / scale;
+  const canvasY = (mouseY - panY) / scale;
 
-  panX = mouseX - (mouseX - panX) * (newScale / scale);
-  panY = mouseY - (mouseY - panY) * (newScale / scale);
-  scale = newScale;
-
-  updateTransform();
-}, { passive: false });
-
-btnZoomIn.addEventListener('click', () => {
-  scale = Math.min(scale * 1.3, 16.0);
-  updateTransform();
-});
-
-btnZoomOut.addEventListener('click', () => {
-  scale = Math.max(scale / 1.3, 0.4);
-  updateTransform();
-});
-
-btnZoomReset.addEventListener('click', () => {
-  centerCanvas();
-});
-
-// -----------------------------------------------------------------------------
-// 3. COORDINATE CALCULATION & HOVER
-// -----------------------------------------------------------------------------
-
-function getGridCoordFromMouse(e) {
-  const canvasRect = canvas.getBoundingClientRect();
-  const rawX = (e.clientX - canvasRect.left) / scale;
-  const rawY = (e.clientY - canvasRect.top) / scale;
-
-  if (rawX < 0 || rawX >= CANVAS_SIZE || rawY < 0 || rawY >= CANVAS_SIZE) {
+  if (canvasX < 0 || canvasX >= CANVAS_SIZE || canvasY < 0 || canvasY >= CANVAS_SIZE) {
     return null;
   }
 
-  const gridX = Math.floor(rawX / BLOCK_SIZE);
-  const gridY = Math.floor(rawY / BLOCK_SIZE);
+  const gridX = Math.floor(canvasX / BLOCK_SIZE);
+  const gridY = Math.floor(canvasY / BLOCK_SIZE);
   const slotNum = gridY * GRID_COLS + gridX + 1;
 
   return { gridX, gridY, slotNum };
@@ -190,21 +276,65 @@ function handleHover(e) {
 }
 
 // -----------------------------------------------------------------------------
-// 4. CLICK TO INSPECT DOSSIER
+// 5. JUMP TO SLOT & INSPECT
 // -----------------------------------------------------------------------------
+
+function focusAndHighlightSlot(gridX, gridY, zoom = 14.0, animate = true) {
+  const rect = workspace.getBoundingClientRect();
+  const drawerWidth = (window.innerWidth > 900) ? 520 : 0;
+  const visibleWidth = rect.width - drawerWidth;
+
+  // Center of the block on the 1000x1000 canvas
+  const blockCenterX = gridX * BLOCK_SIZE + (BLOCK_SIZE / 2);
+  const blockCenterY = gridY * BLOCK_SIZE + (BLOCK_SIZE / 2);
+
+  // Target screen center in visible area
+  const targetScreenX = visibleWidth / 2;
+  const targetScreenY = rect.height / 2;
+
+  // Position indicator
+  selectedIndicator.style.display = 'block';
+  selectedIndicator.style.left = `${gridX * BLOCK_SIZE}px`;
+  selectedIndicator.style.top = `${gridY * BLOCK_SIZE}px`;
+
+  if (animate) {
+    canvasWrapper.classList.add('is-animating');
+    scale = zoom;
+    panX = targetScreenX - blockCenterX * scale;
+    panY = targetScreenY - blockCenterY * scale;
+    updateTransform();
+    setTimeout(() => canvasWrapper.classList.remove('is-animating'), 500);
+  } else {
+    scale = zoom;
+    panX = targetScreenX - blockCenterX * scale;
+    panY = targetScreenY - blockCenterY * scale;
+    updateTransform();
+  }
+}
 
 workspace.addEventListener('click', (e) => {
   if (isDragging) return;
   const coords = getGridCoordFromMouse(e);
   if (!coords) return;
 
-  const { slotNum } = coords;
+  const { gridX, gridY, slotNum } = coords;
   if (slotNum === 1) {
+    focusAndHighlightSlot(gridX, gridY, 14.0, true);
     loadAndOpenDossier('records/w1-b0001.json');
   }
 });
 
-// Load full dossier JSON
+window.inspectFromCensus = function(recordUrl, x, y) {
+  modalCensus.classList.remove('is-open');
+  // Fly to block and zoom deeply so it is readable
+  focusAndHighlightSlot(x, y, 14.0, true);
+  loadAndOpenDossier(recordUrl);
+};
+
+// -----------------------------------------------------------------------------
+// 6. LOAD & RENDER DOSSIER
+// -----------------------------------------------------------------------------
+
 async function loadAndOpenDossier(recordUrl) {
   try {
     const res = await fetch(recordUrl);
@@ -240,7 +370,7 @@ function renderDossier(data) {
     });
   }
 
-  // Companion
+  // Companion Operator
   if (data.companion_operator) {
     document.getElementById('companion-name').textContent = data.companion_operator.moniker;
     document.getElementById('companion-role').textContent = data.companion_operator.role;
@@ -298,14 +428,14 @@ function renderDossier(data) {
   document.getElementById('json-file-path').textContent = `/records/${data.slot_id}.json`;
   document.getElementById('raw-json-content').textContent = JSON.stringify(data, null, 2);
 
-  // Switch to Testament tab by default
+  // Switch to Testament tab
   switchTab('tab-testament');
 
   dossierDrawer.classList.add('is-open');
 }
 
 // -----------------------------------------------------------------------------
-// 5. CODEX TAB SWITCHING
+// 7. CODEX TAB SWITCHING & DRAWER
 // -----------------------------------------------------------------------------
 
 tabButtons.forEach(btn => {
@@ -326,10 +456,13 @@ function switchTab(tabId) {
 
 btnCloseDossier.addEventListener('click', () => {
   dossierDrawer.classList.remove('is-open');
+  selectedIndicator.style.display = 'none';
+  // Re-center visible area smoothly
+  centerCanvas(true);
 });
 
 // -----------------------------------------------------------------------------
-// 6. RAW JSON COPY
+// 8. RAW JSON ACTIONS
 // -----------------------------------------------------------------------------
 
 btnCopyRawJson.addEventListener('click', () => {
@@ -353,7 +486,7 @@ window.copyText = function(elementId) {
 };
 
 // -----------------------------------------------------------------------------
-// 7. CENSUS DIRECTORY MODAL
+// 9. CENSUS DIRECTORY MODAL
 // -----------------------------------------------------------------------------
 
 btnOpenCensus.addEventListener('click', async () => {
@@ -402,22 +535,8 @@ function renderCensusTable(roster) {
   });
 }
 
-window.inspectFromCensus = function(recordUrl, x, y) {
-  modalCensus.classList.remove('is-open');
-  // Pan & zoom to slot
-  const targetX = x * BLOCK_SIZE;
-  const targetY = y * BLOCK_SIZE;
-  const rect = workspace.getBoundingClientRect();
-  scale = 4.0;
-  panX = rect.width / 2 - targetX * scale;
-  panY = rect.height / 2 - targetY * scale;
-  updateTransform();
-
-  loadAndOpenDossier(recordUrl);
-};
-
 // -----------------------------------------------------------------------------
-// 8. OTHER MODALS
+// 10. MODAL TRIGGERS
 // -----------------------------------------------------------------------------
 
 btnOpenManifesto.addEventListener('click', () => {
@@ -443,11 +562,12 @@ window.addEventListener('click', (e) => {
 });
 
 // -----------------------------------------------------------------------------
-// 9. INIT ON LOAD
+// 11. INITIALIZATION ON LOAD
 // -----------------------------------------------------------------------------
 
 window.addEventListener('DOMContentLoaded', () => {
-  centerCanvas();
-  // Automatically load Slot #0001 dossier in cache
+  centerCanvas(false);
+  // Focus Slot #0001 with 14x zoom and open its codex
+  focusAndHighlightSlot(0, 0, 14.0, false);
   loadAndOpenDossier('records/w1-b0001.json');
 });
