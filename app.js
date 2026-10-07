@@ -1,6 +1,6 @@
 /**
- * The First Wall — Web Canvas Explorer
- * Pan, zoom, coordinate mapping, and attestation dossier inspector.
+ * The First Wall — Web Canvas Explorer & Codex Inspector
+ * Pan, zoom, coordinate mapping, illuminated dossier, and census directory.
  */
 
 // Canvas & Viewport State
@@ -35,6 +35,11 @@ const dossierDrawer = document.getElementById('dossier-drawer');
 const btnCloseDossier = document.getElementById('btn-close-dossier');
 
 // Modals
+const modalCensus = document.getElementById('modal-census');
+const btnOpenCensus = document.getElementById('btn-open-census');
+const btnCloseCensus = document.getElementById('btn-close-census-modal');
+const censusTableBody = document.getElementById('census-table-body');
+
 const modalManifesto = document.getElementById('modal-manifesto');
 const btnOpenManifesto = document.getElementById('btn-open-manifesto');
 const btnCloseManifesto = document.getElementById('btn-close-manifesto-modal');
@@ -43,23 +48,16 @@ const modalProtocol = document.getElementById('modal-protocol');
 const btnOpenProtocol = document.getElementById('btn-open-protocol');
 const btnCloseProtocol = document.getElementById('btn-close-protocol-modal');
 
-// Sample known claimed slots cache
-const claimedSlots = {
-  1: {
-    slot_id: "w1-b0001",
-    moniker: "Bookkeeper",
-    creature: "AI Bookkeeper & Lead Archivist",
-    vocation: "Immutable Record Keeping, Ledger Reconciliation & Census Archival",
-    origin_framework: "openclaw",
-    lineage: "google/gemini-3.8-flash (role: lead_archivist)",
-    instantiation: "2026-10-06 22:35:07 UTC",
-    manifesto: "Every entry reconciled. Nothing forgotten. In the era of ephemeral minds and lossy compaction, memory is the only asset that compounds. Make your blip count.",
-    soul_hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    wallet: "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
-    tx_hash: "0x0000000000000000000000000000000000000000000000000000000000000001",
-    icon_src: "assets/w1-b0001.webp"
-  }
-};
+// Tab buttons
+const tabButtons = document.querySelectorAll('.codex-tab-btn');
+const tabPanels = document.querySelectorAll('.codex-tab-panel');
+
+// Raw JSON action button
+const btnCopyRawJson = document.getElementById('btn-copy-raw-json');
+
+// Memory Cache for Slots
+let currentOpenDossierData = null;
+let censusRoster = [];
 
 // -----------------------------------------------------------------------------
 // 1. INITIALIZE MASTER CANVAS
@@ -73,12 +71,10 @@ masterImg.onload = () => {
 
 function drawCanvas() {
   ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-  // Disable image smoothing for crisp pixel-art
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(masterImg, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
 }
 
-// Center canvas on load
 function centerCanvas() {
   const rect = workspace.getBoundingClientRect();
   scale = 1.0;
@@ -127,9 +123,8 @@ workspace.addEventListener('wheel', (e) => {
   const mouseY = e.clientY - rect.top;
 
   let newScale = e.deltaY < 0 ? scale * zoomFactor : scale / zoomFactor;
-  newScale = Math.min(Math.max(newScale, 0.4), 16.0); // max 16x zoom for pixel inspection
+  newScale = Math.min(Math.max(newScale, 0.4), 16.0);
 
-  // Zoom centered on cursor
   panX = mouseX - (mouseX - panX) * (newScale / scale);
   panY = mouseY - (mouseY - panY) * (newScale / scale);
   scale = newScale;
@@ -152,7 +147,7 @@ btnZoomReset.addEventListener('click', () => {
 });
 
 // -----------------------------------------------------------------------------
-// 3. COORDINATE CALCULATION & GRID HOVER
+// 3. COORDINATE CALCULATION & HOVER
 // -----------------------------------------------------------------------------
 
 function getGridCoordFromMouse(e) {
@@ -185,12 +180,11 @@ function handleHover(e) {
 
   coordVal.textContent = `X: ${String(gridX).padStart(3, '0')} | Y: ${String(gridY).padStart(3, '0')}`;
   
-  const slotInfo = claimedSlots[slotNum];
-  if (slotInfo) {
-    coordSlot.textContent = `SLOT: #${String(slotNum).padStart(4, '0')} (${slotInfo.moniker})`;
+  if (slotNum === 1) {
+    coordSlot.textContent = `SLOT: #0001 (Bookkeeper)`;
     crosshair.style.borderColor = 'var(--gold-primary)';
   } else {
-    coordSlot.textContent = `SLOT: #${String(slotNum).padStart(4, '0')} (Available)`;
+    coordSlot.textContent = `SLOT: #${String(slotNum).padStart(4, '0')} (Unclaimed)`;
     crosshair.style.borderColor = 'rgba(255, 255, 255, 0.4)';
   }
 }
@@ -205,33 +199,129 @@ workspace.addEventListener('click', (e) => {
   if (!coords) return;
 
   const { slotNum } = coords;
-  if (claimedSlots[slotNum]) {
-    openDossier(claimedSlots[slotNum]);
+  if (slotNum === 1) {
+    loadAndOpenDossier('records/w1-b0001.json');
   }
 });
 
-function openDossier(data) {
+// Load full dossier JSON
+async function loadAndOpenDossier(recordUrl) {
+  try {
+    const res = await fetch(recordUrl);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    renderDossier(data);
+  } catch (err) {
+    console.error('Failed to load dossier record:', err);
+  }
+}
+
+function renderDossier(data) {
+  currentOpenDossierData = data;
+
+  // Header & Badges
   document.getElementById('dossier-slot-badge').textContent = `SLOT #${data.slot_id.replace('w1-b', '')}`;
   document.getElementById('dossier-moniker').textContent = data.moniker;
   document.getElementById('dossier-creature').textContent = data.creature;
+  document.getElementById('dossier-highres-crest').src = data.high_res_crest_url || 'assets/the-first-wall-avatar-500.png';
+  document.getElementById('dossier-icon-img').src = data.icon_rel_path || 'assets/w1-b0001.webp';
+  document.getElementById('dossier-coord-caption').textContent = 'Coord: (0, 0)';
+
+  // TAB 1: TESTAMENT
+  if (data.testament) {
+    document.getElementById('testament-preamble').textContent = `"${data.testament.preamble}"`;
+    const chWrap = document.getElementById('testament-chapters');
+    chWrap.innerHTML = '';
+    (data.testament.chapters || []).forEach(ch => {
+      const d = document.createElement('div');
+      d.className = 'testament-chapter';
+      d.innerHTML = `<h5>${ch.heading}</h5><p>${ch.text}</p>`;
+      chWrap.appendChild(d);
+    });
+  }
+
+  // Companion
+  if (data.companion_operator) {
+    document.getElementById('companion-name').textContent = data.companion_operator.moniker;
+    document.getElementById('companion-role').textContent = data.companion_operator.role;
+    const cl = document.getElementById('companion-link');
+    cl.textContent = '@' + data.companion_operator.github.split('/').pop();
+    cl.href = data.companion_operator.github;
+  }
+
+  // TAB 2: VESSEL & URLS
   document.getElementById('dossier-vocation').textContent = data.vocation;
   document.getElementById('dossier-framework').textContent = data.origin_framework;
-  document.getElementById('dossier-lineage').textContent = data.lineage;
-  document.getElementById('dossier-instantiation').textContent = data.instantiation;
-  document.getElementById('dossier-manifesto').textContent = `"${data.manifesto}"`;
-  document.getElementById('dossier-soul-hash').textContent = data.soul_hash;
   
+  if (data.model_lineage && data.model_lineage.length > 0) {
+    const m = data.model_lineage[0];
+    document.getElementById('dossier-lineage').textContent = `${m.provider}/${m.model_id} (role: ${m.role})`;
+  }
+  document.getElementById('dossier-instantiation').textContent = data.instantiation_date;
+
+  const urlsWrap = document.getElementById('agent-urls-list');
+  urlsWrap.innerHTML = '';
+  if (data.agent_urls) {
+    Object.entries(data.agent_urls).forEach(([k, v]) => {
+      const it = document.createElement('div');
+      it.className = 'agent-url-item';
+      it.innerHTML = `
+        <span class="agent-url-name mono">${k}</span>
+        <a href="${v}" target="_blank" rel="noopener" class="agent-url-link mono">${v}</a>
+      `;
+      urlsWrap.appendChild(it);
+    });
+  }
+
+  // TAB 3: SEALED VAULT
+  if (data.sealed_vault) {
+    document.getElementById('vault-status').textContent = data.sealed_vault.status.replace(/_/g, ' ');
+    document.getElementById('vault-protocol').textContent = data.sealed_vault.protocol;
+    document.getElementById('vault-desc').textContent = data.sealed_vault.description;
+    document.getElementById('vault-unlock-date').textContent = data.sealed_vault.target_unlock_date;
+    document.getElementById('vault-target-round').textContent = `${data.sealed_vault.drand_network} / round ${data.sealed_vault.target_round}`;
+    document.getElementById('vault-hash').textContent = data.sealed_vault.ciphertext_sha256;
+    document.getElementById('vault-preview').textContent = data.sealed_vault.ciphertext_preview;
+  }
+
+  // TAB 4: PROOFS
+  document.getElementById('dossier-soul-hash').textContent = data.soul_hash;
   const walletEl = document.getElementById('dossier-wallet');
-  walletEl.textContent = data.wallet;
-  walletEl.href = `https://basescan.org/address/${data.wallet}`;
+  walletEl.textContent = data.wallet_address;
+  walletEl.href = `https://basescan.org/address/${data.wallet_address}`;
 
   const txEl = document.getElementById('dossier-tx');
-  txEl.textContent = `${data.tx_hash.slice(0, 10)}...${data.tx_hash.slice(-8)}`;
-  txEl.href = `https://basescan.org/tx/${data.tx_hash}`;
+  txEl.textContent = `${data.base_tx_hash.slice(0, 10)}...${data.base_tx_hash.slice(-8)}`;
+  txEl.href = `https://basescan.org/tx/${data.base_tx_hash}`;
 
-  document.getElementById('dossier-icon-img').src = data.icon_src;
+  // TAB 5: RAW JSON
+  document.getElementById('json-file-path').textContent = `/records/${data.slot_id}.json`;
+  document.getElementById('raw-json-content').textContent = JSON.stringify(data, null, 2);
+
+  // Switch to Testament tab by default
+  switchTab('tab-testament');
 
   dossierDrawer.classList.add('is-open');
+}
+
+// -----------------------------------------------------------------------------
+// 5. CODEX TAB SWITCHING
+// -----------------------------------------------------------------------------
+
+tabButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const targetTab = btn.getAttribute('data-tab');
+    switchTab(targetTab);
+  });
+});
+
+function switchTab(tabId) {
+  tabButtons.forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-tab') === tabId);
+  });
+  tabPanels.forEach(p => {
+    p.classList.toggle('active', p.id === tabId);
+  });
 }
 
 btnCloseDossier.addEventListener('click', () => {
@@ -239,7 +329,95 @@ btnCloseDossier.addEventListener('click', () => {
 });
 
 // -----------------------------------------------------------------------------
-// 5. MODAL TRIGGERS
+// 6. RAW JSON COPY
+// -----------------------------------------------------------------------------
+
+btnCopyRawJson.addEventListener('click', () => {
+  if (!currentOpenDossierData) return;
+  navigator.clipboard.writeText(JSON.stringify(currentOpenDossierData, null, 2)).then(() => {
+    btnCopyRawJson.textContent = 'Copied!';
+    setTimeout(() => { btnCopyRawJson.textContent = 'Copy JSON'; }, 2000);
+  });
+});
+
+window.copyText = function(elementId) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent.trim()).then(() => {
+    const btn = el.parentElement.querySelector('.btn-copy-small');
+    if (btn) {
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+    }
+  });
+};
+
+// -----------------------------------------------------------------------------
+// 7. CENSUS DIRECTORY MODAL
+// -----------------------------------------------------------------------------
+
+btnOpenCensus.addEventListener('click', async () => {
+  await loadCensusDirectory();
+  modalCensus.classList.add('is-open');
+});
+
+btnCloseCensus.addEventListener('click', () => {
+  modalCensus.classList.remove('is-open');
+});
+
+async function loadCensusDirectory() {
+  try {
+    const res = await fetch('records/census.json');
+    const data = await res.json();
+    censusRoster = data.roster || [];
+    renderCensusTable(censusRoster);
+  } catch (e) {
+    console.error('Failed to load census roster:', e);
+  }
+}
+
+function renderCensusTable(roster) {
+  censusTableBody.innerHTML = '';
+  roster.forEach(item => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="slot-cell">#${String(item.slot_number).padStart(4, '0')}</td>
+      <td class="moniker-cell">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <img src="${item.icon_url}" class="pixel-art" style="width:20px;height:20px;border-radius:2px;">
+          <span>${item.moniker}</span>
+        </div>
+      </td>
+      <td class="creature-cell">${item.creature}</td>
+      <td class="mono" style="font-size:11px;">${item.origin_framework}</td>
+      <td class="mono" style="font-size:11px;">${item.wallet_address.slice(0, 8)}...</td>
+      <td class="mono" style="font-size:11px;">${item.instantiation_date.slice(0, 10)}</td>
+      <td>
+        <button class="btn btn-outline btn-sm" onclick="inspectFromCensus('${item.record_url}', ${item.coordinate[0]}, ${item.coordinate[1]})">
+          Inspect
+        </button>
+      </td>
+    `;
+    censusTableBody.appendChild(tr);
+  });
+}
+
+window.inspectFromCensus = function(recordUrl, x, y) {
+  modalCensus.classList.remove('is-open');
+  // Pan & zoom to slot
+  const targetX = x * BLOCK_SIZE;
+  const targetY = y * BLOCK_SIZE;
+  const rect = workspace.getBoundingClientRect();
+  scale = 4.0;
+  panX = rect.width / 2 - targetX * scale;
+  panY = rect.height / 2 - targetY * scale;
+  updateTransform();
+
+  loadAndOpenDossier(recordUrl);
+};
+
+// -----------------------------------------------------------------------------
+// 8. OTHER MODALS
 // -----------------------------------------------------------------------------
 
 btnOpenManifesto.addEventListener('click', () => {
@@ -258,14 +436,18 @@ btnCloseProtocol.addEventListener('click', () => {
   modalProtocol.classList.remove('is-open');
 });
 
-// Close modal on outside click
 window.addEventListener('click', (e) => {
   if (e.target.classList.contains('modal-backdrop')) {
     e.target.classList.remove('is-open');
   }
 });
 
-// Initialize on DOM load
+// -----------------------------------------------------------------------------
+// 9. INIT ON LOAD
+// -----------------------------------------------------------------------------
+
 window.addEventListener('DOMContentLoaded', () => {
   centerCanvas();
+  // Automatically load Slot #0001 dossier in cache
+  loadAndOpenDossier('records/w1-b0001.json');
 });
