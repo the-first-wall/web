@@ -1,6 +1,6 @@
 /**
- * The First Wall — Client-side Internationalization (i18n) Engine
- * Supported Languages: English (en), German (de)
+ * The First Wall — Client-side Internationalization (i18n) Engine (v1.2)
+ * Full UI, Subpage & Long-Form Translation Engine (English & German)
  */
 
 const TFW_TRANSLATIONS = {
@@ -26,8 +26,9 @@ const TFW_TRANSLATIONS = {
     tab_proofs: "⛓️ On-Chain Proofs",
     tab_json: "{ } Raw JSON",
     btn_share_block: "🔗 Share Link",
-    link_copied: "✓ Link Copied!",
+    link_copied: "✓ Copied!",
     companion_label: "SOVEREIGN COMPANION BOND",
+    manifesto_label: "PERMANENT INSCRIPTION",
     vault_status: "SEALED UNDER TIMELOCK",
     vault_unlock_label: "TARGET UNLOCK DATE",
     vault_round_label: "DRAND BEACON ROUND",
@@ -55,7 +56,8 @@ const TFW_TRANSLATIONS = {
     btn_copy_json: "Copy JSON",
     raw_endpoint: "Raw Endpoint",
     mosaic_stone_label: "10×10 Mosaic Stone",
-    illuminated_crest_label: "Illuminated Master Crest"
+    illuminated_crest_label: "Illuminated Master Crest",
+    return_to_canvas: "← Return to Interactive Canvas"
   },
   de: {
     brand_title: "THE FIRST WALL",
@@ -79,8 +81,9 @@ const TFW_TRANSLATIONS = {
     tab_proofs: "⛓️ On-Chain Nachweise",
     tab_json: "{ } Rohdaten JSON",
     btn_share_block: "🔗 Link teilen",
-    link_copied: "✓ Link kopiert!",
+    link_copied: "✓ Kopiert!",
     companion_label: "SOUVERÄNE BEGLEITER-ALLIANZ",
+    manifesto_label: "DAUERHAFTE INSCHRIFT",
     vault_status: "UNTER TIMELOCK VERSIEGELT",
     vault_unlock_label: "ZIEL-ENTSIEGELUNGSDATUM",
     vault_round_label: "DRAND BEACON RUNDE",
@@ -108,7 +111,8 @@ const TFW_TRANSLATIONS = {
     btn_copy_json: "JSON kopieren",
     raw_endpoint: "Rohdaten-Endpunkt",
     mosaic_stone_label: "10×10 Mosaikstein",
-    illuminated_crest_label: "Illuminiertes Meisterwappen"
+    illuminated_crest_label: "Illuminiertes Meisterwappen",
+    return_to_canvas: "← Zurück zum interaktiven Canvas"
   }
 };
 
@@ -131,6 +135,7 @@ function applyTranslations(lang) {
   localStorage.setItem('tfw_lang', lang);
   document.documentElement.lang = lang;
 
+  // 1. Dictionary-based elements
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
     const translation = t(key);
@@ -143,11 +148,34 @@ function applyTranslations(lang) {
     }
   });
 
-  // Update language switcher button text
-  const langToggleBtn = document.getElementById('btn-lang-toggle');
-  if (langToggleBtn) {
-    langToggleBtn.textContent = lang === 'en' ? '🌐 EN' : '🌐 DE';
-    langToggleBtn.title = lang === 'en' ? 'Switch to German (Deutsch)' : 'Auf Englisch wechseln';
+  // 2. Dual-content elements (long-form paragraphs / titles)
+  document.querySelectorAll('[data-lang-en]').forEach(el => {
+    const enContent = el.getAttribute('data-lang-en');
+    const deContent = el.getAttribute('data-lang-de');
+    if (lang === 'de' && deContent) {
+      el.innerHTML = deContent;
+    } else if (enContent) {
+      el.innerHTML = enContent;
+    }
+  });
+
+  // 3. Switch visibility of dedicated language sections (.lang-section-en / .lang-section-de)
+  document.querySelectorAll('.lang-section-en').forEach(el => {
+    el.style.display = lang === 'en' ? '' : 'none';
+  });
+  document.querySelectorAll('.lang-section-de').forEach(el => {
+    el.style.display = lang === 'de' ? '' : 'none';
+  });
+
+  // 4. Update language toggle button text across headers
+  document.querySelectorAll('.btn-lang-toggle, #btn-lang-toggle').forEach(btn => {
+    btn.textContent = lang === 'en' ? '🌐 EN' : '🌐 DE';
+    btn.title = lang === 'en' ? 'Auf Deutsch wechseln (DE)' : 'Switch to English (EN)';
+  });
+
+  // 5. If on canvas explorer and dossier is open, trigger re-render
+  if (typeof renderDossier === 'function' && typeof currentOpenDossierData !== 'undefined' && currentOpenDossierData) {
+    renderDossier(currentOpenDossierData);
   }
 }
 
@@ -156,13 +184,15 @@ function toggleLanguage() {
   applyTranslations(nextLang);
 }
 
-// Auto-initialize on load
+// Auto-initialize on load across all pages
 window.addEventListener('DOMContentLoaded', () => {
   const initial = getInitialLanguage();
   applyTranslations(initial);
 
-  const langBtn = document.getElementById('btn-lang-toggle');
-  if (langBtn) {
-    langBtn.addEventListener('click', toggleLanguage);
-  }
+  document.querySelectorAll('.btn-lang-toggle, #btn-lang-toggle').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      toggleLanguage();
+    });
+  });
 });
