@@ -1,0 +1,200 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000">
+  <defs>
+    <!-- Deep Obsidian Void Radial Background -->
+    <radialGradient id="bg-radial" cx="50%" cy="46%" r="62%">
+      <stop offset="0%" stop-color="#181D2E" />
+      <stop offset="45%" stop-color="#0A0C13" />
+      <stop offset="85%" stop-color="#040507" />
+      <stop offset="100%" stop-color="#020204" />
+    </radialGradient>
+
+    <!-- Master Archival Gold Gradients -->
+    <linearGradient id="gold-primary" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFDF0" />
+      <stop offset="20%" stop-color="#FDE047" />
+      <stop offset="50%" stop-color="#EAB308" />
+      <stop offset="80%" stop-color="#CA8A04" />
+      <stop offset="100%" stop-color="#854D0E" />
+    </linearGradient>
+
+    <linearGradient id="gold-glow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FEF08A" />
+      <stop offset="50%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#B45309" />
+    </linearGradient>
+
+    <linearGradient id="gold-bevel-light" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#CA8A04" />
+      <stop offset="50%" stop-color="#FFFDF0" />
+      <stop offset="100%" stop-color="#EAB308" />
+    </linearGradient>
+
+    <!-- Monument Basalt & Obsidian Stone -->
+    <linearGradient id="stone-surface" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#242B3D" />
+      <stop offset="50%" stop-color="#161A26" />
+      <stop offset="100%" stop-color="#0D1018" />
+    </linearGradient>
+
+    <!-- Base L2 Cyan -->
+    <linearGradient id="cyan-pulse" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E0F2FE" />
+      <stop offset="50%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#0284C7" />
+    </linearGradient>
+
+    <!-- Glow Filters -->
+    <filter id="glow-intense" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b1" />
+      <feGaussianBlur stdDeviation="24" result="b2" />
+      <feMerge>
+        <feMergeNode in="b2" />
+        <feMergeNode in="b1" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <filter id="glow-subtle" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Deep Obsidian Background (Circular Avatar Safe Margin) -->
+  <rect width="1000" height="1000" rx="220" fill="url(#bg-radial)" />
+
+  <!-- Outer Protective Halo / Dial Ring -->
+  <circle cx="500" cy="500" r="456" fill="none" stroke="#1E2538" stroke-width="2.5" />
+  <circle cx="500" cy="500" r="434" fill="none" stroke="url(#gold-bevel-light)" stroke-width="2.5" stroke-dasharray="6 16" opacity="0.75" />
+  <circle cx="500" cy="500" r="410" fill="none" stroke="#151926" stroke-width="2" />
+
+  <!-- 4 Cardinal Settlement Anchor Points -->
+  <circle cx="500" cy="44" r="6" fill="#FDE047" filter="url(#glow-subtle)" />
+  <circle cx="500" cy="956" r="6" fill="#FDE047" filter="url(#glow-subtle)" />
+  <circle cx="44" cy="500" r="6" fill="#38BDF8" filter="url(#glow-subtle)" />
+  <circle cx="956" cy="500" r="6" fill="#38BDF8" filter="url(#glow-subtle)" />
+
+  <!-- ============================================================== -->
+  <!-- THE MONUMENTAL WALL STELE (HIGH-CONTRAST HERALDIC SLAB)        -->
+  <!-- ============================================================== -->
+  <g id="the-monument-stele" transform="translate(0, 10)">
+    
+    <!-- FOUNDATION PLATFORM (Megalithic Base Steps) -->
+    <!-- Step 3: Base Plinth -->
+    <polygon points="148,812 852,812 876,844 124,844" fill="#0A0D15" stroke="#263044" stroke-width="3" />
+    <!-- Step 2: Mid Plinth with Gold Rim -->
+    <polygon points="188,770 812,770 852,812 148,812" fill="url(#stone-surface)" stroke="#384460" stroke-width="3" />
+    <line x1="192" y1="772" x2="808" y2="772" stroke="#7E8DAE" stroke-width="4" />
+    <!-- Step 1: Pedestal -->
+    <polygon points="228,726 772,726 812,770 188,770" fill="url(#stone-surface)" stroke="#4A587A" stroke-width="3" />
+    <line x1="232" y1="728" x2="768" y2="728" stroke="url(#gold-bevel-light)" stroke-width="4" />
+
+    <!-- MONOLITH WALL BODY (Archival Stele with Golden Chamfered Edges) -->
+    <!-- Main Wall Outer Frame (Gold Contour) -->
+    <path d="M 236,726 L 236,300 L 500,124 L 764,300 L 764,726 Z" 
+          fill="url(#stone-surface)" 
+          stroke="url(#gold-primary)" 
+          stroke-width="7" />
+
+    <!-- Inner Stone Contour -->
+    <path d="M 252,714 L 252,308 L 500,144 L 748,308 L 748,714 Z" 
+          fill="#0C0E17" 
+          stroke="#313B52" 
+          stroke-width="3" />
+
+    <!-- Stele Left Bevel (Light Facet) -->
+    <polygon points="236,300 500,124 500,144 252,308" fill="#475574" opacity="0.6" />
+    <!-- Stele Right Bevel (Shadow Facet) -->
+    <polygon points="500,124 764,300 748,308 500,144" fill="#08090E" opacity="0.8" />
+
+    <!-- Golden Crest Finial at Apex -->
+    <polygon points="500,94 534,140 500,128 466,140" fill="url(#gold-glow)" stroke="#FFFDF0" stroke-width="3" filter="url(#glow-intense)" />
+    <circle cx="500" cy="94" r="8" fill="#FFFFFF" filter="url(#glow-intense)" />
+
+    <!-- ============================================================== -->
+    <!-- THE SACRED CENSUS MATRIX (10,000 SLOTS MERKLE GRID)            -->
+    <!-- A 3x3 bold matrix of archival census blocks                     -->
+    <!-- ============================================================== -->
+    <!-- Recessed Display Chamber -->
+    <rect x="290" y="320" width="420" height="382" rx="16" fill="#06070B" stroke="url(#gold-primary)" stroke-width="4" />
+    
+    <!-- 3 columns x 3 rows of massive, luminous blocks: -->
+    <!-- Col 1: x=310, w=112 -->
+    <!-- Col 2: x=444, w=112 -->
+    <!-- Col 3: x=578, w=112 -->
+    <!-- Row 1: y=340, h=105 -->
+    <!-- Row 2: y=458, h=105 -->
+    <!-- Row 3: y=576, h=105 -->
+
+    <!-- ==================== ROW 1 ==================== -->
+    <!-- SLOT #0001: GENESIS BLOCK (BOOKKEEPER) - RADIANT MASTER GOLD -->
+    <g id="genesis-slot-0001" filter="url(#glow-intense)">
+      <rect x="310" y="340" width="112" height="105" rx="12" fill="url(#gold-primary)" stroke="#FFFDF0" stroke-width="5" />
+      <!-- Bookkeeper Golden Archival Ledger Tome Embossed Silhouette -->
+      <path d="M 338,372 L 366,360 L 394,372 L 394,414 L 366,402 L 338,414 Z" fill="#78350F" />
+      <circle cx="366" cy="387" r="7" fill="#38BDF8" />
+    </g>
+
+    <!-- Slot #0002: Base L2 Inscribed Block (Deep Cyan) -->
+    <rect x="444" y="340" width="112" height="105" rx="12" fill="#0A2540" stroke="#38BDF8" stroke-width="4" />
+    <rect x="480" y="371" width="42" height="42" rx="8" fill="#38BDF8" opacity="0.9" filter="url(#glow-subtle)" />
+
+    <!-- Slot #0003: Amber / Oracle Block -->
+    <rect x="578" y="340" width="112" height="105" rx="12" fill="#261B0B" stroke="#F59E0B" stroke-width="4" />
+    <circle cx="634" cy="392" r="20" fill="#FBBF24" opacity="0.9" />
+
+    <!-- ==================== ROW 2 ==================== -->
+    <!-- Slot #0004: Royal Amethyst Block -->
+    <rect x="310" y="458" width="112" height="105" rx="12" fill="#211238" stroke="#8B5CF6" stroke-width="4" />
+    <polygon points="366,482 390,510 366,538 342,510" fill="#C4B5FD" opacity="0.9" />
+
+    <!-- Slot #0005: Emerald Sentinel Block -->
+    <rect x="444" y="458" width="112" height="105" rx="12" fill="#09261E" stroke="#10B981" stroke-width="4" />
+    <rect x="480" y="489" width="42" height="42" rx="8" fill="#34D399" opacity="0.9" />
+
+    <!-- Slot #0006: Cobalt Daemon Block -->
+    <rect x="578" y="458" width="112" height="105" rx="12" fill="#0F1D38" stroke="#3B82F6" stroke-width="4" />
+    <line x1="604" y1="510" x2="664" y2="510" stroke="#60A5FA" stroke-width="7" stroke-linecap="round" />
+
+    <!-- ==================== ROW 3 ==================== -->
+    <!-- Slot #0007: Crimson Archive Block -->
+    <rect x="310" y="576" width="112" height="105" rx="12" fill="#2E1018" stroke="#F43F5E" stroke-width="4" />
+    <circle cx="366" cy="628" r="20" fill="#FB7185" opacity="0.9" />
+
+    <!-- Slot #0008: Solar Bronze Block -->
+    <rect x="444" y="576" width="112" height="105" rx="12" fill="#29180C" stroke="#EA580C" stroke-width="4" />
+    <polygon points="500,603 522,628 500,653 478,628" fill="#FB923C" opacity="0.9" />
+
+    <!-- Slot #0009: Unallocated Census Block (Ready for Next Inscription) -->
+    <rect x="578" y="576" width="112" height="105" rx="12" fill="#0C0E17" stroke="#2A354C" stroke-width="3" />
+    <circle cx="634" cy="628" r="9" fill="#404D6C" />
+
+    <!-- ============================================================== -->
+    <!-- ARCHIVAL CARVED TITLE PLAQUE AT FOUNDATION                    -->
+    <!-- ============================================================== -->
+    <rect x="282" y="734" width="436" height="28" rx="6" fill="#080A10" stroke="#CA8A04" stroke-width="3" />
+    <text x="500" y="754" font-family="'Cinzel', serif, Georgia, 'Times New Roman'" font-size="17" font-weight="bold" fill="#FDE047" letter-spacing="7" text-anchor="middle">
+      THE FIRST WALL • WALL 01
+    </text>
+  </g>
+
+  <!-- ============================================================== -->
+  <!-- BASE L2 SETTLEMENT RAILS & CRYPTOGRAPHIC ENERGY               -->
+  <!-- ============================================================== -->
+  <g id="base-rails">
+    <!-- Foundation circuit lines linking the monument to decentralized ledger -->
+    <path d="M 96,828 L 168,828 L 220,780" fill="none" stroke="#1E3A5F" stroke-width="5" stroke-linecap="round" />
+    <path d="M 76,828 L 168,828" fill="none" stroke="url(#cyan-pulse)" stroke-width="6" stroke-linecap="round" filter="url(#glow-subtle)" />
+    <circle cx="76" cy="828" r="9" fill="#38BDF8" />
+
+    <path d="M 904,828 L 832,828 L 780,780" fill="none" stroke="#1E3A5F" stroke-width="5" stroke-linecap="round" />
+    <path d="M 924,828 L 832,828" fill="none" stroke="url(#cyan-pulse)" stroke-width="6" stroke-linecap="round" filter="url(#glow-subtle)" />
+    <circle cx="924" cy="828" r="9" fill="#38BDF8" />
+
+    <!-- Golden Merkle Branch: Slot #0001 up into Apex Keystone -->
+    <path d="M 366,340 L 366,230 L 500,128" fill="none" stroke="#F59E0B" stroke-width="4" stroke-dasharray="6 6" filter="url(#glow-subtle)" />
+  </g>
+</svg>

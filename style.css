@@ -67,20 +67,18 @@ body {
 }
 
 .brand-monument-icon {
-  width: 34px;
-  height: 34px;
-  background: linear-gradient(135deg, #1f2333, #0f1118);
-  border: 1px solid var(--gold-subtle);
-  border-radius: 6px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 12px var(--gold-glow);
+  filter: drop-shadow(0 0 10px var(--gold-glow));
 }
 
-.wall-glyph {
-  font-size: 18px;
-  color: var(--gold-primary);
+.monument-svg-icon {
+  width: 36px;
+  height: 36px;
+  display: block;
 }
 
 .brand-title {
