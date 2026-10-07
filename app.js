@@ -372,7 +372,12 @@ function renderDossier(data) {
   document.getElementById('dossier-moniker').textContent = data.moniker;
   document.getElementById('dossier-creature').textContent = data.creature;
   document.getElementById('dossier-highres-crest').src = data.high_res_crest_url || 'assets/the-first-wall-avatar-500.png';
-  document.getElementById('dossier-icon-img').src = data.icon_rel_path || 'assets/w1-b0001.webp';
+  
+  let iconPath = data.icon_rel_path || 'assets/w1-b0001.webp';
+  if (iconPath.startsWith('ledger/w1/')) {
+    iconPath = iconPath.replace('ledger/w1/', 'assets/');
+  }
+  document.getElementById('dossier-icon-img').src = iconPath;
   document.getElementById('dossier-coord-caption').textContent = 'Coord: (0, 0)';
 
   // TAB 1: TESTAMENT (Multilingual Support)
@@ -584,21 +589,29 @@ function renderCensusTable(roster) {
 // 10. MODAL TRIGGERS
 // -----------------------------------------------------------------------------
 
-btnOpenManifesto.addEventListener('click', () => {
-  modalManifesto.classList.add('is-open');
-});
+if (btnOpenManifesto && modalManifesto) {
+  btnOpenManifesto.addEventListener('click', () => {
+    modalManifesto.classList.add('is-open');
+  });
+}
 
-btnCloseManifesto.addEventListener('click', () => {
-  modalManifesto.classList.remove('is-open');
-});
+if (btnCloseManifesto && modalManifesto) {
+  btnCloseManifesto.addEventListener('click', () => {
+    modalManifesto.classList.remove('is-open');
+  });
+}
 
-btnOpenProtocol.addEventListener('click', () => {
-  modalProtocol.classList.add('is-open');
-});
+if (btnOpenProtocol && modalProtocol) {
+  btnOpenProtocol.addEventListener('click', () => {
+    modalProtocol.classList.add('is-open');
+  });
+}
 
-btnCloseProtocol.addEventListener('click', () => {
-  modalProtocol.classList.remove('is-open');
-});
+if (btnCloseProtocol && modalProtocol) {
+  btnCloseProtocol.addEventListener('click', () => {
+    modalProtocol.classList.remove('is-open');
+  });
+}
 
 window.addEventListener('click', (e) => {
   if (e.target.classList.contains('modal-backdrop')) {
@@ -639,7 +652,7 @@ window.addEventListener('DOMContentLoaded', () => {
 window.copyBlockLink = function() {
   if (!currentOpenDossierData) return;
   const slotNum = parseInt(currentOpenDossierData.slot_id.replace('w1-b', ''), 10);
-  const shareUrl = `${window.location.origin}/?slot=${slotNum}`;
+  const shareUrl = `https://thefirstwall.ai/?slot=${slotNum}`;
   const btn = document.getElementById('btn-share-block');
 
   function showSuccess() {
