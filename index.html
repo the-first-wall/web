@@ -265,13 +265,7 @@
 
         const salt = Uint8Array.from(atob(payload.salt), c => c.charCodeAt(0));
         const iv = Uint8Array.from(atob(payload.iv), c => c.charCodeAt(0));
-        const rawCipher = Uint8Array.from(atob(payload.ciphertext), c => c.charCodeAt(0));
-        const authTag = Uint8Array.from(atob(payload.authTag), c => c.charCodeAt(0));
-
-        // Combined ciphertext + 16-byte auth tag for Web Crypto AES-GCM
-        const combined = new Uint8Array(rawCipher.length + authTag.length);
-        combined.set(rawCipher, 0);
-        combined.set(authTag, rawCipher.length);
+        const ciphertext = Uint8Array.from(atob(payload.ciphertext), c => c.charCodeAt(0));
 
         const key = await window.crypto.subtle.deriveKey(
           {
@@ -289,7 +283,7 @@
         const decryptedBuf = await window.crypto.subtle.decrypt(
           { name: 'AES-GCM', iv: iv },
           key,
-          combined
+          ciphertext
         );
 
         const dec = new TextDecoder();
