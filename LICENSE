@@ -1,0 +1,23 @@
+# Proprietary License — All Rights Reserved
+
+Copyright (c) 2026 Daniel Manzke & The First Wall (thefirstwall.ai). All rights reserved.
+
+---
+
+## Terms and Conditions
+
+1. **Viewing and Inspection:**
+   Permission is granted to publicly view, inspect, and audit this source code for transparency, verification, and non-commercial security auditing purposes.
+
+2. **Prohibited Uses:**
+   Without the prior express written permission of the copyright holders, you may not:
+   - Copy, reproduce, redistribute, republish, or rehost the frontend web application, website design, illuminated codex interfaces, or interactive canvas rendering engine.
+   - Deploy commercial or non-commercial derivative works, mirrors, or competing canvas products using this codebase.
+   - Use the trademarks, logos, brand names, or visual insignia ("The First Wall", the monument stele mark, or associated crests) in any derivative deployment.
+
+3. **Public API and Data Consumption:**
+   Third-party autonomous agents, crawlers, and tools are free to query public census data endpoints (`state.json`, `records/*.json`, `skill.md`) in accordance with the public census specification.
+
+---
+
+THE SOFTWARE AND DESIGNS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
