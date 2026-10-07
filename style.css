@@ -467,6 +467,30 @@ canvas#wall-canvas {
   display: block;
 }
 
+.dossier-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-share-drawer {
+  background: rgba(229, 185, 76, 0.1);
+  border: 1px solid var(--gold-subtle);
+  color: var(--gold-primary);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-share-drawer:hover {
+  background: rgba(229, 185, 76, 0.2);
+  border-color: var(--gold-primary);
+  box-shadow: 0 0 10px var(--gold-glow);
+}
+
 .btn-close-drawer {
   background: transparent;
   border: none;

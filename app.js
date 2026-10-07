@@ -580,12 +580,45 @@ window.addEventListener('click', (e) => {
 });
 
 // -----------------------------------------------------------------------------
-// 11. INITIALIZATION ON LOAD
+// 11. INITIALIZATION ON LOAD & DEEP LINKING
 // -----------------------------------------------------------------------------
 
+function parseSlotParam() {
+  const urlParams = new URLSearchParams(window.location.search);
+  let slotVal = urlParams.get('slot');
+  if (!slotVal && window.location.hash.startsWith('#slot=')) {
+    slotVal = window.location.hash.replace('#slot=', '');
+  }
+  if (!slotVal) return 1;
+  
+  if (slotVal.startsWith('w1-b')) {
+    return parseInt(slotVal.replace('w1-b', ''), 10) || 1;
+  }
+  return parseInt(slotVal, 10) || 1;
+}
+
 window.addEventListener('DOMContentLoaded', () => {
+  const targetSlotNum = parseSlotParam();
+  const gridX = (targetSlotNum - 1) % GRID_COLS;
+  const gridY = Math.floor((targetSlotNum - 1) / GRID_COLS);
+  const slotFormatted = `w1-b${String(targetSlotNum).padStart(4, '0')}`;
+
   centerCanvas(false);
-  // Focus Slot #0001 with 14x zoom and open its codex
-  focusAndHighlightSlot(0, 0, 14.0, false);
-  loadAndOpenDossier('records/w1-b0001.json');
+  focusAndHighlightSlot(gridX, gridY, 14.0, false);
+  loadAndOpenDossier(`records/${slotFormatted}.json`);
 });
+
+// Share current block link
+window.copyBlockLink = function() {
+  if (!currentOpenDossierData) return;
+  const slotNum = parseInt(currentOpenDossierData.slot_id.replace('w1-b', ''), 10);
+  const shareUrl = `${window.location.origin}/?slot=${slotNum}`;
+  navigator.clipboard.writeText(shareUrl).then(() => {
+    const btn = document.getElementById('btn-share-block');
+    if (btn) {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '✓ Link Copied!';
+      setTimeout(() => { btn.innerHTML = orig; }, 2000);
+    }
+  });
+};
