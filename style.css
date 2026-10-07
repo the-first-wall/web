@@ -199,6 +199,10 @@ body {
   overflow: hidden;
   background: radial-gradient(circle at center, #121520 0%, #08090d 100%);
   cursor: grab;
+  touch-action: none !important;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .canvas-workspace.is-dragging {
@@ -212,6 +216,7 @@ body {
   top: 0;
   left: 0;
   overflow: hidden;
+  touch-action: none !important;
 }
 
 .canvas-transform-wrapper {
@@ -224,6 +229,7 @@ body {
   will-change: transform;
   box-shadow: 0 0 60px rgba(0, 0, 0, 0.9), 0 0 0 1px var(--border-active);
   background: #0a0a0e;
+  touch-action: none !important;
 }
 
 .canvas-transform-wrapper.is-animating {
@@ -236,6 +242,7 @@ canvas#wall-canvas {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   display: block;
+  touch-action: none !important;
 }
 
 .grid-crosshair {
@@ -1051,14 +1058,174 @@ canvas#wall-canvas {
 }
 
 /* =========================================================================
-   RESPONSIVE
+   RESPONSIVE (TABLET & MOBILE)
    ========================================================================= */
 
-@media (max-width: 900px) {
+@media (max-width: 860px) {
   .mobile-hide {
+    display: none !important;
+  }
+
+  /* Compact Clean Header */
+  .site-header {
+    height: 56px;
+    padding: 0 14px;
+  }
+
+  .header-inner {
+    gap: 8px;
+  }
+
+  .brand-monument-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .brand-monument-icon img {
+    width: 22px;
+    height: 22px;
+  }
+
+  .brand-title {
+    font-size: 13.5px;
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+
+  .brand-subtitle {
+    display: none !important;
+  }
+
+  /* Hide bulky desktop metrics in top bar on mobile */
+  .metrics-bar {
+    display: none !important;
+  }
+
+  .nav-actions {
+    gap: 6px;
+  }
+
+  .nav-actions .btn-outline,
+  .nav-actions .btn-ghost {
+    display: none !important;
+  }
+
+  .nav-actions .btn-primary {
+    padding: 6px 10px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  /* Mobile Full-Screen Illuminated Codex Drawer */
+  .dossier-drawer {
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    z-index: 300 !important;
+  }
+
+  .dossier-header {
+    padding: 16px 18px;
+    background: #0a0b10;
+  }
+
+  .dossier-agent-name {
+    font-size: 20px;
+  }
+
+  .btn-close-drawer {
+    width: 36px;
+    height: 36px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: var(--text-main);
+  }
+
+  .dossier-visual-hero {
+    padding: 14px 18px;
+    gap: 14px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hero-crest-box {
+    flex-direction: row;
+    gap: 14px;
+    align-items: center;
+  }
+
+  .highres-crest-img {
+    width: 64px;
+    height: 64px;
+  }
+
+  .hero-tile-box {
+    padding: 10px 14px;
+  }
+
+  .tile-frame {
+    width: 44px;
+    height: 44px;
+  }
+
+  .pixel-art {
+    width: 36px;
+    height: 36px;
+  }
+
+  .dossier-body {
+    padding: 18px;
+  }
+
+  /* HUD controls on mobile */
+  .hud-controls {
+    bottom: 16px;
+    left: 14px;
+    gap: 8px;
+    flex-wrap: wrap;
+    max-width: calc(100vw - 28px);
+  }
+
+  .hud-coord-readout {
+    padding: 6px 10px;
+  }
+
+  .coord-val {
+    font-size: 11px;
+  }
+
+  .coord-slot {
+    font-size: 10px;
+  }
+
+  .hud-legend {
     display: none;
   }
-  .dossier-drawer {
-    width: 100%;
+
+  /* Modal on mobile */
+  .modal-window {
+    max-height: 90vh;
+    border-radius: 10px;
+  }
+
+  .modal-window.wide {
+    max-width: 96vw;
+  }
+
+  .modal-content {
+    padding: 16px;
+  }
+
+  .census-table th,
+  .census-table td {
+    padding: 8px 10px;
+    font-size: 11px;
   }
 }

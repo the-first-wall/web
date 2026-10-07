@@ -187,7 +187,7 @@ btnZoomReset.addEventListener('click', () => {
 });
 
 // -----------------------------------------------------------------------------
-// 3. TOUCH & PINCH SUPPORT
+// 3. TOUCH & PINCH SUPPORT (MOBILE SAFARI & CHROME)
 // -----------------------------------------------------------------------------
 
 function getTouchDistance(touches) {
@@ -196,37 +196,55 @@ function getTouchDistance(touches) {
   return Math.hypot(dx, dy);
 }
 
+let lastPinchDist = null;
+
 workspace.addEventListener('touchstart', (e) => {
   if (e.target.closest('.hud-controls') || e.target.closest('.dossier-drawer')) return;
+  
   if (e.touches.length === 1) {
     isDragging = true;
     startX = e.touches[0].clientX - panX;
     startY = e.touches[0].clientY - panY;
+    lastPinchDist = null;
   } else if (e.touches.length === 2) {
     isDragging = false;
-    initialPinchDist = getTouchDistance(e.touches);
-    initialPinchScale = scale;
+    e.preventDefault();
+    lastPinchDist = getTouchDistance(e.touches);
   }
-}, { passive: true });
+}, { passive: false });
 
 workspace.addEventListener('touchmove', (e) => {
+  if (e.target.closest('.hud-controls') || e.target.closest('.dossier-drawer')) return;
+
   if (isDragging && e.touches.length === 1) {
+    e.preventDefault();
     panX = e.touches[0].clientX - startX;
     panY = e.touches[0].clientY - startY;
     updateTransform();
-  } else if (e.touches.length === 2 && initialPinchDist) {
+  } else if (e.touches.length === 2 && lastPinchDist) {
+    e.preventDefault(); // Stop iOS Safari from intercepting pinch gesture
     const currentDist = getTouchDistance(e.touches);
-    const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-    const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-    const factor = currentDist / initialPinchDist;
-    zoomAtPoint(factor, midX, midY);
-    initialPinchDist = currentDist;
+    if (currentDist > 0 && lastPinchDist > 0) {
+      const factor = currentDist / lastPinchDist;
+      const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      zoomAtPoint(factor, midX, midY);
+      lastPinchDist = currentDist;
+    }
   }
-}, { passive: true });
+}, { passive: false });
 
-workspace.addEventListener('touchend', () => {
-  isDragging = false;
-  initialPinchDist = null;
+workspace.addEventListener('touchend', (e) => {
+  if (e.touches.length === 0) {
+    isDragging = false;
+    lastPinchDist = null;
+  } else if (e.touches.length === 1) {
+    // Switched from 2 fingers to 1
+    isDragging = true;
+    startX = e.touches[0].clientX - panX;
+    startY = e.touches[0].clientY - panY;
+    lastPinchDist = null;
+  }
 });
 
 // -----------------------------------------------------------------------------
