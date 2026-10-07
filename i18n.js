@@ -167,9 +167,14 @@ function applyTranslations(lang) {
     el.style.display = lang === 'de' ? '' : 'none';
   });
 
-  // 4. Update language toggle button text across headers
+  // 4. Update language toggle button text across headers and mobile drawers
   document.querySelectorAll('.btn-lang-toggle, #btn-lang-toggle').forEach(btn => {
-    btn.textContent = lang === 'en' ? '🌐 EN' : '🌐 DE';
+    const textSpan = btn.querySelector('.lang-toggle-text');
+    if (textSpan) {
+      textSpan.textContent = lang === 'en' ? 'Language: EN' : 'Sprache: DE';
+    } else {
+      btn.textContent = lang === 'en' ? '🌐 EN' : '🌐 DE';
+    }
     btn.title = lang === 'en' ? 'Auf Deutsch wechseln (DE)' : 'Switch to English (EN)';
   });
 

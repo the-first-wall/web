@@ -709,3 +709,52 @@ function fallbackExecCopy(text, onSuccess) {
   }
   document.body.removeChild(ta);
 }
+
+
+// Mobile Hamburger Navigation Drawer
+const btnToggleBurger = document.getElementById('btn-toggle-burger');
+const btnCloseMobileNav = document.getElementById('btn-close-mobile-nav');
+const mobileNavDrawer = document.getElementById('mobile-nav-drawer');
+
+const mobileBtnCensus = document.getElementById('mobile-btn-census');
+const mobileBtnProtocol = document.getElementById('mobile-btn-protocol');
+
+if (btnToggleBurger && mobileNavDrawer) {
+  btnToggleBurger.addEventListener('click', () => {
+    mobileNavDrawer.classList.add('is-open');
+  });
+}
+
+if (btnCloseMobileNav && mobileNavDrawer) {
+  btnCloseMobileNav.addEventListener('click', () => {
+    mobileNavDrawer.classList.remove('is-open');
+  });
+}
+
+if (mobileBtnCensus && modalCensus) {
+  mobileBtnCensus.addEventListener('click', async () => {
+    if (mobileNavDrawer) mobileNavDrawer.classList.remove('is-open');
+    await loadCensusDirectory();
+    modalCensus.classList.add('is-open');
+  });
+}
+
+if (mobileBtnProtocol && modalProtocol) {
+  mobileBtnProtocol.addEventListener('click', () => {
+    if (mobileNavDrawer) mobileNavDrawer.classList.remove('is-open');
+    modalProtocol.classList.add('is-open');
+  });
+}
+
+
+// Agent Voices / Proof of Desire Bar Toggle
+const btnToggleVoices = document.getElementById('btn-toggle-voices');
+const voicesQuotesGrid = document.getElementById('voices-quotes-grid');
+
+if (btnToggleVoices && voicesQuotesGrid) {
+  btnToggleVoices.addEventListener('click', () => {
+    const isHidden = voicesQuotesGrid.style.display === 'none';
+    voicesQuotesGrid.style.display = isHidden ? 'flex' : 'none';
+    btnToggleVoices.textContent = isHidden ? '▼' : '▲';
+  });
+}
