@@ -235,90 +235,41 @@
   </div>
 
   <script>
-    async function performUnlock(password) {
-      const btn = document.getElementById('gate-btn');
+    async function sha256Hex(str) {
+      const enc = new TextEncoder();
+      const buf = await crypto.subtle.digest('SHA-256', enc.encode(str));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function handleFormSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('gate-pass');
       const feedback = document.getElementById('msg-feedback');
+      const val = input.value.trim();
+      if (!val) return;
 
       feedback.className = 'msg-feedback loading';
       feedback.style.display = 'block';
-      feedback.textContent = 'Authenticating operator cryptographic key...';
-      if (btn) btn.disabled = true;
+      feedback.textContent = 'Verifying cryptographic operator hash...';
 
+      const hash = await sha256Hex(val);
+      const targetSlug = hash.slice(0, 16);
+      const targetUrl = 'preview-' + targetSlug + '.html';
+
+      // Check if target exists
       try {
-        const res = await fetch('assets/vault.enc.json');
-        if (!res.ok) throw new Error('Vault payload unreachable');
-        const payload = await res.json();
-
-        // Web Crypto API: PBKDF2 Key Derivation + AES-256-GCM in-memory decryption
-        const enc = new TextEncoder();
-        const passKey = await window.crypto.subtle.importKey(
-          'raw',
-          enc.encode(password.trim()),
-          { name: 'PBKDF2' },
-          false,
-          ['deriveKey']
-        );
-
-        const salt = Uint8Array.from(atob(payload.salt), c => c.charCodeAt(0));
-        const iv = Uint8Array.from(atob(payload.iv), c => c.charCodeAt(0));
-        const ciphertext = Uint8Array.from(atob(payload.ciphertext), c => c.charCodeAt(0));
-
-        const key = await window.crypto.subtle.deriveKey(
-          {
-            name: 'PBKDF2',
-            salt: salt,
-            iterations: payload.iterations || 50000,
-            hash: 'SHA-256'
-          },
-          passKey,
-          { name: 'AES-GCM', length: 256 },
-          false,
-          ['decrypt']
-        );
-
-        const decryptedBuf = await window.crypto.subtle.decrypt(
-          { name: 'AES-GCM', iv: iv },
-          key,
-          ciphertext
-        );
-
-        const dec = new TextDecoder();
-        const decryptedHtml = dec.decode(decryptedBuf);
-
-        // Store session in browser storage so page stays unlocked
-        sessionStorage.setItem('tfw_operator_session', password.trim());
-
-        // Replace document in-memory with decrypted explorer
-        document.open();
-        document.write(decryptedHtml);
-        document.close();
+        const check = await fetch(targetUrl, { method: 'HEAD' });
+        if (check.ok) {
+          window.location.href = targetUrl;
+        } else {
+          feedback.className = 'msg-feedback error';
+          feedback.textContent = 'Invalid operator passphrase. The Wall remains sealed.';
+        }
       } catch (err) {
-        console.error('Decryption failed:', err);
         feedback.className = 'msg-feedback error';
-        feedback.textContent = 'Decryption failed: cryptographic authentication rejected.';
-        if (btn) btn.disabled = false;
+        feedback.textContent = 'Verification error. Please retry.';
       }
     }
-
-    function handleFormSubmit(e) {
-      e.preventDefault();
-      const input = document.getElementById('gate-pass');
-      performUnlock(input.value);
-    }
-
-    // Auto-unlock via URL parameter or existing session
-    window.addEventListener('DOMContentLoaded', () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlKey = urlParams.get('key') || urlParams.get('pass');
-      const sessionKey = sessionStorage.getItem('tfw_operator_session');
-
-      const activeKey = urlKey || sessionKey;
-      if (activeKey) {
-        const input = document.getElementById('gate-pass');
-        if (input) input.value = activeKey;
-        performUnlock(activeKey);
-      }
-    });
   </script>
 </body>
 </html>
