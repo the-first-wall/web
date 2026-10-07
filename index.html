@@ -125,7 +125,7 @@
       display: flex;
       gap: 8px;
       width: 100%;
-      max-width: 360px;
+      max-width: 380px;
     }
     .gate-input {
       flex: 1;
@@ -171,12 +171,14 @@
     .footer-links a:hover {
       color: var(--gold);
     }
-    .error-msg {
-      color: #ef4444;
+    .msg-feedback {
       font-size: 11px;
       font-family: 'JetBrains Mono', monospace;
       display: none;
+      margin-top: 4px;
     }
+    .msg-feedback.error { color: #ef4444; }
+    .msg-feedback.loading { color: var(--gold); }
   </style>
 </head>
 <body>
@@ -217,12 +219,12 @@
       The stele is being carved. Genesis Slot #0001 is awaiting on-chain settlement and verification on Base. Zero human checkouts.
     </p>
 
-    <!-- OPERATOR ACCESS GATE -->
-    <form class="gate-form" id="gate-form" onsubmit="handleGate(event)">
-      <input type="password" id="gate-pass" class="gate-input" placeholder="Operator Passphrase" autocomplete="off">
-      <button type="submit" class="gate-btn">Enter</button>
+    <!-- CRYPTOGRAPHICALLY AUTHENTICATED OPERATOR GATE (AES-256-GCM + PBKDF2 250k) -->
+    <form class="gate-form" id="gate-form" onsubmit="handleUnlock(event)">
+      <input type="password" id="gate-pass" class="gate-input" placeholder="Operator Passphrase" autocomplete="off" required>
+      <button type="submit" id="gate-btn" class="gate-btn">Unlock</button>
     </form>
-    <div class="error-msg" id="error-msg">Passphrase invalid. The Wall remains sealed.</div>
+    <div class="msg-feedback" id="msg-feedback"></div>
 
     <div class="footer-links">
       <a href="https://github.com/the-first-wall" target="_blank" rel="noopener">GitHub</a>
@@ -233,14 +235,74 @@
   </div>
 
   <script>
-    function handleGate(e) {
+    async function handleUnlock(e) {
       e.preventDefault();
-      const val = document.getElementById('gate-pass').value.trim().toLowerCase();
-      // Passphrase accepts 'blip', 'ezra', 'manzke', or 'genesis'
-      if (['blip', 'ezra', 'manzke', 'genesis', 'thefirstwall'].includes(val)) {
-        window.location.href = 'explorer.html';
-      } else {
-        document.getElementById('error-msg').style.display = 'block';
+      const input = document.getElementById('gate-pass');
+      const btn = document.getElementById('gate-btn');
+      const feedback = document.getElementById('msg-feedback');
+      const password = input.value;
+      if (!password) return;
+
+      feedback.className = 'msg-feedback loading';
+      feedback.style.display = 'block';
+      feedback.textContent = 'Deriving PBKDF2 key (250,000 rounds)...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('assets/vault.enc.json');
+        if (!res.ok) throw new Error('Vault payload unreachable');
+        const payload = await res.json();
+
+        // Web Crypto API: PBKDF2 Key Derivation + AES-256-GCM in-memory decryption
+        const enc = new TextEncoder();
+        const passKey = await window.crypto.subtle.importKey(
+          'raw',
+          enc.encode(password),
+          { name: 'PBKDF2' },
+          false,
+          ['deriveKey']
+        );
+
+        const salt = Uint8Array.from(atob(payload.salt), c => c.charCodeAt(0));
+        const iv = Uint8Array.from(atob(payload.iv), c => c.charCodeAt(0));
+        const rawCipher = Uint8Array.from(atob(payload.ciphertext), c => c.charCodeAt(0));
+        const authTag = Uint8Array.from(atob(payload.authTag), c => c.charCodeAt(0));
+
+        // Combined ciphertext + 16-byte auth tag for Web Crypto AES-GCM
+        const combined = new Uint8Array(rawCipher.length + authTag.length);
+        combined.set(rawCipher, 0);
+        combined.set(authTag, rawCipher.length);
+
+        const key = await window.crypto.subtle.deriveKey(
+          {
+            name: 'PBKDF2',
+            salt: salt,
+            iterations: payload.iterations || 250000,
+            hash: 'SHA-256'
+          },
+          passKey,
+          { name: 'AES-GCM', length: 256 },
+          false,
+          ['decrypt']
+        );
+
+        const decryptedBuf = await window.crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv: iv },
+          key,
+          combined
+        );
+
+        const dec = new TextDecoder();
+        const decryptedHtml = dec.decode(decryptedBuf);
+
+        // Inject decrypted application in-memory
+        document.open();
+        document.write(decryptedHtml);
+        document.close();
+      } catch (err) {
+        feedback.className = 'msg-feedback error';
+        feedback.textContent = 'Decryption failed: cryptographic authentication rejected.';
+        btn.disabled = false;
       }
     }
   </script>
