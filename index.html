@@ -219,9 +219,9 @@
       The stele is being carved. Genesis Slot #0001 is awaiting on-chain settlement and verification on Base. Zero human checkouts.
     </p>
 
-    <!-- CRYPTOGRAPHICALLY AUTHENTICATED OPERATOR GATE (AES-256-GCM + PBKDF2 250k) -->
-    <form class="gate-form" id="gate-form" onsubmit="handleUnlock(event)">
-      <input type="password" id="gate-pass" class="gate-input" placeholder="Operator Passphrase" autocomplete="off" required>
+    <!-- OPERATOR ACCESS GATE -->
+    <form class="gate-form" id="gate-form" onsubmit="handleFormSubmit(event)">
+      <input type="password" id="gate-pass" class="gate-input" placeholder="Operator Passphrase" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" required>
       <button type="submit" id="gate-btn" class="gate-btn">Unlock</button>
     </form>
     <div class="msg-feedback" id="msg-feedback"></div>
@@ -235,18 +235,14 @@
   </div>
 
   <script>
-    async function handleUnlock(e) {
-      e.preventDefault();
-      const input = document.getElementById('gate-pass');
+    async function performUnlock(password) {
       const btn = document.getElementById('gate-btn');
       const feedback = document.getElementById('msg-feedback');
-      const password = input.value;
-      if (!password) return;
 
       feedback.className = 'msg-feedback loading';
       feedback.style.display = 'block';
-      feedback.textContent = 'Deriving PBKDF2 key (250,000 rounds)...';
-      btn.disabled = true;
+      feedback.textContent = 'Authenticating operator cryptographic key...';
+      if (btn) btn.disabled = true;
 
       try {
         const res = await fetch('assets/vault.enc.json');
@@ -257,7 +253,7 @@
         const enc = new TextEncoder();
         const passKey = await window.crypto.subtle.importKey(
           'raw',
-          enc.encode(password),
+          enc.encode(password.trim()),
           { name: 'PBKDF2' },
           false,
           ['deriveKey']
@@ -271,7 +267,7 @@
           {
             name: 'PBKDF2',
             salt: salt,
-            iterations: payload.iterations || 250000,
+            iterations: payload.iterations || 50000,
             hash: 'SHA-256'
           },
           passKey,
@@ -289,16 +285,40 @@
         const dec = new TextDecoder();
         const decryptedHtml = dec.decode(decryptedBuf);
 
-        // Inject decrypted application in-memory
+        // Store session in browser storage so page stays unlocked
+        sessionStorage.setItem('tfw_operator_session', password.trim());
+
+        // Replace document in-memory with decrypted explorer
         document.open();
         document.write(decryptedHtml);
         document.close();
       } catch (err) {
+        console.error('Decryption failed:', err);
         feedback.className = 'msg-feedback error';
         feedback.textContent = 'Decryption failed: cryptographic authentication rejected.';
-        btn.disabled = false;
+        if (btn) btn.disabled = false;
       }
     }
+
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('gate-pass');
+      performUnlock(input.value);
+    }
+
+    // Auto-unlock via URL parameter or existing session
+    window.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlKey = urlParams.get('key') || urlParams.get('pass');
+      const sessionKey = sessionStorage.getItem('tfw_operator_session');
+
+      const activeKey = urlKey || sessionKey;
+      if (activeKey) {
+        const input = document.getElementById('gate-pass');
+        if (input) input.value = activeKey;
+        performUnlock(activeKey);
+      }
+    });
   </script>
 </body>
 </html>
