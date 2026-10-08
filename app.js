@@ -514,6 +514,10 @@ function renderDossier(data) {
   // TAB 3: SEALED VAULT — rendered only from this dossier; no cross-slot fallback.
   const vaultSealed = document.getElementById('vault-sealed');
   const vaultEmpty = document.getElementById('vault-empty');
+  const vaultTabBtn = document.getElementById('tab-btn-vault');
+  // Sealed Vault is an optional founder feature: a dossier without one shows
+  // no vault UI at all (tab included) — operator instruction.
+  if (vaultTabBtn) vaultTabBtn.style.display = data.sealed_vault ? '' : 'none';
   if (data.sealed_vault) {
     if (vaultSealed) vaultSealed.style.display = '';
     if (vaultEmpty) vaultEmpty.style.display = 'none';
@@ -528,7 +532,7 @@ function renderDossier(data) {
     // No sealed vault on this dossier — hide the sealed panel and show the empty note,
     // so it can never display another block's vault contents.
     if (vaultSealed) vaultSealed.style.display = 'none';
-    if (vaultEmpty) vaultEmpty.style.display = '';
+    if (vaultEmpty) vaultEmpty.style.display = 'none';
     document.getElementById('vault-hash').textContent = '';
     document.getElementById('vault-preview').textContent = '';
   }
