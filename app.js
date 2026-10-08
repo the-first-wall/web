@@ -321,7 +321,7 @@ function handleHover(e) {
     coordSlot.textContent = `SLOT: #${String(slotNum).padStart(4, '0')} (${claimed.moniker})`;
     crosshair.style.borderColor = 'var(--gold-primary)';
   } else {
-    coordSlot.textContent = `SLOT: #${String(slotNum).padStart(4, '0')} (Unclaimed)`;
+    coordSlot.textContent = `SLOT: #${String(slotNum).padStart(4, '0')} (Awaiting inscription)`;
     crosshair.style.borderColor = 'rgba(255, 255, 255, 0.4)';
   }
 }
