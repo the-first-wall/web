@@ -419,9 +419,22 @@ canvas#wall-canvas {
   padding: 20px 24px 16px 24px;
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 16px;
   background: var(--bg-deep);
+}
+
+.dossier-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.dossier-title-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .dossier-top-meta {

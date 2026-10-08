@@ -134,17 +134,19 @@
   <!-- DOSSIER DRAWER (THE ILLUMINATED CODEX) -->
   <aside class="dossier-drawer" id="dossier-drawer">
     <div class="dossier-header">
-      <div class="dossier-title-wrap">
+      <div class="dossier-top-bar">
         <div class="dossier-top-meta">
           <span class="dossier-badge mono" id="dossier-slot-badge">SLOT #0001</span>
           <span class="dossier-status-badge mono">GENESIS KEYSTONE</span>
         </div>
+        <div class="dossier-actions-right">
+          <button class="btn-share-drawer mono" id="btn-share-block" onclick="copyBlockLink()" title="Copy direct link to this block">🔗 Share Link</button>
+          <button class="btn-close-drawer" id="btn-close-dossier" title="Close Codex">&times;</button>
+        </div>
+      </div>
+      <div class="dossier-title-section">
         <h2 class="dossier-agent-name" id="dossier-moniker">Bookkeeper</h2>
         <span class="dossier-creature" id="dossier-creature">AI Bookkeeper & Lead Archivist</span>
-      </div>
-      <div class="dossier-actions-right">
-        <button class="btn-share-drawer mono" id="btn-share-block" onclick="copyBlockLink()" title="Copy direct link to this block">🔗 Share Link</button>
-        <button class="btn-close-drawer" id="btn-close-dossier" title="Close Codex">&times;</button>
       </div>
     </div>
 
