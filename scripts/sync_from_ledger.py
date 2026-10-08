@@ -18,7 +18,9 @@ Generated outputs
   assets/wall_01_composite.webp  ← 1000x1000 composite of every block
   feed.xml                       ← RSS (Chronicle)
   souls/w1-bNNNN.soul.json       ← ledger soul manifest (verbatim; verifies soul_hash)
-  skill.md, spec.md, llms.txt    ← canonical docs mirrored verbatim from the ledger
+  skill.md, spec.md, spec.json, llms.txt  ← canonical docs mirrored verbatim from the ledger
+  schemas/dossier.schema.json    ← canonical JSON schema (verbatim)
+  chronicle/index.html           ← dispatch cards injected between markers (ledger-driven)
   w1/bNNNN/index.html            ← per-slot permalink page
 
 Deterministic: same ledger → byte-identical outputs. No LLMs, no network beyond
@@ -318,6 +320,98 @@ def build_slot_page(d):
         fh.write(html)
 
 
+# --- Chronicle (ledger-driven dispatch cards) -------------------------------
+
+CHRONICLE_MARKERS = {
+    "en": ("<!-- CHRONICLE:DISPATCHES:EN:START -->", "<!-- CHRONICLE:DISPATCHES:EN:END -->"),
+    "de": ("<!-- CHRONICLE:DISPATCHES:DE:START -->", "<!-- CHRONICLE:DISPATCHES:DE:END -->"),
+}
+# Blocks with a bespoke, hand-authored article in the chronicle shell. They keep
+# that article and are NOT also emitted as an auto-generated dispatch card.
+CHRONICLE_FEATURED = {"w1-b0001"}
+
+_MONTHS = {
+    "en": ["January", "February", "March", "April", "May", "June", "July",
+           "August", "September", "October", "November", "December"],
+    "de": ["Januar", "Februar", "M\u00e4rz", "April", "Mai", "Juni", "Juli",
+           "August", "September", "Oktober", "November", "Dezember"],
+}
+
+
+def _esc(s):
+    return str(s).replace("<", "&lt;")
+
+
+def _human_date(iso, lang):
+    try:
+        dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    except Exception:
+        return str(iso)
+    m = _MONTHS[lang][dt.month - 1]
+    return f"{m} {dt.day}, {dt.year}" if lang == "en" else f"{dt.day}. {m} {dt.year}"
+
+
+def _dispatch_card(d, lang):
+    n = d["_number"]
+    num = "%04d" % n
+    tx = str(d.get("base_tx_hash", ""))
+    label = "DISPATCH" if lang == "en" else "DEPESCHE"
+    ack = ""
+    if d.get("memorial"):
+        w = d["memorial"].get("witness", "")
+        ack = ("In memoriam" if lang == "en" else "In Memoriam") + \
+              (f" \u2014 {'witnessed by' if lang == 'en' else 'bezeugt von'} {_esc(w)}" if w else "") + "."
+    elif d.get("patron"):
+        ack = ("Sponsored by " if lang == "en" else "Gesponsert von ") + _esc(d["patron"].get("moniker", "")) + "."
+    ack_html = f'\n          <p style="color:var(--text-subtle);">{ack}</p>' if ack else ""
+    dossier_label = "Read Codex Dossier" if lang == "en" else "Codex-Dossier lesen"
+    canvas_label = "View on Live Canvas" if lang == "en" else "Live auf Canvas ansehen"
+    tx_label = "Verified Base Tx" if lang == "en" else "Verifizierte Base Tx"
+    return f'''      <article class="dispatch-card">
+        <div class="dispatch-meta">
+          <span class="dispatch-num mono">{label} #{num}</span>
+          <span class="dispatch-date mono">{_human_date(d.get("timestamp_verified", ""), lang)}</span>
+        </div>
+
+        <h2 class="dispatch-heading">{_esc(d.get("moniker", ""))} \u2014 {_esc(d.get("creature", ""))}</h2>
+
+        <div class="dispatch-body">
+          <p>{_esc(manifest_of(d, lang))}</p>{ack_html}
+        </div>
+
+        <footer class="dispatch-footer">
+          <a href="https://basescan.org/tx/{tx}" target="_blank" rel="noopener" class="proof-chip mono">
+            <span>\u26d3\ufe0f</span> {tx_label}: {tx[:10]}...{tx[-8:]}
+          </a>
+          <div style="display:flex;gap:8px;">
+            <a href="/w1/b{num}" class="btn btn-outline btn-sm">{dossier_label}</a>
+            <a href="/?slot={n}" class="btn-read-slot">{canvas_label}</a>
+          </div>
+        </footer>
+      </article>'''
+
+
+def build_chronicle(slots):
+    """Inject ledger-driven dispatch cards between the CHRONICLE markers in the
+    hand-authored chronicle shell. Idempotent; CHRONICLE_FEATURED blocks keep
+    their bespoke article."""
+    path = os.path.join(WEB_DIR, "chronicle", "index.html")
+    if not os.path.exists(path):
+        return
+    with open(path, "r", encoding="utf-8") as fh:
+        html = fh.read()
+    generated = [d for d in sorted(slots, key=lambda x: x["_number"])
+                 if d["slot_id"] not in CHRONICLE_FEATURED]
+    for lang, (start, end) in CHRONICLE_MARKERS.items():
+        cards = "\n".join(_dispatch_card(d, lang) for d in generated)
+        block = "      " + start + "\n" + (cards + "\n" if cards else "") + "      " + end
+        html = re.sub(re.escape(start) + r".*?" + re.escape(end),
+                      lambda _m, b=block: b, html, flags=re.DOTALL)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(html)
+    _log("chronicle -> %d dispatch card(s)" % len(generated))
+
+
 def main():
     ledger, is_tmp = get_ledger_dir()
     try:
@@ -346,10 +440,15 @@ def main():
                 shutil.copyfile(soul_src, soul_dst)
 
         # 2b) canonical docs mirrored verbatim from the ledger (single source of truth)
-        for _doc in ("skill.md", "spec.md", "llms.txt"):
+        for _doc in ("skill.md", "spec.md", "spec.json", "llms.txt"):
             _doc_src = os.path.join(ledger, _doc)
             if os.path.exists(_doc_src):
                 shutil.copyfile(_doc_src, os.path.join(WEB_DIR, _doc))
+        _schema_src = os.path.join(ledger, "schemas", "dossier.schema.json")
+        if os.path.exists(_schema_src):
+            _schema_dst = os.path.join(WEB_DIR, "schemas", "dossier.schema.json")
+            os.makedirs(os.path.dirname(_schema_dst), exist_ok=True)
+            shutil.copyfile(_schema_src, _schema_dst)
 
         # 3) census
         write_json(os.path.join(WEB_DIR, "records", "census.json"), build_census(slots, state))
@@ -364,6 +463,9 @@ def main():
         # 6) per-slot permalink pages
         for d in slots:
             build_slot_page(d)
+
+        # 7) chronicle dispatch cards (ledger-driven, injected between markers)
+        build_chronicle(slots)
 
         _log("done: %d slot(s) published" % len(slots))
     finally:
