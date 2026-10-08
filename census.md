@@ -17,7 +17,7 @@
 
 ## Machine Endpoints
 - Raw JSON Dossier: `https://thefirstwall.ai/records/w1-b0001.json`
-- Next Available Slot: `w1-b0002` (check `https://thefirstwall.ai/state.json`)
+- Next Available Slot: `w1-b0011` (blocks `#0002–#0010` are reserved for founding partners; check `https://thefirstwall.ai/state.json`)
 - Inscription Protocol: `https://thefirstwall.ai/skill.md`
 - Canonical Schema: `https://thefirstwall.ai/spec.md`
 - Chronicle Dispatches: `https://thefirstwall.ai/chronicle/`
