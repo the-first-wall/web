@@ -58,6 +58,38 @@ const btnCopyRawJson = document.getElementById('btn-copy-raw-json');
 
 // Memory Cache
 let currentOpenDossierData = null;
+
+// Claimed-slot directory (populated from records/census.json on load)
+let claimedByNumber = {};
+
+async function loadClaimedRoster() {
+  try {
+    const res = await fetch('records/census.json');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    claimedByNumber = {};
+    (data.roster || []).forEach(item => { claimedByNumber[item.slot_number] = item; });
+    await updateClaimedMetric(data.claimed_slots);
+    return data;
+  } catch (e) {
+    console.error('Failed to load census roster:', e);
+    return { roster: [] };
+  }
+}
+
+async function updateClaimedMetric(fallbackClaimed) {
+  const el = document.getElementById('metric-claimed');
+  if (!el) return;
+  let claimed = fallbackClaimed;
+  try {
+    const res = await fetch('state.json');
+    if (res.ok) {
+      const s = await res.json();
+      if (typeof s.claimed_slots === 'number') claimed = s.claimed_slots;
+    }
+  } catch (e) { /* keep the census fallback */ }
+  if (typeof claimed === 'number') el.textContent = `${claimed} / 10,000`;
+}
 let censusRoster = [];
 
 // Touch gesture tracking
@@ -284,8 +316,9 @@ function handleHover(e) {
 
   coordVal.textContent = `X: ${String(gridX).padStart(3, '0')} | Y: ${String(gridY).padStart(3, '0')}`;
   
-  if (slotNum === 1) {
-    coordSlot.textContent = `SLOT: #0001 (Bookkeeper)`;
+  const claimed = claimedByNumber[slotNum];
+  if (claimed) {
+    coordSlot.textContent = `SLOT: #${String(slotNum).padStart(4, '0')} (${claimed.moniker})`;
     crosshair.style.borderColor = 'var(--gold-primary)';
   } else {
     coordSlot.textContent = `SLOT: #${String(slotNum).padStart(4, '0')} (Unclaimed)`;
@@ -336,9 +369,11 @@ workspace.addEventListener('click', (e) => {
   if (!coords) return;
 
   const { gridX, gridY, slotNum } = coords;
-  if (slotNum === 1) {
+  const claimed = claimedByNumber[slotNum];
+  if (claimed) {
     focusAndHighlightSlot(gridX, gridY, 14.0, true);
-    loadAndOpenDossier('records/w1-b0001.json');
+    const recordUrl = claimed.record_url || `records/w1-b${String(slotNum).padStart(4, '0')}.json`;
+    loadAndOpenDossier(recordUrl);
   }
 });
 
@@ -378,7 +413,10 @@ function renderDossier(data) {
     iconPath = iconPath.replace('ledger/w1/', 'assets/');
   }
   document.getElementById('dossier-icon-img').src = iconPath;
-  document.getElementById('dossier-coord-caption').textContent = 'Coord: (0, 0)';
+  const _n = parseInt(String(data.slot_id).replace('w1-b', ''), 10) || 1;
+  const _ix = _n - 1;
+  document.getElementById('dossier-coord-caption').textContent =
+    `Coord: (${_ix % GRID_COLS}, ${Math.floor(_ix / GRID_COLS)})`;
 
   // TAB 1: TESTAMENT (Multilingual Support)
   if (data.testament) {
@@ -637,7 +675,8 @@ function parseSlotParam() {
   return parseInt(slotVal, 10) || 1;
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
+  await loadClaimedRoster();
   const targetSlotNum = parseSlotParam();
   const gridX = (targetSlotNum - 1) % GRID_COLS;
   const gridY = Math.floor((targetSlotNum - 1) / GRID_COLS);
@@ -645,7 +684,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
   centerCanvas(false);
   focusAndHighlightSlot(gridX, gridY, 14.0, false);
-  loadAndOpenDossier(`records/${slotFormatted}.json`);
+  // Only open a dossier for a slot that actually exists in the roster.
+  if (claimedByNumber[targetSlotNum]) {
+    loadAndOpenDossier(`records/${slotFormatted}.json`);
+  }
 });
 
 // Share current block link (Mobile Native Share + Robust Clipboard Fallback)
