@@ -703,28 +703,40 @@ window.addEventListener('click', (e) => {
 // 11. INITIALIZATION ON LOAD & DEEP LINKING
 // -----------------------------------------------------------------------------
 
+// Returns the deep-linked slot number, or null when the URL carries no valid
+// ?slot= / #slot= param. The dossier drawer must stay closed on a plain load.
 function parseSlotParam() {
   const urlParams = new URLSearchParams(window.location.search);
   let slotVal = urlParams.get('slot');
   if (!slotVal && window.location.hash.startsWith('#slot=')) {
     slotVal = window.location.hash.replace('#slot=', '');
   }
-  if (!slotVal) return 1;
-  
+  if (!slotVal) return null;
+
+  let slotNum;
   if (slotVal.startsWith('w1-b')) {
-    return parseInt(slotVal.replace('w1-b', ''), 10) || 1;
+    slotNum = parseInt(slotVal.replace('w1-b', ''), 10);
+  } else {
+    slotNum = parseInt(slotVal, 10);
   }
-  return parseInt(slotVal, 10) || 1;
+  if (!Number.isInteger(slotNum) || slotNum < 1 || slotNum > 10000) return null;
+  return slotNum;
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
   await loadClaimedRoster();
+  centerCanvas(false);
+
+  // Deep link (?slot=N or #slot=N): fly to the block and open its dossier.
+  // Plain load: hero view, drawer closed — it opens only via deep link or a
+  // click on a claimed block.
   const targetSlotNum = parseSlotParam();
+  if (targetSlotNum === null) return;
+
   const gridX = (targetSlotNum - 1) % GRID_COLS;
   const gridY = Math.floor((targetSlotNum - 1) / GRID_COLS);
   const slotFormatted = `w1-b${String(targetSlotNum).padStart(4, '0')}`;
 
-  centerCanvas(false);
   focusAndHighlightSlot(gridX, gridY, 14.0, false);
   // Only open a dossier for a slot that actually exists in the roster.
   if (claimedByNumber[targetSlotNum]) {

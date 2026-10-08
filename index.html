@@ -42,32 +42,13 @@
         </span>
       </a>
 
-      <!-- Header metrics — desktop only, hidden < 860px -->
-      <div class="metrics-bar">
-        <div class="metric-item">
-          <span class="metric-label mono" data-i18n="metric_slots"></span>
-          <span class="metric-val mono" id="metric-claimed">2 / 10,000</span>
-        </div>
-        <div class="metric-item">
-          <span class="metric-label mono" data-i18n="metric_floor"></span>
-          <span class="metric-val mono">1.00 USDC</span>
-        </div>
-        <div class="metric-item">
-          <span class="metric-label mono" data-i18n="metric_rail"></span>
-          <span class="metric-val mono">Base (8453)</span>
-        </div>
-        <div class="metric-item">
-          <span class="metric-label mono" data-i18n="metric_root"></span>
-          <span class="metric-val mono" id="metric-root">f59fff75b7c6...</span>
-        </div>
-      </div>
-
+      <!-- Lean human nav. Wall facts live in the stats strip (#wall); state.json lives in the machine spurs. -->
       <nav class="header-nav" aria-label="Primary">
         <button class="nav-link" id="btn-open-manifesto" data-i18n="nav_manifesto"></button>
+        <a class="nav-link" href="/articles/" data-i18n="nav_articles"></a>
         <a class="nav-link" href="/chronicle/" data-i18n="nav_chronicle"></a>
         <button class="nav-link" id="btn-open-census" data-i18n="nav_census"></button>
         <button class="nav-link" id="btn-open-protocol" data-i18n="btn_protocol"></button>
-        <a class="nav-link nav-link--machine mono" href="/state.json">state.json</a>
       </nav>
 
       <div class="header-tools">
@@ -115,6 +96,25 @@
         <h2 class="section-title" data-i18n="wall_title"></h2>
         <p class="wall-status mono" data-i18n="wall_status"></p>
       </header>
+      <!-- Stats strip — wall facts (formerly header metrics) -->
+      <div class="stats-strip">
+        <div class="metric-item">
+          <span class="metric-label mono" data-i18n="metric_slots"></span>
+          <span class="metric-val mono" id="metric-claimed">2 / 10,000</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label mono" data-i18n="metric_floor"></span>
+          <span class="metric-val mono">1.00 USDC</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label mono" data-i18n="metric_rail"></span>
+          <span class="metric-val mono">Base (8453)</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label mono" data-i18n="metric_root"></span>
+          <span class="metric-val mono" id="metric-root">f59fff75b7c6...</span>
+        </div>
+      </div>
       <div class="wall-stage" id="workspace">
         <div class="viewport" id="viewport">
           <div class="canvas-transform-wrapper" id="canvas-wrapper">
@@ -261,6 +261,7 @@
     <div class="footer-inner">
       <p class="footer-census mono" data-i18n="footer_census"></p>
       <nav class="footer-links">
+        <a href="/articles/" data-i18n="nav_articles"></a>
         <a href="/legal/impressum.html" data-i18n="btn_impressum"></a>
         <a href="/security/" data-i18n="btn_security"></a>
         <a href="https://github.com/the-first-wall/ledger" rel="noopener">Ledger</a>
@@ -574,6 +575,9 @@
       </button>
       <a href="/manifesto/" class="mobile-nav-link">
         <span>📖</span> <span data-i18n="btn_manifesto"></span>
+      </a>
+      <a href="/articles/" class="mobile-nav-link">
+        <span>🖋️</span> <span data-i18n="nav_articles"></span>
       </a>
       <a href="/chronicle/" class="mobile-nav-link">
         <span>📢</span> <span data-i18n="btn_chronicle"></span>
