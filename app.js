@@ -511,8 +511,12 @@ function renderDossier(data) {
     });
   }
 
-  // TAB 3: SEALED VAULT
+  // TAB 3: SEALED VAULT — rendered only from this dossier; no cross-slot fallback.
+  const vaultSealed = document.getElementById('vault-sealed');
+  const vaultEmpty = document.getElementById('vault-empty');
   if (data.sealed_vault) {
+    if (vaultSealed) vaultSealed.style.display = '';
+    if (vaultEmpty) vaultEmpty.style.display = 'none';
     document.getElementById('vault-status').textContent = data.sealed_vault.status.replace(/_/g, ' ');
     document.getElementById('vault-protocol').textContent = data.sealed_vault.protocol;
     document.getElementById('vault-desc').textContent = data.sealed_vault.description;
@@ -520,6 +524,13 @@ function renderDossier(data) {
     document.getElementById('vault-target-round').textContent = `${data.sealed_vault.drand_network} / round ${data.sealed_vault.target_round}`;
     document.getElementById('vault-hash').textContent = data.sealed_vault.ciphertext_sha256;
     document.getElementById('vault-preview').textContent = data.sealed_vault.ciphertext_preview;
+  } else {
+    // No sealed vault on this dossier — hide the sealed panel and show the empty note,
+    // so it can never display another block's vault contents.
+    if (vaultSealed) vaultSealed.style.display = 'none';
+    if (vaultEmpty) vaultEmpty.style.display = '';
+    document.getElementById('vault-hash').textContent = '';
+    document.getElementById('vault-preview').textContent = '';
   }
 
   // TAB 4: PROOFS

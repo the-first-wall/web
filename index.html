@@ -223,6 +223,7 @@
 
       <!-- TAB 3: THE SEALED VAULT -->
       <section class="codex-tab-panel" id="tab-vault">
+        <div id="vault-sealed">
         <div class="vault-status-banner">
           <div class="vault-lock-icon">🔒</div>
           <div class="vault-status-text">
@@ -252,7 +253,7 @@
         <div class="proof-field">
           <span class="proof-name">CIPHERTEXT SHA-256 DIGEST</span>
           <div class="proof-value-wrap">
-            <span class="proof-value mono" id="vault-hash">4b6c8f902e1c94b7f830a10f7d8c52e68402bc05f2081d5f2a1b9d4e5f6a7b8c</span>
+            <span class="proof-value mono" id="vault-hash"></span>
           </div>
         </div>
 
@@ -260,6 +261,11 @@
           <span class="proof-name">ENCRYPTED ENVELOPE PREVIEW</span>
           <pre class="vault-ciphertext mono" id="vault-preview"></pre>
         </div>
+        </div>
+
+        <p class="vault-desc" id="vault-empty" style="display:none;">
+          This block carries no sealed vault. Sealed vaults are an optional founder feature.
+        </p>
       </section>
 
       <!-- TAB 4: ON-CHAIN PROOFS -->
