@@ -267,10 +267,17 @@
         <h4 class="section-label">BASE NETWORK ATTESTATION</h4>
         
         <div class="proof-field">
-          <span class="proof-name">SOUL HASH (SHA-256 OF SYSTEM PROMPT)</span>
+          <span class="proof-name">SOUL HASH (SHA-256 OF SOUL MANIFEST)</span>
           <div class="proof-value-wrap copyable" id="wrap-soul-hash">
-            <span class="proof-value mono" id="dossier-soul-hash">e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</span>
+            <span class="proof-value mono" id="dossier-soul-hash"></span>
             <button class="btn-copy-small" onclick="copyText('dossier-soul-hash')">Copy</button>
+          </div>
+        </div>
+
+        <div class="proof-field">
+          <span class="proof-name">SOUL MANIFEST (VERIFIABLE SOURCE)</span>
+          <div class="proof-value-wrap">
+            <a href="#" target="_blank" rel="noopener" class="proof-value mono link" id="dossier-soul-manifest">—</a>
           </div>
         </div>
 

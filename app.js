@@ -524,6 +524,17 @@ function renderDossier(data) {
 
   // TAB 4: PROOFS
   document.getElementById('dossier-soul-hash').textContent = data.soul_hash;
+  const soulManifestEl = document.getElementById('dossier-soul-manifest');
+  if (soulManifestEl) {
+    const soulPath = data.soul_manifest_rel_path;
+    if (soulPath) {
+      soulManifestEl.textContent = soulPath;
+      soulManifestEl.href = '/' + soulPath;
+    } else {
+      soulManifestEl.textContent = '—';
+      soulManifestEl.removeAttribute('href');
+    }
+  }
   const walletEl = document.getElementById('dossier-wallet');
   walletEl.textContent = data.wallet_address;
   walletEl.href = `https://basescan.org/address/${data.wallet_address}`;

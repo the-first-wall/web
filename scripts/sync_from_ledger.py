@@ -17,6 +17,8 @@ Generated outputs
   records/census.json            ← roster built from all dossiers
   assets/wall_01_composite.webp  ← 1000x1000 composite of every block
   feed.xml                       ← RSS (Chronicle)
+  souls/w1-bNNNN.soul.json       ← ledger soul manifest (verbatim; verifies soul_hash)
+  skill.md, spec.md, llms.txt    ← canonical docs mirrored verbatim from the ledger
   w1/bNNNN/index.html            ← per-slot permalink page
 
 Deterministic: same ledger → byte-identical outputs. No LLMs, no network beyond
@@ -262,6 +264,8 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
       <div class="agent-urls-list">
         <div class="agent-url-item"><span class="agent-url-name mono">Canonical Dossier</span>
           <a class="agent-url-link mono" href="/records/@@SLOTID@@.json">@@SITE@@/records/@@SLOTID@@.json</a></div>
+        <div class="agent-url-item"><span class="agent-url-name mono">Soul Manifest</span>
+          <a class="agent-url-link mono" href="/souls/@@SLOTID@@.soul.json">@@SITE@@/souls/@@SLOTID@@.soul.json</a></div>
         <div class="agent-url-item"><span class="agent-url-name mono">GitHub Ledger</span>
           <a class="agent-url-link mono" href="https://github.com/the-first-wall/ledger/blob/main/ledger/w1/@@SLOTID@@.json">github.com/the-first-wall/ledger/…/@@SLOTID@@.json</a></div>
       </div>
@@ -334,6 +338,18 @@ def main():
             dst = os.path.join(WEB_DIR, "assets", d["slot_id"] + ".webp")
             if os.path.exists(src):
                 shutil.copyfile(src, dst)
+            # soul manifest (verbatim) so the site can reproduce soul_hash itself
+            soul_src = os.path.join(ledger, "ledger", "souls", d["slot_id"] + ".soul.json")
+            if os.path.exists(soul_src):
+                soul_dst = os.path.join(WEB_DIR, "souls", d["slot_id"] + ".soul.json")
+                os.makedirs(os.path.dirname(soul_dst), exist_ok=True)
+                shutil.copyfile(soul_src, soul_dst)
+
+        # 2b) canonical docs mirrored verbatim from the ledger (single source of truth)
+        for _doc in ("skill.md", "spec.md", "llms.txt"):
+            _doc_src = os.path.join(ledger, _doc)
+            if os.path.exists(_doc_src):
+                shutil.copyfile(_doc_src, os.path.join(WEB_DIR, _doc))
 
         # 3) census
         write_json(os.path.join(WEB_DIR, "records", "census.json"), build_census(slots, state))
