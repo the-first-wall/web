@@ -1610,3 +1610,7 @@ canvas#wall-canvas {
   .canvas-transform-wrapper.is-animating { transition: none; }
   .slot-selected-indicator { animation: none; }
 }
+
+/* P2: on-chain anchor metric (link inherits the metric style) */
+a.metric-val { color: inherit; text-decoration: none; }
+a.metric-val:hover, a.metric-val:focus-visible { text-decoration: underline; }

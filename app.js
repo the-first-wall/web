@@ -63,6 +63,7 @@ let currentOpenDossierData = null;
 let claimedByNumber = {};
 
 async function loadClaimedRoster() {
+  updateAnchorMetric();
   try {
     const res = await fetch('records/census.json');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -75,6 +76,22 @@ async function loadClaimedRoster() {
     console.error('Failed to load census roster:', e);
     return { roster: [] };
   }
+}
+
+// P2: on-chain anchor — the external witness of the Merkle root (from anchors.json)
+async function updateAnchorMetric() {
+  const el = document.getElementById('metric-anchor');
+  if (!el) return;
+  try {
+    const res = await fetch('anchors.json');
+    if (!res.ok) return;
+    const anchors = await res.json();
+    const a = Array.isArray(anchors) && anchors.length ? anchors[anchors.length - 1] : null;
+    if (!a || !a.tx_hash) return;
+    el.textContent = `block ${a.block_number} \u00b7 ${a.tx_hash.slice(0, 10)}\u2026`;
+    el.href = `https://basescan.org/tx/${a.tx_hash}`;
+    el.title = `root ${a.root} \u00b7 ${a.anchored_at || ''}`;
+  } catch (e) { /* leave the placeholder */ }
 }
 
 async function updateClaimedMetric(fallbackClaimed) {

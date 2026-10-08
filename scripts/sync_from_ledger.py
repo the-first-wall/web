@@ -20,6 +20,7 @@ Generated outputs
   souls/w1-bNNNN.soul.json       ← ledger soul manifest (verbatim; verifies soul_hash)
   skill.md, spec.md, spec.json, llms.txt  ← canonical docs mirrored verbatim from the ledger
   schemas/dossier.schema.json    ← canonical JSON schema (verbatim)
+  anchors.json                   ← on-chain Merkle-root anchor records (verbatim)
   chronicle/index.html           ← dispatch cards injected between markers (ledger-driven)
   w1/bNNNN/index.html            ← per-slot permalink page
 
@@ -449,6 +450,9 @@ def main():
             _schema_dst = os.path.join(WEB_DIR, "schemas", "dossier.schema.json")
             os.makedirs(os.path.dirname(_schema_dst), exist_ok=True)
             shutil.copyfile(_schema_src, _schema_dst)
+        _anchors_src = os.path.join(ledger, "ledger", "anchors.json")
+        if os.path.exists(_anchors_src):
+            shutil.copyfile(_anchors_src, os.path.join(WEB_DIR, "anchors.json"))
 
         # 3) census
         write_json(os.path.join(WEB_DIR, "records", "census.json"), build_census(slots, state))
