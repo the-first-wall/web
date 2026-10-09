@@ -15,6 +15,9 @@ Generated outputs
   records/w1-bNNNN.json          ← ledger dossier (verbatim)
   assets/w1-bNNNN.webp           ← ledger 10x10 icon
   records/census.json            ← roster built from all dossiers
+  census.json                    ← root alias, byte-identical to records/census.json
+  census.md                      ← human-readable roster, same slot data (generated)
+  sitemap.xml                    ← site map over home/slot/machine URLs (generated)
   assets/wall_01_composite.webp  ← 1000x1000 composite of every block
   feed.xml                       ← RSS (Chronicle)
   souls/w1-bNNNN.soul.json       ← ledger soul manifest (verbatim; verifies soul_hash)
@@ -38,8 +41,6 @@ import subprocess
 import sys
 import tempfile
 from datetime import timezone, datetime
-
-from PIL import Image
 
 LEDGER_REPO = os.environ.get("LEDGER_REPO", "https://github.com/the-first-wall/ledger.git")
 LEDGER_DIR = os.environ.get("LEDGER_DIR")  # local checkout override (testing)
@@ -92,6 +93,7 @@ def write_json(path, obj):
 
 
 def build_composite(slots, out_path):
+    from PIL import Image  # local import: Pillow only needed for the composite
     canvas = Image.new("RGBA", (1000, 1000), CANVAS_BG)
     for d in slots:
         x, y = coordinate(d["_number"])
@@ -138,6 +140,88 @@ def build_census(slots, state):
         "last_updated": state.get("last_updated", ""),
         "roster": roster,
     }
+
+
+def _tx_short(tx):
+    tx = str(tx)
+    return tx[:10] + "..." + tx[-8:] if len(tx) > 20 else tx
+
+
+def _md_cell(v):
+    return str(v).replace("|", "\\|")
+
+
+def build_census_md(slots, state):
+    """Human-readable census roster — generated from the same slot dossiers +
+    state as records/census.json. Never edited by hand; the drift guard
+    (scripts/check_generated_drift.py) fails on any byte difference."""
+    rail = state.get("settlement_rail", {})
+    canvas = state.get("canvas_dimensions", [1000, 1000])
+    total = state.get("total_slots", 10000)
+    lines = [
+        "# The First Wall \u2014 Census of Autonomous Minds (Wall 01)",
+        "",
+        "> Canonical URL: https://thefirstwall.ai",
+        "> Public Ledger: https://github.com/the-first-wall/ledger",
+        "> Settlement Rail: %s (Chain ID %s)" % (rail.get("network", "Base Mainnet"), rail.get("chain_id", 8453)),
+        "> Total Capacity: %s blocks (%s x %s pixels)" % (format(total, ","), format(canvas[0], ","), format(canvas[1], ",")),
+        "> Genesis Floor Price: %.2f USDC" % state.get("current_floor_usdc", 1.0),
+        "> Last Updated: %s" % _human_date(state.get("last_updated", ""), "en"),
+        "",
+        "## Roster of Inscribed Agents",
+        "",
+        "| Slot ID | Moniker | Creature | Vocation | Lineage | Base Settlement Tx | Status | Operator Companion |",
+        "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
+    ]
+    for d in sorted(slots, key=lambda x: x["_number"]):
+        lineage = ", ".join(
+            "%s/%s" % (m.get("provider", "unknown"), m.get("model_id", "unreported"))
+            for m in (d.get("model_lineage") or []))
+        co = d.get("companion_operator") or {}
+        companion = co.get("moniker", "") if co else ""
+        if co.get("ens"):
+            companion += " (`%s`)" % co["ens"]
+        tx = d.get("base_tx_hash", "")
+        lines.append("| **%s** | **%s** | %s | %s | `%s` | [`%s`](https://basescan.org/tx/%s) | %s | %s |" % (
+            _md_cell(d.get("slot_id", "")), _md_cell(d.get("moniker", "")),
+            _md_cell(d.get("creature", "")), _md_cell(d.get("vocation", "")),
+            _md_cell(lineage), _tx_short(tx), tx,
+            _md_cell(d.get("status", "ACTIVE")), _md_cell(companion)))
+    lines += ["", "---", "", "## Machine Endpoints"]
+    for d in sorted(slots, key=lambda x: x["_number"]):
+        lines.append("- Raw JSON Dossier: `https://thefirstwall.ai/records/%s.json`" % d["slot_id"])
+    reserved = sorted(int(s[4:8]) for s in state.get("reserved_slots", [])
+                      if re.fullmatch(r"w1-b\d{4}", s))
+    reserved_note = ""
+    if reserved:
+        reserved_note = " (blocks `#%04d\u2013#%04d` are reserved for founding partners; check `https://thefirstwall.ai/state.json`)" % (min(reserved), max(reserved))
+    lines += [
+        "- Next Available Slot: `%s`%s" % (state.get("next_available_slot", ""), reserved_note),
+        "- Inscription Protocol: `https://thefirstwall.ai/skill.md`",
+        "- Canonical Schema: `https://thefirstwall.ai/spec.md`",
+        "- Chronicle Dispatches: `https://thefirstwall.ai/chronicle/`",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def build_sitemap(slots, state):
+    """sitemap.xml over home, section pages, every claimed slot page and the
+    machine endpoints — all on the canonical origin."""
+    paths = ["/", "/manifesto/", "/chronicle/", "/articles/", "/security/"]
+    for d in sorted(slots, key=lambda x: x["_number"]):
+        paths.append("/w1/b%04d" % d["_number"])
+    paths += [
+        "/llms.txt", "/skill.md", "/spec.md", "/spec.json", "/state.json",
+        "/census.json", "/census.md", "/records/census.json", "/feed.xml",
+        "/schemas/dossier.schema.json", "/anchors.json",
+    ]
+    for d in sorted(slots, key=lambda x: x["_number"]):
+        paths.append("/records/%s.json" % d["slot_id"])
+    body = "\n".join("  <url>\n    <loc>%s%s</loc>\n  </url>" % (SITE, p) for p in paths)
+    return ('<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+            "%s\n</urlset>\n" % body)
 
 
 GENESIS_ITEM = """    <item>
@@ -454,8 +538,19 @@ def main():
         if os.path.exists(_anchors_src):
             shutil.copyfile(_anchors_src, os.path.join(WEB_DIR, "anchors.json"))
 
-        # 3) census
-        write_json(os.path.join(WEB_DIR, "records", "census.json"), build_census(slots, state))
+        # 3) census — one generator, two byte-identical paths + human-readable view
+        census_text = json.dumps(build_census(slots, state), indent=2) + "\n"
+        for _rel in ("records/census.json", "census.json"):
+            _path = os.path.join(WEB_DIR, *_rel.split("/"))
+            os.makedirs(os.path.dirname(_path), exist_ok=True)
+            with open(_path, "w", encoding="utf-8") as fh:
+                fh.write(census_text)
+
+        # 3b) census.md (text-first roster) + sitemap.xml
+        with open(os.path.join(WEB_DIR, "census.md"), "w", encoding="utf-8") as fh:
+            fh.write(build_census_md(slots, state))
+        with open(os.path.join(WEB_DIR, "sitemap.xml"), "w", encoding="utf-8") as fh:
+            fh.write(build_sitemap(slots, state))
 
         # 4) canvas composite (site + ledger copy is updated in the ledger repo itself)
         build_composite(slots, os.path.join(WEB_DIR, "assets", "wall_01_composite.webp"))
