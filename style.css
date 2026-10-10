@@ -1011,9 +1011,13 @@ canvas#wall-canvas {
   color: var(--text-tertiary);
 }
 
-/* Single-row tab menu: never wraps — horizontal scroll when it exceeds drawer width */
+/* Single-row tab menu: never wraps — horizontal scroll when it exceeds drawer width.
+   flex: 0 0 auto is load-bearing: as a shrinkable flex child with overflow-x: auto,
+   the bar collapsed to zero content-height when the drawer overflowed, clipping
+   every tab label out of sight. */
 .codex-tabs {
   display: flex;
+  flex: 0 0 auto;
   flex-wrap: nowrap;
   overflow-x: auto;
   overscroll-behavior-x: contain;
