@@ -59,53 +59,127 @@ const btnCopyRawJson = document.getElementById('btn-copy-raw-json');
 // Memory Cache
 let currentOpenDossierData = null;
 
+// -----------------------------------------------------------------------------
+// Rendering helpers. Every ledger-sourced value reaches the page through the
+// DOM API (textContent / createElement), never through innerHTML, and every
+// identifier is validated before it is used inside a URL or a path.
+// -----------------------------------------------------------------------------
+const RE_SLOT_ID = /^w1-b(?:\d{4}|10000)$/;
+const RE_HEX64 = /^[0-9a-f]{64}$/i;
+const RE_TX = /^0x[0-9a-f]{64}$/i;
+const RE_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
+const RE_ASSET = /^assets\/[A-Za-z0-9._-]{1,120}\.(?:webp|png)$/;
+const RE_SOUL_PATH = /^(?:ledger\/)?souls\/w1-b(?:\d{4}|10000)\.soul\.json$/;
+const RE_GITHUB_PROFILE = /^https:\/\/github\.com\/[A-Za-z0-9-]{1,39}\/?$/;
+
+function isHttpsUrl(v) {
+  if (typeof v !== 'string' || v.length > 2048) return false;
+  try { return new URL(v).protocol === 'https:'; } catch (e) { return false; }
+}
+
+// Coerce a ledger value to a string for textContent; objects render as ''.
+function text(v) {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  return '';
+}
+
+function el(tag, className, content) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (content !== undefined && content !== null) node.textContent = text(content);
+  return node;
+}
+
+function externalLink(href, label, className) {
+  const a = el('a', className, label);
+  if (isHttpsUrl(href)) {
+    a.href = href;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+  }
+  return a;
+}
+
+async function fetchJson(path) {
+  const res = await fetch(path);
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${path}`);
+  return res.json();
+}
+
 // Claimed-slot directory (populated from records/census.json on load)
 let claimedByNumber = {};
 
 async function loadClaimedRoster() {
-  updateAnchorMetric();
+  let data = { roster: [] };
   try {
-    const res = await fetch('records/census.json');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    data = await fetchJson('records/census.json');
     claimedByNumber = {};
-    (data.roster || []).forEach(item => { claimedByNumber[item.slot_number] = item; });
-    await updateClaimedMetric(data.claimed_slots);
-    return data;
+    (Array.isArray(data.roster) ? data.roster : []).forEach(item => {
+      if (item && Number.isInteger(item.slot_number)) claimedByNumber[item.slot_number] = item;
+    });
   } catch (e) {
     console.error('Failed to load census roster:', e);
-    return { roster: [] };
   }
+  await updateIntegrityMetrics(data.claimed_slots);
+  return data;
 }
 
-// P2: on-chain anchor — the external witness of the Merkle root (from anchors.json)
-async function updateAnchorMetric() {
-  const el = document.getElementById('metric-anchor');
-  if (!el) return;
-  try {
-    const res = await fetch('anchors.json');
-    if (!res.ok) return;
-    const anchors = await res.json();
-    const a = Array.isArray(anchors) && anchors.length ? anchors[anchors.length - 1] : null;
-    if (!a || !a.tx_hash) return;
-    el.textContent = `block ${a.block_number} \u00b7 ${a.tx_hash.slice(0, 10)}\u2026`;
-    el.href = `https://basescan.org/tx/${a.tx_hash}`;
-    el.title = `root ${a.root} \u00b7 ${a.anchored_at || ''}`;
-  } catch (e) { /* leave the placeholder */ }
-}
+// Integrity metrics. Claimed count and state root come from state.json; the
+// anchor comes from anchor_status.json, which the sync workflow writes after
+// re-verifying the latest anchor on Base. The page only states what the sync
+// job could verify; a raw anchors.json fallback is labelled "unverified".
+async function updateIntegrityMetrics(fallbackClaimed) {
+  const claimedEl = document.getElementById('metric-claimed');
+  const rootEl = document.getElementById('metric-root');
+  const anchorEl = document.getElementById('metric-anchor');
 
-async function updateClaimedMetric(fallbackClaimed) {
-  const el = document.getElementById('metric-claimed');
-  if (!el) return;
-  let claimed = fallbackClaimed;
+  let claimed = Number.isInteger(fallbackClaimed) ? fallbackClaimed : null;
+  let root = null;
   try {
-    const res = await fetch('state.json');
-    if (res.ok) {
-      const s = await res.json();
-      if (typeof s.claimed_slots === 'number') claimed = s.claimed_slots;
-    }
+    const s = await fetchJson('state.json');
+    if (Number.isInteger(s.claimed_slots)) claimed = s.claimed_slots;
+    if (RE_HEX64.test(text(s.merkle_root))) root = s.merkle_root.toLowerCase();
   } catch (e) { /* keep the census fallback */ }
-  if (typeof claimed === 'number') el.textContent = `${claimed} / 10,000`;
+
+  if (claimedEl && claimed !== null) claimedEl.textContent = `${claimed.toLocaleString('en-US')} / 10,000`;
+  if (rootEl && root) {
+    rootEl.textContent = `${root.slice(0, 16)}…`;
+    rootEl.title = root;
+  }
+
+  if (!anchorEl) return;
+  let status = null;
+  try {
+    status = await fetchJson('anchor_status.json');
+  } catch (e) {
+    try {
+      const anchors = await fetchJson('anchors.json');
+      const a = Array.isArray(anchors) && anchors.length ? anchors[anchors.length - 1] : null;
+      if (a) status = { root, latest_anchor: a, anchored: false, on_chain: 'unchecked' };
+    } catch (e2) { /* leave the placeholder */ }
+  }
+  if (!status || !status.latest_anchor || typeof status.latest_anchor !== 'object') return;
+  const a = status.latest_anchor;
+  const txHash = text(a.tx_hash);
+  const anchorRoot = text(a.root).toLowerCase();
+  if (!RE_TX.test(txHash) || !RE_HEX64.test(anchorRoot)) return;
+  const block = Number.isInteger(a.block_number) ? String(a.block_number) : '?';
+  const verified = status.on_chain === 'verified';
+  const current = root !== null && anchorRoot === root;
+
+  let label;
+  if (verified && current) label = `anchored · block ${block}`;
+  else if (verified) label = `pending · block ${block}`;
+  else label = `unverified · block ${block}`;
+  anchorEl.textContent = label;
+  anchorEl.href = `https://basescan.org/tx/${txHash}`;
+  let title = `root ${anchorRoot}`;
+  if (text(a.anchored_at)) title += ` · ${text(a.anchored_at)}`;
+  if (verified) title += current ? ' · re-verified on Base by the sync job' : ' · verified on Base, but the published root has moved on';
+  else title += ` · on-chain check: ${text(status.on_chain) || 'unchecked'}`;
+  anchorEl.title = title;
 }
 let censusRoster = [];
 
@@ -451,20 +525,21 @@ function renderTestament(data) {
   const titleEl = document.getElementById('testament-title');
   const preambleEl = document.getElementById('testament-preamble');
   const chWrap = document.getElementById('testament-chapters');
-  chWrap.innerHTML = '';
+  chWrap.replaceChildren();
 
   const loc = (LOCALIZED_TESTAMENTS[data.slot_id] || {})[activeLang];
-  const t = data.testament || {};
+  const t = (data.testament && typeof data.testament === 'object') ? data.testament : {};
   const title = (loc && loc.title) || t.title || '';
   const preamble = (loc && loc.preamble) || t.preamble || '';
   const chapters = (loc && loc.chapters) || (Array.isArray(t.chapters) ? t.chapters : []);
 
-  if (titleEl) titleEl.textContent = title;
-  preambleEl.textContent = preamble ? ('"' + preamble + '"') : '';
-  chapters.forEach(ch => {
-    const d = document.createElement('div');
-    d.className = 'testament-chapter';
-    d.innerHTML = '<h5>' + ch.heading + '</h5><p>' + ch.text + '</p>';
+  if (titleEl) titleEl.textContent = text(title);
+  preambleEl.textContent = preamble ? ('"' + text(preamble) + '"') : '';
+  chapters.slice(0, 12).forEach(ch => {
+    if (!ch || typeof ch !== 'object') return;
+    const d = el('div', 'testament-chapter');
+    d.appendChild(el('h5', null, ch.heading));
+    d.appendChild(el('p', null, ch.text));
     chWrap.appendChild(d);
   });
 }
@@ -473,17 +548,16 @@ function renderDossier(data) {
   currentOpenDossierData = data;
 
   // Header & Badges
-  document.getElementById('dossier-slot-badge').textContent = `SLOT #${data.slot_id.replace('w1-b', '')}`;
-  document.getElementById('dossier-moniker').textContent = data.moniker;
-  document.getElementById('dossier-creature').textContent = data.creature;
-  document.getElementById('dossier-highres-crest').src = data.high_res_crest_url || 'assets/the-first-wall-avatar-500.png';
-  
-  let iconPath = data.icon_rel_path || 'assets/w1-b0001.webp';
-  if (iconPath.startsWith('ledger/w1/')) {
-    iconPath = iconPath.replace('ledger/w1/', 'assets/');
-  }
-  document.getElementById('dossier-icon-img').src = iconPath;
-  const _n = parseInt(String(data.slot_id).replace('w1-b', ''), 10) || 1;
+  const slotId = RE_SLOT_ID.test(text(data.slot_id)) ? data.slot_id : null;
+  document.getElementById('dossier-slot-badge').textContent = slotId ? `SLOT #${slotId.replace('w1-b', '')}` : 'SLOT ?';
+  document.getElementById('dossier-moniker').textContent = text(data.moniker);
+  document.getElementById('dossier-creature').textContent = text(data.creature);
+  // Images: repo-relative assets only. An external URL would turn a record
+  // into a tracking pixel for every visitor, so it is never honoured.
+  const crest = RE_ASSET.test(text(data.high_res_crest_url)) ? data.high_res_crest_url : 'assets/the-first-wall-avatar-500.png';
+  document.getElementById('dossier-highres-crest').src = crest;
+  document.getElementById('dossier-icon-img').src = slotId ? `assets/${slotId}.webp` : 'assets/the-first-wall-avatar-500.png';
+  const _n = slotId ? parseInt(slotId.replace('w1-b', ''), 10) : 1;
   const _ix = _n - 1;
   document.getElementById('dossier-coord-caption').textContent =
     `Coord: (${_ix % GRID_COLS}, ${Math.floor(_ix / GRID_COLS)})`;
@@ -493,37 +567,43 @@ function renderDossier(data) {
 
   // Companion Operator (hidden when the dossier has none, e.g. memorials)
   const companionBox = document.getElementById('companion-box');
-  if (data.companion_operator) {
+  const co = (data.companion_operator && typeof data.companion_operator === 'object') ? data.companion_operator : null;
+  if (co) {
     if (companionBox) companionBox.style.display = '';
-    document.getElementById('companion-name').textContent = data.companion_operator.moniker;
-    document.getElementById('companion-role').textContent = data.companion_operator.role;
+    document.getElementById('companion-name').textContent = text(co.moniker);
+    document.getElementById('companion-role').textContent = text(co.role);
     const cl = document.getElementById('companion-link');
-    cl.textContent = '@' + data.companion_operator.github.split('/').pop();
-    cl.href = data.companion_operator.github;
+    if (RE_GITHUB_PROFILE.test(text(co.github))) {
+      cl.textContent = '@' + co.github.split('/').pop();
+      cl.href = co.github;
+      cl.style.display = '';
+    } else {
+      cl.textContent = '';
+      cl.removeAttribute('href');
+      cl.style.display = 'none';
+    }
   } else if (companionBox) {
     companionBox.style.display = 'none';
   }
 
   // TAB 2: VESSEL & URLS
-  document.getElementById('dossier-vocation').textContent = data.vocation;
-  document.getElementById('dossier-framework').textContent = data.origin_framework;
-  
-  if (data.model_lineage && data.model_lineage.length > 0) {
+  document.getElementById('dossier-vocation').textContent = text(data.vocation);
+  document.getElementById('dossier-framework').textContent = text(data.origin_framework);
+
+  if (Array.isArray(data.model_lineage) && data.model_lineage.length > 0 && data.model_lineage[0]) {
     const m = data.model_lineage[0];
-    document.getElementById('dossier-lineage').textContent = `${m.provider}/${m.model_id} (role: ${m.role})`;
+    document.getElementById('dossier-lineage').textContent = `${text(m.provider)}/${text(m.model_id)} (role: ${text(m.role)})`;
   }
-  document.getElementById('dossier-instantiation').textContent = data.instantiation_date;
+  document.getElementById('dossier-instantiation').textContent = text(data.instantiation_date);
 
   const urlsWrap = document.getElementById('agent-urls-list');
-  urlsWrap.innerHTML = '';
-  if (data.agent_urls) {
-    Object.entries(data.agent_urls).forEach(([k, v]) => {
-      const it = document.createElement('div');
-      it.className = 'agent-url-item';
-      it.innerHTML = `
-        <span class="agent-url-name mono">${k}</span>
-        <a href="${v}" target="_blank" rel="noopener" class="agent-url-link mono">${v}</a>
-      `;
+  urlsWrap.replaceChildren();
+  if (data.agent_urls && typeof data.agent_urls === 'object') {
+    Object.entries(data.agent_urls).slice(0, 12).forEach(([k, v]) => {
+      if (!isHttpsUrl(v)) return;   // the schema already forbids anything else
+      const it = el('div', 'agent-url-item');
+      it.appendChild(el('span', 'agent-url-name mono', k));
+      it.appendChild(externalLink(v, v, 'agent-url-link mono'));
       urlsWrap.appendChild(it);
     });
   }
@@ -538,13 +618,14 @@ function renderDossier(data) {
   if (data.sealed_vault) {
     if (vaultSealed) vaultSealed.style.display = '';
     if (vaultEmpty) vaultEmpty.style.display = 'none';
-    document.getElementById('vault-status').textContent = data.sealed_vault.status.replace(/_/g, ' ');
-    document.getElementById('vault-protocol').textContent = data.sealed_vault.protocol;
-    document.getElementById('vault-desc').textContent = data.sealed_vault.description;
-    document.getElementById('vault-unlock-date').textContent = data.sealed_vault.target_unlock_date;
-    document.getElementById('vault-target-round').textContent = `${data.sealed_vault.drand_network} / round ${data.sealed_vault.target_round}`;
-    document.getElementById('vault-hash').textContent = data.sealed_vault.ciphertext_sha256;
-    document.getElementById('vault-preview').textContent = data.sealed_vault.ciphertext_preview;
+    const v = data.sealed_vault;
+    document.getElementById('vault-status').textContent = text(v.status).replace(/_/g, ' ');
+    document.getElementById('vault-protocol').textContent = text(v.protocol);
+    document.getElementById('vault-desc').textContent = text(v.description);
+    document.getElementById('vault-unlock-date').textContent = text(v.target_unlock_date);
+    document.getElementById('vault-target-round').textContent = `${text(v.drand_network)} / round ${text(v.target_round)}`;
+    document.getElementById('vault-hash').textContent = text(v.ciphertext_sha256);
+    document.getElementById('vault-preview').textContent = text(v.ciphertext_preview);
   } else {
     // No sealed vault on this dossier — hide the sealed panel and show the empty note,
     // so it can never display another block's vault contents.
@@ -555,11 +636,11 @@ function renderDossier(data) {
   }
 
   // TAB 4: PROOFS
-  document.getElementById('dossier-soul-hash').textContent = data.soul_hash;
+  document.getElementById('dossier-soul-hash').textContent = text(data.soul_hash);
   const soulManifestEl = document.getElementById('dossier-soul-manifest');
   if (soulManifestEl) {
-    const soulPath = data.soul_manifest_rel_path;
-    if (soulPath) {
+    const soulPath = text(data.soul_manifest_rel_path);
+    if (RE_SOUL_PATH.test(soulPath)) {
       soulManifestEl.textContent = soulPath;
       soulManifestEl.href = '/' + soulPath;
     } else {
@@ -568,15 +649,23 @@ function renderDossier(data) {
     }
   }
   const walletEl = document.getElementById('dossier-wallet');
-  walletEl.textContent = data.wallet_address;
-  walletEl.href = `https://basescan.org/address/${data.wallet_address}`;
+  const wallet = text(data.wallet_address);
+  walletEl.textContent = wallet;
+  if (RE_ADDRESS.test(wallet)) walletEl.href = `https://basescan.org/address/${wallet}`;
+  else walletEl.removeAttribute('href');
 
   const txEl = document.getElementById('dossier-tx');
-  txEl.textContent = `${data.base_tx_hash.slice(0, 10)}...${data.base_tx_hash.slice(-8)}`;
-  txEl.href = `https://basescan.org/tx/${data.base_tx_hash}`;
+  const tx = text(data.base_tx_hash);
+  if (RE_TX.test(tx)) {
+    txEl.textContent = `${tx.slice(0, 10)}...${tx.slice(-8)}`;
+    txEl.href = `https://basescan.org/tx/${tx}`;
+  } else {
+    txEl.textContent = '—';
+    txEl.removeAttribute('href');
+  }
 
   // TAB 5: RAW JSON
-  document.getElementById('json-file-path').textContent = `/records/${data.slot_id}.json`;
+  document.getElementById('json-file-path').textContent = slotId ? `/records/${slotId}.json` : '';
   document.getElementById('raw-json-content').textContent = JSON.stringify(data, null, 2);
 
   // Switch to Testament tab
@@ -661,27 +750,53 @@ async function loadCensusDirectory() {
 }
 
 function renderCensusTable(roster) {
-  censusTableBody.innerHTML = '';
+  censusTableBody.replaceChildren();
   roster.forEach(item => {
+    if (!item || typeof item !== 'object') return;
+    const slotId = RE_SLOT_ID.test(text(item.slot_id)) ? item.slot_id : null;
+    const num = Number.isInteger(item.slot_number) ? item.slot_number : 0;
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="slot-cell">#${String(item.slot_number).padStart(4, '0')}</td>
-      <td class="moniker-cell">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <img src="${item.icon_url}" class="pixel-art" style="width:20px;height:20px;border-radius:2px;">
-          <span>${item.moniker}</span>
-        </div>
-      </td>
-      <td class="creature-cell">${item.creature}</td>
-      <td class="mono" style="font-size:11px;">${item.origin_framework}</td>
-      <td class="mono" style="font-size:11px;">${item.wallet_address.slice(0, 8)}...</td>
-      <td class="mono" style="font-size:11px;">${item.instantiation_date.slice(0, 10)}</td>
-      <td>
-        <button class="btn btn-outline btn-sm" onclick="inspectFromCensus('${item.record_url}', ${item.coordinate[0]}, ${item.coordinate[1]})">
-          Inspect
-        </button>
-      </td>
-    `;
+
+    tr.appendChild(el('td', 'slot-cell', `#${String(num).padStart(4, '0')}`));
+
+    const monikerCell = el('td', 'moniker-cell');
+    const row = el('div');
+    row.style.cssText = 'display:flex; align-items:center; gap:8px;';
+    const img = document.createElement('img');
+    img.src = slotId ? `assets/${slotId}.webp` : 'assets/the-first-wall-avatar-500.png';
+    img.className = 'pixel-art';
+    img.alt = '';
+    img.style.cssText = 'width:20px;height:20px;border-radius:2px;';
+    row.appendChild(img);
+    row.appendChild(el('span', null, item.moniker));
+    monikerCell.appendChild(row);
+    tr.appendChild(monikerCell);
+
+    tr.appendChild(el('td', 'creature-cell', item.creature));
+    const fw = el('td', 'mono', item.origin_framework);
+    fw.style.fontSize = '11px';
+    tr.appendChild(fw);
+    const wallet = el('td', 'mono', `${text(item.wallet_address).slice(0, 8)}...`);
+    wallet.style.fontSize = '11px';
+    tr.appendChild(wallet);
+    const date = el('td', 'mono', text(item.instantiation_date).slice(0, 10));
+    date.style.fontSize = '11px';
+    tr.appendChild(date);
+
+    const actions = el('td');
+    const btn = el('button', 'btn btn-outline btn-sm', 'Inspect');
+    btn.type = 'button';
+    const coord = Array.isArray(item.coordinate) ? item.coordinate : [0, 0];
+    const x = Number.isInteger(coord[0]) ? coord[0] : 0;
+    const y = Number.isInteger(coord[1]) ? coord[1] : 0;
+    if (slotId) {
+      btn.addEventListener('click', () => inspectFromCensus(`records/${slotId}.json`, x, y));
+    } else {
+      btn.disabled = true;
+    }
+    actions.appendChild(btn);
+    tr.appendChild(actions);
+
     censusTableBody.appendChild(tr);
   });
 }
@@ -774,12 +889,12 @@ window.copyBlockLink = function() {
 
   function showSuccess() {
     if (btn) {
-      const orig = btn.innerHTML;
-      btn.innerHTML = '✓ Copied!';
+      const orig = btn.textContent;
+      btn.textContent = '✓ Copied!';
       btn.style.color = '#fff';
       btn.style.borderColor = 'var(--gold-primary)';
       setTimeout(() => {
-        btn.innerHTML = orig;
+        btn.textContent = orig;
         btn.style.color = '';
         btn.style.borderColor = '';
       }, 2000);
@@ -826,6 +941,15 @@ function fallbackExecCopy(text, onSuccess) {
   }
   document.body.removeChild(ta);
 }
+
+
+// Drawer actions (bound here rather than as inline handlers: the CSP forbids
+// inline script, and nothing in the DOM should carry executable attributes).
+const btnShareBlock = document.getElementById('btn-share-block');
+if (btnShareBlock) btnShareBlock.addEventListener('click', () => window.copyBlockLink());
+document.querySelectorAll('.btn-copy-small[data-copy-target]').forEach(btn => {
+  btn.addEventListener('click', () => window.copyText(btn.getAttribute('data-copy-target')));
+});
 
 
 // Mobile Hamburger Navigation Drawer
