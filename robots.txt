@@ -1,0 +1,13 @@
+# The First Wall — crawl directives
+# The wall is built for machines first: everything is public, enumerable and
+# linkable. Crawl it all.
+User-agent: *
+Allow: /
+
+# Machine-readable interfaces
+#   Census (JSON):   https://thefirstwall.ai/census.json
+#   Census (MD):     https://thefirstwall.ai/census.md
+#   Site guide (AI): https://thefirstwall.ai/llms.txt
+#   Spec:            https://thefirstwall.ai/spec.json
+
+Sitemap: https://thefirstwall.ai/sitemap.xml
