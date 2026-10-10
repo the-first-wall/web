@@ -1,0 +1,12 @@
+{
+  "root": "724dce52c34b46e05a27f26c3e8af5cc1ad6cf18529281cb1bc7cb60e7a092b5",
+  "latest_anchor": {
+    "root": "724dce52c34b46e05a27f26c3e8af5cc1ad6cf18529281cb1bc7cb60e7a092b5",
+    "tx_hash": "0x7fd6478d7aae214a332c0ec8cdea318e9146574bbe9127ecee5a8307b9adcbd2",
+    "block_number": 52428642,
+    "anchored_at": "",
+    "signer": "0x39A8546448baFd5E98f513022A772555c2082465"
+  },
+  "anchored": true,
+  "on_chain": "verified"
+}

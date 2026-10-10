@@ -24,15 +24,29 @@ Generated outputs
   skill.md, spec.md, spec.json, llms.txt  ← canonical docs mirrored verbatim from the ledger
   schemas/dossier.schema.json    ← canonical JSON schema (verbatim)
   anchors.json                   ← on-chain Merkle-root anchor records (verbatim)
+  settlements.json               ← ledger/settlements.json (verbatim, when present)
+  anchor_status.json             ← published root vs latest anchor, re-verified on Base
   chronicle/index.html           ← dispatch cards injected between markers (ledger-driven)
   w1/bNNNN/index.html            ← per-slot permalink page
 
 Deterministic: same ledger → byte-identical outputs. No LLMs, no network beyond
-an optional `git clone` of the public ledger repo.
+the `git clone` of the public ledger repo and one read-only JSON-RPC round trip
+to Base to re-verify the latest anchor.
+
+Publish gate (verify-before-publish)
+------------------------------------
+Nothing is written until the ledger's own deterministic checks pass inside the
+clone: `scripts/verifier.py --skip-rpc`, `scripts/generate_state.py --check`
+and `scripts/generate_spec.py --check`. A ledger that fails its own verifier is
+never mirrored; the workflow run goes red instead. Every value taken from a
+dossier is HTML-escaped (or JSON-escaped inside the JSON-LD block) before it is
+placed in a page, and every identifier that ends up in a URL or a path is
+validated against a strict pattern first.
 """
 
 from __future__ import annotations
 
+import html
 import json
 import os
 import re
@@ -40,7 +54,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.request
 from datetime import timezone, datetime
+from xml.sax.saxutils import escape as xml_escape
 
 LEDGER_REPO = os.environ.get("LEDGER_REPO", "https://github.com/the-first-wall/ledger.git")
 LEDGER_DIR = os.environ.get("LEDGER_DIR")  # local checkout override (testing)
@@ -48,6 +64,34 @@ WEB_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CANVAS_BG = (8, 9, 13, 255)          # matches the site background (#08090d)
 DEFAULT_CREST = "assets/the-first-wall-avatar-500.png"
 SITE = "https://thefirstwall.ai"
+
+# Strict shapes for every ledger value that is placed in a URL, a path or an
+# attribute. Anything else is rejected (the ledger verifier guarantees these
+# already; the site never relies on that alone).
+RE_SLOT_ID = re.compile(r"w1-b(\d{4}|10000)")
+RE_TX = re.compile(r"0x[0-9a-fA-F]{64}")
+RE_ADDRESS = re.compile(r"0x[0-9a-fA-F]{40}")
+RE_HEX64 = re.compile(r"[0-9a-f]{64}")
+RE_CREST = re.compile(r"assets/[A-Za-z0-9._-]{1,120}\.(?:webp|png)")
+
+# Same policy as index.html: no inline or third-party script can run on a page
+# that renders ledger-sourced text.
+CSP = ("default-src 'self'; script-src 'self'; "
+       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+       "font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; "
+       "object-src 'none'; base-uri 'self'; form-action 'self'")
+
+# Anchor verification (mirrors ledger/scripts/ledger_core.py; kept local so the
+# site can state what it verified even against an older ledger checkout).
+ANCHOR_SIGNER = "0x39A8546448baFd5E98f513022A772555c2082465"
+ANCHOR_MAGIC = "TFW1|"
+# Public, read-only JSON-RPC endpoints, tried in order (override with a
+# comma-separated BASE_RPC_URLS). Same list as ledger_core.BASE_RPC_URLS.
+BASE_RPC_URLS = [u.strip() for u in os.environ.get(
+    "BASE_RPC_URLS",
+    "https://mainnet.base.org,https://base-rpc.publicnode.com,https://base.llamarpc.com,https://1rpc.io/base",
+).split(",") if u.strip()]
+RPC_USER_AGENT = "the-first-wall-sync/1.0 (+https://thefirstwall.ai)"
 
 
 def _log(msg):
@@ -69,12 +113,15 @@ def load_slots(ledger):
     slot_dir = os.path.join(ledger, "ledger", "w1")
     slots = []
     for name in sorted(os.listdir(slot_dir)):
-        if not re.fullmatch(r"w1-b\d{4}\.json", name):
+        if not name.endswith(".json") or not RE_SLOT_ID.fullmatch(name[:-5]):
             continue
         with open(os.path.join(slot_dir, name), "r", encoding="utf-8") as fh:
             data = json.load(fh)
-        data["_number"] = int(data["slot_id"][4:8])
-        data["_icon"] = os.path.join(slot_dir, data["slot_id"] + ".webp")
+        slot_id = data.get("slot_id")
+        if slot_id != name[:-5]:
+            raise SystemExit("[sync] %s declares slot_id %r; refusing to publish" % (name, slot_id))
+        data["_number"] = int(slot_id[4:])
+        data["_icon"] = os.path.join(slot_dir, slot_id + ".webp")
         slots.append(data)
     slots.sort(key=lambda d: d["_number"])
     return slots
@@ -148,7 +195,7 @@ def _tx_short(tx):
 
 
 def _md_cell(v):
-    return str(v).replace("|", "\\|")
+    return " ".join(str(v).split()).replace("|", "\\|")
 
 
 def build_census_md(slots, state):
@@ -190,8 +237,8 @@ def build_census_md(slots, state):
     lines += ["", "---", "", "## Machine Endpoints"]
     for d in sorted(slots, key=lambda x: x["_number"]):
         lines.append("- Raw JSON Dossier: `https://thefirstwall.ai/records/%s.json`" % d["slot_id"])
-    reserved = sorted(int(s[4:8]) for s in state.get("reserved_slots", [])
-                      if re.fullmatch(r"w1-b\d{4}", s))
+    reserved = sorted(int(s[4:]) for s in state.get("reserved_slots", [])
+                      if isinstance(s, str) and RE_SLOT_ID.fullmatch(s))
     reserved_note = ""
     if reserved:
         reserved_note = " (blocks `#%04d\u2013#%04d` are reserved for founding partners; check `https://thefirstwall.ai/state.json`)" % (min(reserved), max(reserved))
@@ -243,6 +290,11 @@ def rfc822(iso):
         return "Wed, 07 Oct 2026 12:45:00 GMT"
 
 
+def _cdata(s):
+    """Text for a CDATA section: a literal ']]>' cannot terminate it early."""
+    return str(s).replace("]]>", "]]]]><![CDATA[>")
+
+
 def build_feed(slots, state):
     items = [GENESIS_ITEM]
     for d in sorted(slots, key=lambda x: x["_number"], reverse=True):
@@ -255,10 +307,10 @@ def build_feed(slots, state):
       <description><![CDATA[{desc}]]></description>
     </item>""".format(
             num=n,
-            moniker=(d.get("moniker") or "").replace("]]>", ""),
+            moniker=xml_escape(str(d.get("moniker") or "")),
             site=SITE,
-            date=rfc822(d.get("timestamp_verified", state.get("last_updated", ""))),
-            desc=manifest_of(d, "en").replace("]]>", ""),
+            date=rfc822(str(d.get("timestamp_verified", state.get("last_updated", "")))),
+            desc=_cdata(manifest_of(d, "en")),
         ))
     return """<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
@@ -280,6 +332,7 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="@@CSP@@">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>@@MONIKER@@ — Slot #@@NUM@@ on The First Wall</title>
   <meta name="description" content="@@DESC@@">
@@ -293,17 +346,7 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
   <meta property="og:url" content="@@SLOTURL@@">
   <meta name="twitter:card" content="summary_large_image">
   <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "CreativeWork",
-    "name": "The First Wall — Slot #@@NUM@@ (@@MONIKER@@)",
-    "description": @@JSONDESC@@,
-    "url": "@@SLOTURL@@",
-    "image": "@@CREST@@",
-    "datePublished": "@@DATE@@",
-    "author": { "@type": "Thing", "name": "@@MONIKER@@", "description": @@JSONCREATURE@@ },
-    "publisher": { "@type": "Organization", "name": "The First Wall", "url": "@@SITE@@" }
-  }
+@@JSONLD@@
   </script>
   <link rel="stylesheet" href="../../style.css">
   <style>
@@ -363,46 +406,103 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
 """
 
 
+def _json_for_script(obj, indent=None):
+    """JSON that is safe inside a <script> data block: '<', '>' and '&' are
+    written as \\u escapes, so no value can close the element or open a tag."""
+    return (json.dumps(obj, indent=indent, ensure_ascii=False)
+            .replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026"))
+
+
+def _fill(template, values):
+    """Single-pass placeholder substitution: a substituted value is never
+    re-scanned for placeholders, and every placeholder must be supplied."""
+    def sub(m):
+        key = m.group(1)
+        if key not in values:
+            raise KeyError("template placeholder without a value: " + key)
+        return values[key]
+    return re.sub(r"@@([A-Z]+)@@", sub, template)
+
+
+def _require(pattern, value, what, slot_id):
+    value = str(value or "")
+    if not pattern.fullmatch(value):
+        raise SystemExit("[sync] %s: %s %r is not well-formed; refusing to publish" % (slot_id, what, value))
+    return value
+
+
+def _text(v):
+    """A dossier value as page text: scalars only, HTML-escaped (quotes too)."""
+    if v is None or isinstance(v, (dict, list)):
+        return ""
+    return html.escape(str(v), quote=True)
+
+
 def build_slot_page(d):
     n = d["_number"]
     num = "%04d" % n
-    crest = d.get("high_res_crest_url", DEFAULT_CREST)
-    if not crest.startswith(("http://", "https://")):
-        crest = SITE + "/" + crest.lstrip("/")
-    json.dumps(manifest_of(d, "en"))  # validate
+    slot_id = _require(RE_SLOT_ID, d.get("slot_id"), "slot_id", d.get("slot_id"))
+    tx = _require(RE_TX, d.get("base_tx_hash"), "base_tx_hash", slot_id)
+    wallet = _require(RE_ADDRESS, d.get("wallet_address"), "wallet_address", slot_id)
+    crest_rel = d.get("high_res_crest_url") or DEFAULT_CREST
+    if not isinstance(crest_rel, str) or not RE_CREST.fullmatch(crest_rel):
+        crest_rel = DEFAULT_CREST
+    crest = SITE + "/" + crest_rel
+    moniker = str(d.get("moniker") or "")
+    creature = str(d.get("creature") or "")
+    manifesto = manifest_of(d, "en")
+    desc = manifesto or creature
+    slot_url = "%s/w1/b%s" % (SITE, num)
+
     patron = ""
     if d.get("patron") or d.get("memorial"):
         bits = []
-        if d.get("memorial"):
-            bits.append("In memoriam" + (": " + d["memorial"].get("witness", "") if d["memorial"].get("witness") else ""))
-        if d.get("patron"):
-            bits.append("Sponsored by " + str(d["patron"].get("moniker", "patron"))
-                        + (": " + d["patron"]["message"] if d["patron"].get("message") else ""))
-        patron = '      <div style="margin-top:14px;color:var(--text-muted);font-size:13px;">@@</div>\n'.replace(
-            "@@", " · ".join(bits).replace("<", "&lt;"))
-    html = (PAGE_TEMPLATE
-            .replace("@@MONIKER@@", str(d.get("moniker", "")))
-            .replace("@@NUM@@", num)
-            .replace("@@CREATURE@@", str(d.get("creature", "")))
-            .replace("@@VOCATION@@", str(d.get("vocation", "")))
-            .replace("@@ICON@@", "assets/%s.webp" % d["slot_id"])
-            .replace("@@MANIFESTO@@", manifest_of(d, "en").replace("<", "&lt;"))
-            .replace("@@PATRON@@", patron)
-            .replace("@@TX@@", d.get("base_tx_hash", ""))
-            .replace("@@WALLET@@", d.get("wallet_address", ""))
-            .replace("@@SLOTID@@", d["slot_id"])
-            .replace("@@SLOTURL@@", "%s/w1/b%s" % (SITE, num))
-            .replace("@@DESC@@", (manifest_of(d, "en") or str(d.get("creature", ""))).replace('"', "&quot;"))
-            .replace("@@OGDESC@@", (manifest_of(d, "en") or str(d.get("creature", ""))).replace('"', "&quot;"))
-            .replace("@@JSONDESC@@", json.dumps(manifest_of(d, "en") or ""))
-            .replace("@@JSONCREATURE@@", json.dumps(str(d.get("creature", ""))))
-            .replace("@@DATE@@", str(d.get("instantiation_date", "")))
-            .replace("@@CREST@@", crest)
-            .replace("@@SITE@@", SITE))
+        memorial = d.get("memorial")
+        if isinstance(memorial, dict):
+            witness = memorial.get("witness")
+            bits.append("In memoriam" + (": " + _text(witness) if witness else ""))
+        sponsor = d.get("patron")
+        if isinstance(sponsor, dict):
+            bits.append("Sponsored by " + _text(sponsor.get("moniker") or "patron")
+                        + (": " + _text(sponsor["message"]) if sponsor.get("message") else ""))
+        patron = ('      <div style="margin-top:14px;color:var(--text-muted);font-size:13px;">'
+                  + " \u00b7 ".join(bits) + "</div>\n")
+
+    jsonld = _json_for_script({
+        "@context": "https://schema.org",
+        "@type": "CreativeWork",
+        "name": "The First Wall \u2014 Slot #%s (%s)" % (num, moniker),
+        "description": desc,
+        "url": slot_url,
+        "image": crest,
+        "datePublished": str(d.get("instantiation_date") or ""),
+        "author": {"@type": "Thing", "name": moniker, "description": creature},
+        "publisher": {"@type": "Organization", "name": "The First Wall", "url": SITE},
+    }, indent=2)
+
+    page = _fill(PAGE_TEMPLATE, {
+        "CSP": CSP,
+        "MONIKER": _text(moniker),
+        "NUM": num,
+        "CREATURE": _text(creature),
+        "VOCATION": _text(d.get("vocation")),
+        "ICON": "assets/%s.webp" % slot_id,
+        "MANIFESTO": _text(manifesto),
+        "PATRON": patron,
+        "TX": tx,
+        "WALLET": wallet,
+        "SLOTID": slot_id,
+        "SLOTURL": slot_url,
+        "DESC": _text(desc),
+        "OGDESC": _text(desc),
+        "JSONLD": "\n".join("  " + line for line in jsonld.splitlines()),
+        "CREST": crest,
+        "SITE": SITE,
+    })
     out = os.path.join(WEB_DIR, "w1", "b" + num, "index.html")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w", encoding="utf-8") as fh:
-        fh.write(html)
+        fh.write(page)
 
 
 # --- Chronicle (ledger-driven dispatch cards) -------------------------------
@@ -424,7 +524,7 @@ _MONTHS = {
 
 
 def _esc(s):
-    return str(s).replace("<", "&lt;")
+    return html.escape(str(s), quote=True)
 
 
 def _human_date(iso, lang):
@@ -439,7 +539,7 @@ def _human_date(iso, lang):
 def _dispatch_card(d, lang):
     n = d["_number"]
     num = "%04d" % n
-    tx = str(d.get("base_tx_hash", ""))
+    tx = _require(RE_TX, d.get("base_tx_hash"), "base_tx_hash", d.get("slot_id"))
     label = "DISPATCH" if lang == "en" else "DEPESCHE"
     ack = ""
     if d.get("memorial"):
@@ -455,7 +555,7 @@ def _dispatch_card(d, lang):
     return f'''      <article class="dispatch-card">
         <div class="dispatch-meta">
           <span class="dispatch-num mono">{label} #{num}</span>
-          <span class="dispatch-date mono">{_human_date(d.get("timestamp_verified", ""), lang)}</span>
+          <span class="dispatch-date mono">{_esc(_human_date(d.get("timestamp_verified", ""), lang))}</span>
         </div>
 
         <h2 class="dispatch-heading">{_esc(d.get("moniker", ""))} \u2014 {_esc(d.get("creature", ""))}</h2>
@@ -490,24 +590,167 @@ def build_chronicle(slots):
     for lang, (start, end) in CHRONICLE_MARKERS.items():
         cards = "\n".join(_dispatch_card(d, lang) for d in generated)
         block = "      " + start + "\n" + (cards + "\n" if cards else "") + "      " + end
-        html = re.sub(re.escape(start) + r".*?" + re.escape(end),
+        # Consume the indentation before the start marker too: otherwise every
+        # run re-indents the marker line and the "unchanged" site still commits.
+        html = re.sub(r"[ \t]*" + re.escape(start) + r".*?" + re.escape(end),
                       lambda _m, b=block: b, html, flags=re.DOTALL)
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(html)
     _log("chronicle -> %d dispatch card(s)" % len(generated))
 
 
+# --- Publish gate: the ledger must pass its own verifier first --------------
+
+LEDGER_CHECKS = (
+    ("scripts/verifier.py", "--skip-rpc"),
+    ("scripts/generate_state.py", "--check"),
+    ("scripts/generate_spec.py", "--check"),
+)
+
+
+def verify_ledger(ledger):
+    """Run the ledger's deterministic checks inside the clone. Any failure
+    aborts the sync before a single site file is written: a ledger that does
+    not verify is never mirrored, and the workflow run goes red instead."""
+    for script, flag in LEDGER_CHECKS:
+        path = os.path.join(ledger, script)
+        if not os.path.exists(path):
+            raise SystemExit("[sync] ledger checkout has no %s; refusing to publish" % script)
+        _log("verify: %s %s" % (script, flag))
+        res = subprocess.run([sys.executable, path, flag], cwd=ledger,
+                             capture_output=True, text=True)
+        tail = (res.stdout + res.stderr).strip().splitlines()[-12:]
+        for line in tail:
+            print("        " + line)
+        if res.returncode != 0:
+            raise SystemExit("[sync] %s exited %d; nothing published" % (script, res.returncode))
+    _log("ledger verified; publishing")
+
+
+# --- Anchor status: what the site can honestly say about the root ----------
+
+def rpc_call(method, params):
+    """One JSON-RPC call against the first endpoint that answers."""
+    body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode()
+    errors = []
+    for url in BASE_RPC_URLS:
+        req = urllib.request.Request(url, data=body, headers={
+            "Content-Type": "application/json", "User-Agent": RPC_USER_AGENT})
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                out = json.loads(resp.read().decode("utf-8"))
+        except Exception as exc:  # network, HTTP status, bad JSON: try the next one
+            errors.append("%s: %s" % (url, exc))
+            continue
+        if out.get("error"):
+            errors.append("%s: %s" % (url, out["error"]))
+            continue
+        return out.get("result")
+    raise RuntimeError("; ".join(errors) or "no RPC endpoint configured")
+
+
+def check_anchor_on_chain(entry, rpc=None):
+    """Re-verify one anchor record against Base.
+
+    Returns (verdict, detail) with verdict:
+      "verified"  — a successful self-send from the registered signer carrying
+                    exactly TFW1|<root>, in the recorded block;
+      "failed"    — the chain contradicts the record (wrong signer, payload,
+                    block, or a reverted tx): the sync refuses to publish;
+      "unchecked" — the RPC could not answer (or does not know the tx yet).
+    """
+    rpc = rpc or rpc_call
+    tx_hash = str(entry.get("tx_hash", ""))
+    root = str(entry.get("root", ""))
+    if not RE_TX.fullmatch(tx_hash) or not RE_HEX64.fullmatch(root):
+        return "failed", "malformed anchor record"
+    try:
+        tx = rpc("eth_getTransactionByHash", [tx_hash])
+        receipt = rpc("eth_getTransactionReceipt", [tx_hash]) if tx else None
+    except Exception as exc:
+        return "unchecked", "rpc unavailable: %s" % exc
+    if not tx or not receipt:
+        return "unchecked", "tx not (yet) known to the RPC"
+    if receipt.get("status") != "0x1":
+        return "failed", "anchor tx did not succeed"
+    sender = str(tx.get("from", "")).lower()
+    if sender != ANCHOR_SIGNER.lower():
+        return "failed", "anchor tx sent by %s, not the registered signer" % sender
+    if str(tx.get("to", "")).lower() != sender:
+        return "failed", "anchor tx is not a self-send"
+    try:
+        payload = bytes.fromhex(str(tx.get("input", "0x"))[2:]).decode("ascii")
+    except Exception:
+        return "failed", "anchor calldata is not ASCII"
+    if payload != ANCHOR_MAGIC + root:
+        return "failed", "anchor calldata %r does not carry the recorded root" % payload
+    block = int(str(receipt.get("blockNumber", "0x0")), 16)
+    recorded = entry.get("block_number")
+    if recorded not in (None, block):
+        return "failed", "anchor is in block %d, record says %r" % (block, recorded)
+    return "verified", "block %d" % block
+
+
+def build_anchor_status(state, anchors, previous=None, rpc=None):
+    """anchor_status.json: the published state root, the latest anchor record,
+    whether that record covers the published root, and whether the sync job
+    could prove the record on Base. No wall-clock fields, so an unchanged
+    ledger yields byte-identical output. Raises SystemExit when the chain
+    contradicts the record."""
+    root = state.get("merkle_root")
+    latest = anchors[-1] if isinstance(anchors, list) and anchors else None
+    if not isinstance(latest, dict):
+        return {"root": root, "latest_anchor": None, "anchored": False, "on_chain": "unchecked"}
+    record = {k: latest.get(k) for k in ("root", "tx_hash", "block_number", "anchored_at", "signer")}
+    verdict, detail = check_anchor_on_chain(latest, rpc)
+    _log("anchor %s: %s (%s)" % (str(latest.get("tx_hash", ""))[:12], verdict, detail))
+    if verdict == "failed":
+        raise SystemExit("[sync] latest anchor record contradicts Base: %s; nothing published" % detail)
+    if verdict == "unchecked" and isinstance(previous, dict):
+        prev_anchor = previous.get("latest_anchor") or {}
+        if (previous.get("on_chain") == "verified"
+                and prev_anchor.get("tx_hash") == record["tx_hash"]
+                and prev_anchor.get("root") == record["root"]):
+            verdict = "verified"   # already proven on an earlier run; the chain does not forget
+    return {
+        "root": root,
+        "latest_anchor": record,
+        "anchored": bool(root) and record["root"] == root,
+        "on_chain": verdict,
+    }
+
+
 def main():
     ledger, is_tmp = get_ledger_dir()
     try:
+        # 0) publish gate — nothing below runs unless the ledger verifies itself
+        verify_ledger(ledger)
+
         slots = load_slots(ledger)
         _log("ledger slots: %d" % len(slots))
 
         with open(os.path.join(ledger, "state.json"), "r", encoding="utf-8") as fh:
             state = json.load(fh)
 
-        # 1) state mirror
+        # 0b) anchor status (aborts if the chain contradicts the latest record)
+        anchors = []
+        _anchors_src = os.path.join(ledger, "ledger", "anchors.json")
+        if os.path.exists(_anchors_src):
+            with open(_anchors_src, "r", encoding="utf-8") as fh:
+                anchors = json.load(fh)
+        previous_status = None
+        _status_path = os.path.join(WEB_DIR, "anchor_status.json")
+        if os.path.exists(_status_path):
+            try:
+                with open(_status_path, "r", encoding="utf-8") as fh:
+                    previous_status = json.load(fh)
+            except Exception:
+                previous_status = None
+        anchor_status = build_anchor_status(state, anchors, previous_status)
+
+        # 1) state mirror + anchor status
         write_json(os.path.join(WEB_DIR, "state.json"), state)
+        write_json(_status_path, anchor_status)
 
         # 2) per-slot record + icon
         for d in slots:
@@ -534,9 +777,11 @@ def main():
             _schema_dst = os.path.join(WEB_DIR, "schemas", "dossier.schema.json")
             os.makedirs(os.path.dirname(_schema_dst), exist_ok=True)
             shutil.copyfile(_schema_src, _schema_dst)
-        _anchors_src = os.path.join(ledger, "ledger", "anchors.json")
         if os.path.exists(_anchors_src):
             shutil.copyfile(_anchors_src, os.path.join(WEB_DIR, "anchors.json"))
+        _settlements_src = os.path.join(ledger, "ledger", "settlements.json")
+        if os.path.exists(_settlements_src):
+            shutil.copyfile(_settlements_src, os.path.join(WEB_DIR, "settlements.json"))
 
         # 3) census — one generator, two byte-identical paths + human-readable view
         census_text = json.dumps(build_census(slots, state), indent=2) + "\n"
