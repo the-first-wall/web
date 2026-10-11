@@ -1551,6 +1551,14 @@ canvas#wall-canvas {
   line-height: 1.45;
   color: var(--text-secondary);
 }
+.article-card-desc {
+  margin: 0;
+  font-family: var(--font-text);
+  font-size: var(--step--1);
+  line-height: var(--lh-body);
+  color: var(--text-secondary);
+  max-width: var(--measure);
+}
 .article-card .ai-disclosure-badge { margin-top: var(--space-2); }
 .article-card-meta {
   margin: 0;
