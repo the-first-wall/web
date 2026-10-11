@@ -24,8 +24,8 @@
     var path = location.pathname.replace(/index\.html$/, '');
     document.querySelectorAll('.header-nav a[href], .mobile-nav-links a[href], .footer-links a[href]').forEach(function (a) {
       var href = a.getAttribute('href');
-      // the home links (/, /en/, /de/) are prefixes of every page: never mark them
-      if (!href || href.charAt(0) !== '/' || href.indexOf('#') !== -1 || href === '/' || /^\/(en|de)\/$/.test(href)) return;
+      // the home links (/ and /de/) are prefixes of every page: never mark them
+      if (!href || href.charAt(0) !== '/' || href.indexOf('#') !== -1 || href === '/' || href === '/de/') return;
       if (path === href || path.indexOf(href) === 0) a.setAttribute('aria-current', 'page');
     });
 

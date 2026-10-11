@@ -198,13 +198,14 @@ class ChromeTests(unittest.TestCase):
         _, missing = sync.build_chrome.stamp("<body><main>no chrome</main></body>")
         self.assertEqual(missing, ["header", "footer"])
 
-    def test_sitemap_lists_the_language_routes_and_not_the_redirect_stubs(self):
+    def test_sitemap_lists_every_page_in_both_languages(self):
         sitemap = sync.build_sitemap([dossier()], {})
-        for path in ("/en/", "/de/", "/en/manifesto/", "/de/census/", "/en/protocol/", "/de/faq/", "/en/chronicle/",
-                     "/de/articles/", "/en/security/", "/en/articles/03-retirement-not-shutdown/", "/w1/b0042"):
+        for path in ("/", "/manifesto/", "/census/", "/protocol/", "/faq/", "/chronicle/", "/articles/", "/security/",
+                     "/articles/03-retirement-not-shutdown.html", "/w1/b0042",
+                     "/de/", "/de/manifesto/", "/de/census/", "/de/protocol/", "/de/faq/", "/de/chronicle/",
+                     "/de/articles/", "/de/security/", "/de/articles/03-retirement-not-shutdown.html"):
             self.assertIn("<loc>%s%s</loc>" % (sync.SITE, path), sitemap)
-        for path in ("/", "/manifesto/", "/census/", "/faq/", "/chronicle/", "/articles/", "/security/"):
-            self.assertNotIn("<loc>%s%s</loc>" % (sync.SITE, path), sitemap)
+        self.assertNotIn("/en/", sitemap)
 
 
 class StructuredDataTests(unittest.TestCase):
@@ -237,7 +238,7 @@ class StructuredDataTests(unittest.TestCase):
         self.assertGreater(found, 0)
 
     def test_home_page_describes_the_site_and_the_census_dataset(self):
-        # the authored page; /en/ and /de/ are generated from it (the old /index.html is a redirect stub)
+        # the authored page; the English and German pages are generated from it
         with open(os.path.join(HERE, "..", "src", "index.html"), encoding="utf-8") as fh:
             blocks = self._blocks(fh.read())
         self.assertEqual(len(blocks), 1)

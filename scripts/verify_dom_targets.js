@@ -4,7 +4,7 @@
  * every translation key used by a page must exist in both the EN and DE
  * dictionaries of i18n.js.
  *
- *   app.js     <-> the wall page (src/index.html and its generated /en/ and /de/ copies)
+ *   app.js     <-> the wall page (src/index.html and its generated English and German pages)
  *   site.js    <-> every page (header, mobile menu)
  *   data-i18n / data-i18n-aria / data-i18n-title keys: every .html page
  */
@@ -41,9 +41,9 @@ const hasClass = (html, cls) => new RegExp(`class="[^"]*\\b${cls}\\b`).test(html
 const missing = [];
 
 // --- 1. app.js <-> the wall page ---------------------------------------------
-// The authored page is src/index.html; /en/ and /de/ are generated from it by
-// scripts/build_i18n.py (the old /index.html is only a redirect stub). The script
-// is written against all three, so all three are checked.
+// The authored page is src/index.html; index.html (English) and de/index.html are
+// generated from it by scripts/build_i18n.py. The script is written against all three,
+// so all three are checked.
 const appSrc = read('app.js');
 const app = getElementByIdTargets(appSrc);
 
@@ -55,7 +55,7 @@ const mustExistSelectors = [
   '.btn-lang-toggle',       // i18n language toggle
   '.lang-toggle-text',      // i18n language toggle label
 ];
-for (const wall of ['src/index.html', 'en/index.html', 'de/index.html']) {
+for (const wall of ['src/index.html', 'index.html', 'de/index.html']) {
   const html = read(wall);
   for (const id of app.ids) if (!hasId(html, id)) missing.push(`${wall}: #${id} (app.js)`);
   for (const sel of mustExistSelectors) {

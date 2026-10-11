@@ -96,7 +96,7 @@ function externalLink(href, label, className) {
 }
 
 // Every file this script loads is addressed from the site root: the wall is
-// served at /en/ and /de/, so a page-relative path would resolve under them.
+// also served under /de/, so a page-relative path would resolve under it.
 const siteUrl = (path) => '/' + String(path).replace(/^\/+/, '');
 
 async function fetchJson(path) {

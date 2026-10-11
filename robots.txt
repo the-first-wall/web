@@ -4,8 +4,8 @@
 User-agent: *
 Allow: /
 
-# Authored page sources: the live pages are generated from them into /en/ and /de/
-# (scripts/build_i18n.py). Kept out of the index to avoid duplicate content.
+# Authored page sources (both languages in one file): the live English and German pages
+# are generated from them (scripts/build_i18n.py). Kept out of the index to avoid duplicates.
 Disallow: /src/
 
 # Machine-readable interfaces

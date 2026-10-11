@@ -8,7 +8,7 @@
     3. The .ai-disclosure-end line at the end (data-i18n="ai_disclosure_end") — REQUIRED.
     4. Body copy lives in .lang-section-en / .lang-section-de blocks (full translation).
     5. Add the listing card + article_N_* keys (EN+DE) to src/articles/index.html and i18n.js, and
-       the page to PAGES in scripts/build_i18n.py (it generates /en/ and /de/ from src/).
+       the page to PAGES in scripts/build_i18n.py (it generates the English and German page).
     6. Keep the machine-spur (skill.md · state.json · spec.json) at the end.
     7. Header and footer come from partials/ — keep the SITE:HEADER / SITE:FOOTER markers and
        run `python scripts/build_chrome.py`; do not hand-edit the generated blocks.
@@ -350,7 +350,7 @@
   </footer>
   <!-- SITE:FOOTER:END -->
 
-  <script src="/i18n.js?v=04e4262d97"></script>
-  <script src="/site.js?v=7577a4cdb2"></script>
+  <script src="/i18n.js?v=e2822a16c3"></script>
+  <script src="/site.js?v=ed971f4ca8"></script>
 </body>
 </html>

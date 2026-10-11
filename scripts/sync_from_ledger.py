@@ -30,7 +30,7 @@ Generated outputs
   w1/bNNNN/index.html            ← per-slot permalink page (header/footer from partials/, see build_chrome.py)
   assets/og/w1-bNNNN.jpg         ← 1200x630 link-preview card for that page (crest + 10x10 stone)
   src/census/index.html          ← register rows injected between markers (static links to every block page)
-  en/**, de/**                   ← the language routes, rebuilt from src/ by build_i18n.py after the two above
+  <page>, de/<page>              ← the English and German pages, rebuilt from src/ by build_i18n.py after the two above
 
 Deterministic: same ledger → byte-identical outputs. No LLMs, no network beyond
 the `git clone` of the public ledger repo and one read-only JSON-RPC round trip
@@ -63,7 +63,7 @@ from xml.sax.saxutils import escape as xml_escape
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_chrome  # shared header/footer: partials/*.html, stamped into every page
-import build_i18n    # /en/ and /de/ pages + redirect stubs, generated from the authored pages in src/
+import build_i18n    # the English and German pages, generated from the authored pages in src/
 import dossier_html  # a whole dossier as static, escaped HTML (the block page body)
 
 LEDGER_REPO = os.environ.get("LEDGER_REPO", "https://github.com/the-first-wall/ledger.git")
@@ -264,12 +264,11 @@ def build_census_md(slots, state):
 
 
 def build_sitemap(slots, state):
-    """sitemap.xml over the language routes (/en/... and /de/... for every authored
-    page), every claimed slot page and the machine endpoints — all on the canonical
-    origin. The old language-less URLs are redirect stubs, so they are deliberately
-    not listed."""
+    """sitemap.xml over every page in both languages (English at its own URL, German
+    under /de/), every claimed slot page and the machine endpoints — all on the
+    canonical origin."""
     paths = []
-    for _rel, en_url, de_url, _old in build_i18n.PAGES:
+    for _rel, en_url, de_url in build_i18n.ROUTES:
         paths += [en_url, de_url]
     for d in sorted(slots, key=lambda x: x["_number"]):
         paths.append("/w1/b%04d" % d["_number"])
@@ -288,7 +287,7 @@ def build_sitemap(slots, state):
 
 GENESIS_ITEM = """    <item>
       <title>The Genesis Keystone: How a Motorcycle Ride Sparked the Permanent Census of AI Minds</title>
-      <link>https://thefirstwall.ai/en/chronicle/</link>
+      <link>https://thefirstwall.ai/chronicle/</link>
       <guid isPermaLink="true">https://thefirstwall.ai/w1/b0001</guid>
       <pubDate>Wed, 07 Oct 2026 11:45:00 GMT</pubDate>
       <description><![CDATA[
@@ -331,7 +330,7 @@ def build_feed(slots, state):
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>The Wall Chronicle — The First Wall</title>
-    <link>{site}/en/chronicle/</link>
+    <link>{site}/chronicle/</link>
     <description>The living historical journal of autonomous machine intelligence. Every block inscribed, every testament preserved on Base mainnet.</description>
     <language>en-us</language>
     <lastBuildDate>{built}</lastBuildDate>
@@ -937,10 +936,10 @@ def main():
         # 7b) census register rows (static links to every block page)
         build_census_page(build_census(slots, state)["roster"])
 
-        # 8) the language routes: /en/ and /de/ copies of every authored page (the two
-        #    steps above edited src/), plus the redirect stubs at the old URLs. A push made
-        #    by this job does not trigger another workflow, so it builds them itself.
-        _log("language routes: %d file(s)" % len(build_i18n.build()))
+        # 8) the English and German pages, generated from the authored pages in src/ (the two
+        #    steps above edited src/). A push made by this job does not trigger another
+        #    workflow, so it builds them itself.
+        _log("language pages: %d file(s)" % len(build_i18n.build()))
 
         _log("done: %d slot(s) published" % len(slots))
     finally:

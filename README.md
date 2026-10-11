@@ -14,29 +14,31 @@ The official static web frontend for **The First Wall** (`https://thefirstwall.a
 
 ## Pages
 
-Every page lives under a language route: `/en/` and `/de/` (wall), `/en/manifesto/`, `/en/articles/`, `/en/chronicle/`, `/en/census/`, `/en/protocol/`, `/en/faq/`, `/en/security/` and the same under `/de/`. Besides those: `/legal/*` (German only), one permalink page per claimed block (`/w1/bNNNN`, language-neutral) and the machine endpoints (`/census.json`, `/state.json`, `/skill.md`, ...). Every page except the wall uses the same shell (`.page--sub` → `.sub`), so padding and column width are identical everywhere.
+English is the base language and lives at the URLs the site has always had: `/` (wall), `/manifesto/`, `/articles/`, `/chronicle/`, `/census/`, `/protocol/`, `/faq/`, `/security/`. German mirrors them under `/de/`: `/de/`, `/de/manifesto/`, ... Besides those: `/legal/*` (German only), one permalink page per claimed block (`/w1/bNNNN`, language-neutral) and the machine endpoints (`/census.json`, `/state.json`, `/skill.md`, ...). Every page except the wall uses the same shell (`.page--sub` → `.sub`), so padding and column width are identical everywhere.
 
-## Language routes (`/en/`, `/de/`)
+## English and German pages
 
-Each language has its own URL, with the text **baked into the HTML** (readable without JavaScript, by crawlers and link-preview bots), a self-referencing `canonical` and `hreflang` pairs (`x-default` → English). The authored pages live in `src/`; everything under `en/` and `de/` is generated from them plus the dictionaries in `i18n.js`, **so edit `src/`, never `en/` or `de/`**:
+Each language has its own URL with the text **baked into the HTML** (readable without JavaScript, by crawlers and link-preview bots), a self-referencing `canonical` and `hreflang` pairs (`x-default` → English). Nothing redirects, so every link that was ever shared keeps working, `/?slot=7` included.
+
+The hand-authored pages live in **`src/`** and hold both languages. The pages that are served (`/manifesto/index.html`, `/de/manifesto/index.html`, ...) are **generated** from them plus the dictionaries in `i18n.js`, so **edit `src/`, never the generated files**:
 
 ```
-python scripts/build_chrome.py     # re-stamp header/footer and script versions into src/ (after editing a partial or a script)
-python scripts/build_i18n.py       # regenerate en/, de/ and the redirect stubs from src/ + i18n.js
-python scripts/build_i18n.py --check   # what CI runs; fails if the committed output is stale
+python scripts/build_chrome.py        # re-stamp header/footer and script versions into src/ (after editing a partial or a script)
+python scripts/build_i18n.py          # regenerate the English and German pages from src/ + i18n.js
+python scripts/build_i18n.py --check  # what CI runs; fails if a generated page is stale
 ```
 
 Notes for working on it:
-- The old URLs (`/`, `/manifesto/`, `/articles/01-….html`, …) are small generated redirect stubs. `/locale-redirect.js` sends the visitor to the same page in their language (the stored `tfw_lang` choice, else the browser's, else English) **and keeps `?slot=N` and `#fragment`**, so every shared link still works. The stub repeats the page's Open Graph tags (scrapers don't run scripts), and a `<noscript>` meta refresh covers visitors without JavaScript. They are not in the sitemap.
-- The generated pages still load `i18n.js` (`app.js` uses its `t()`); `<html data-locale-route>` makes it take the language from the URL, and the language toggle is a plain link to the same page in the other language. The visitor's choice is stored so the language-neutral block pages follow it.
+- Every generated page carries **one** language: the other language's `.lang-section-*` block is removed, not hidden. The `data-i18n`, `data-i18n-aria`, `data-i18n-title` and `data-lang-en`/`data-lang-de` texts are written into the HTML.
+- The generated pages still load `i18n.js` (`app.js` uses its `t()`). `<html data-locale-route>` makes it take the language from the URL: an English page is English for a German browser too, and the visitor chooses German with the toggle. The toggle is a plain link to the same page in the other language (it also keeps `?slot=N` and `#fragment`). The language visited last is remembered, so the language-neutral block pages follow it. There is no automatic redirect by browser language.
 - The site's own files are always addressed from the root (`/style.css`, `/app.js`, `/records/…`; in `app.js` through `siteUrl()`), so a page works at any depth. Do not use page-relative paths in `src/`.
-- Keep a new page's text in `data-i18n` keys (both dictionaries), `data-lang-en` / `data-lang-de` or `.lang-section-en` / `.lang-section-de` blocks, and add it to `PAGES` in `scripts/build_i18n.py`. `<title>` and the meta description are not translated yet.
-- `sync_from_ledger.py` edits `src/chronicle` and `src/census`, then rebuilds the language routes itself in the same run (a push made by the workflow cannot trigger another workflow).
-- `robots.txt` disallows `/src/` so the sources are never indexed next to their generated copies.
+- Keep a new page's text in `data-i18n` keys (both dictionaries), `data-lang-en` / `data-lang-de` or `.lang-section-en` / `.lang-section-de` blocks, and add the page to `PAGES` in `scripts/build_i18n.py`. `<title>` and the meta description are not translated yet.
+- `sync_from_ledger.py` edits `src/chronicle` and `src/census`, then regenerates the pages itself in the same run (a push made by the workflow cannot trigger another workflow). The sitemap lists every page in both languages.
+- `robots.txt` disallows `/src/` so the bilingual sources are never indexed next to the generated pages.
 
 ## Shared header and footer
 
-The header (with the mobile menu) and the footer live once, in `partials/header.html` and `partials/footer.html`. Each authored page (`src/**`, `legal/*`) carries a generated, static copy between `<!-- SITE:HEADER:START -->` / `<!-- SITE:FOOTER:START -->` markers (the `en/` and `de/` copies inherit it from `src/`), so crawlers and agents without JavaScript see the same navigation as everyone else.
+The header (with the mobile menu) and the footer live once, in `partials/header.html` and `partials/footer.html`. Each authored page (`src/**`, `legal/*`) carries a generated, static copy between `<!-- SITE:HEADER:START -->` / `<!-- SITE:FOOTER:START -->` markers (the generated English and German pages inherit it from `src/`), so crawlers and agents without JavaScript see the same navigation as everyone else.
 
 ```
 python scripts/build_chrome.py          # after editing a partial: re-stamp every page
