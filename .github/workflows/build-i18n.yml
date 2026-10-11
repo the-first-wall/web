@@ -1,0 +1,55 @@
+name: Build Locale Routes
+
+# Regenerates the EN/DE static locale trees (en/**, de/**) and the redirect
+# stubs at the old URLs from the hand-authored pages under src/ plus the
+# EN/DE dictionaries in i18n.js. Runs in the cloud — deterministic, no
+# secrets, no network. Commits the regenerated trees straight to main
+# (GitHub Pages then deploys automatically), mirroring sync-from-ledger.yml.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'i18n.js'
+      - 'scripts/build_i18n.py'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-i18n
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Rebuild locale trees
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out site repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Rebuild the locale trees and redirect stubs
+        run: python scripts/build_i18n.py
+
+      - name: Sanity — committed output matches the build
+        run: python scripts/build_i18n.py --check
+
+      - name: Commit & push if anything changed
+        run: |
+          git config user.name  "the-first-wall-bot"
+          git config user.email "bot@thefirstwall.ai"
+          git add -A
+          if git diff --quiet --cached; then
+            echo "Locale trees unchanged — nothing to publish."
+            exit 0
+          fi
+          git commit -m "chore(i18n): rebuild locale routes @ $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git pull --rebase --autostash origin main
+          git push

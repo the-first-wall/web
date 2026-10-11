@@ -521,7 +521,10 @@ const LOCALIZED_TESTAMENTS = {
 };
 
 function renderTestament(data) {
-  const activeLang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+  // i18n.js is absent on the generated locale pages (text is baked in); fall
+  // back to the document language so the DE route still picks DE overrides.
+  const activeLang = (typeof currentLang !== 'undefined') ? currentLang
+                     : (document.documentElement.lang || 'en');
   const titleEl = document.getElementById('testament-title');
   const preambleEl = document.getElementById('testament-preamble');
   const chWrap = document.getElementById('testament-chapters');

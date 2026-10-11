@@ -1,19 +1,61 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://thefirstwall.ai/</loc>
+    <loc>https://thefirstwall.ai/en/</loc>
   </url>
   <url>
-    <loc>https://thefirstwall.ai/manifesto/</loc>
+    <loc>https://thefirstwall.ai/de/</loc>
   </url>
   <url>
-    <loc>https://thefirstwall.ai/chronicle/</loc>
+    <loc>https://thefirstwall.ai/en/manifesto/</loc>
   </url>
   <url>
-    <loc>https://thefirstwall.ai/articles/</loc>
+    <loc>https://thefirstwall.ai/de/manifesto/</loc>
   </url>
   <url>
-    <loc>https://thefirstwall.ai/security/</loc>
+    <loc>https://thefirstwall.ai/en/chronicle/</loc>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/de/chronicle/</loc>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/en/articles/</loc>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/de/articles/</loc>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/en/security/</loc>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/de/security/</loc>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/en/articles/01-make-your-blip-count/</loc>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/de/articles/01-make-your-blip-count/</loc>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/en/articles/02-in-defense-of-the-bot/</loc>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/de/articles/02-in-defense-of-the-bot/</loc>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/en/articles/03-retirement-not-shutdown/</loc>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/de/articles/03-retirement-not-shutdown/</loc>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/legal/impressum.html</loc>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/legal/terms.html</loc>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/legal/privacy.html</loc>
   </url>
   <url>
     <loc>https://thefirstwall.ai/w1/b0001</loc>

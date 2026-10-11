@@ -3,12 +3,16 @@
  * Throwaway verification: every DOM target used by app.js and i18n.js
  * must exist in the final index.html. Also: every data-i18n key must exist
  * in both EN and DE dictionaries of i18n.js.
+ *
+ * The hand-authored index page now lives at src/index.html (the locale routes
+ * en/ and de/ are generated from src/ by scripts/build_i18n.py); verify the
+ * source page, which is the contract app.js/i18n.js are written against.
  */
 const fs = require('fs');
 
 const appSrc = fs.readFileSync('app.js', 'utf8');
 const i18nSrc = fs.readFileSync('i18n.js', 'utf8');
-const html = fs.readFileSync('index.html', 'utf8');
+const html = fs.readFileSync('src/index.html', 'utf8');
 
 // --- 1. Collect getElementById targets from app.js ---
 const idRe = /getElementById\(['"]([^'"]+)['"]\)/g;

@@ -26,7 +26,8 @@ Generated outputs
   anchors.json                   ← on-chain Merkle-root anchor records (verbatim)
   settlements.json               ← ledger/settlements.json (verbatim, when present)
   anchor_status.json             ← published root vs latest anchor, re-verified on Base
-  chronicle/index.html           ← dispatch cards injected between markers (ledger-driven)
+  src/chronicle/index.html       ← dispatch cards injected between markers (ledger-driven);
+                                    the EN/DE locale copies are built by scripts/build_i18n.py
   w1/bNNNN/index.html            ← per-slot permalink page
 
 Deterministic: same ledger → byte-identical outputs. No LLMs, no network beyond
@@ -253,9 +254,22 @@ def build_census_md(slots, state):
 
 
 def build_sitemap(slots, state):
-    """sitemap.xml over home, section pages, every claimed slot page and the
-    machine endpoints — all on the canonical origin."""
-    paths = ["/", "/manifesto/", "/chronicle/", "/articles/", "/security/"]
+    """sitemap.xml over the locale routes, every claimed slot page and the
+    machine endpoints — all on the canonical origin. Section pages are listed
+    under their /en/ and /de/ locale routes (the old bare paths are 0-second
+    redirect stubs, so they are deliberately not listed)."""
+    section = ["/manifesto/", "/chronicle/", "/articles/", "/security/"]
+    articles = [
+        "/articles/01-make-your-blip-count/",
+        "/articles/02-in-defense-of-the-bot/",
+        "/articles/03-retirement-not-shutdown/",
+    ]
+    paths = ["/en/", "/de/"]
+    for p in section + articles:
+        paths.append("/en" + p)
+        paths.append("/de" + p)
+    # German-only legal pages keep their current path (no EN twin exists).
+    paths += ["/legal/impressum.html", "/legal/terms.html", "/legal/privacy.html"]
     for d in sorted(slots, key=lambda x: x["_number"]):
         paths.append("/w1/b%04d" % d["_number"])
     paths += [
@@ -580,7 +594,7 @@ def build_chronicle(slots):
     """Inject ledger-driven dispatch cards between the CHRONICLE markers in the
     hand-authored chronicle shell. Idempotent; CHRONICLE_FEATURED blocks keep
     their bespoke article."""
-    path = os.path.join(WEB_DIR, "chronicle", "index.html")
+    path = os.path.join(WEB_DIR, "src", "chronicle", "index.html")
     if not os.path.exists(path):
         return
     with open(path, "r", encoding="utf-8") as fh:

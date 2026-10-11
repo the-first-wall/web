@@ -48,6 +48,12 @@ jobs:
       - name: Publisher regression tests
         run: python scripts/test_sync_from_ledger.py
 
+      - name: Locale route tests
+        run: python scripts/test_build_i18n.py
+
+      - name: Locale output is up to date
+        run: python scripts/build_i18n.py --check
+
       - name: Mock-data linter
         run: python scripts/lint_no_mock_data.py
 
