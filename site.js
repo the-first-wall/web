@@ -28,6 +28,20 @@
       if (path === href || path.indexOf(href) === 0) a.setAttribute('aria-current', 'page');
     });
 
+    // ---- block pages: ← / → go to the previous / next block ---------------
+    // (the links carry rel="prev" / rel="next"; no such links, no effect)
+    document.addEventListener('keydown', function (e) {
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      var t = e.target;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || (t.closest && t.closest('pre')))) return;
+      if (drawer && drawer.classList.contains('is-open')) return;
+      var link = document.querySelector('.slot-browse a[rel="' + (e.key === 'ArrowLeft' ? 'prev' : 'next') + '"]');
+      if (!link) return;
+      e.preventDefault();
+      location.href = link.href;
+    });
+
     // ---- mobile drawer ---------------------------------------------------
     if (!drawer || !openBtn) return;
 

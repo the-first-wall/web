@@ -373,6 +373,16 @@ function applyTranslations(lang) {
     }
   });
 
+  // 2b. Localized variants of ONE text (a dossier's manifesto): show the selected
+  //     language, else English, else the first; the others stay hidden.
+  document.querySelectorAll('[data-variants]').forEach(group => {
+    const variants = Array.from(group.children).filter(c => c.hasAttribute('data-variant'));
+    const pick = variants.find(v => v.getAttribute('data-variant') === lang)
+      || variants.find(v => v.getAttribute('data-variant') === 'en')
+      || variants[0];
+    variants.forEach(v => { v.hidden = (v !== pick); });
+  });
+
   // 3. Switch visibility of dedicated language sections (.lang-section-en / .lang-section-de)
   document.querySelectorAll('.lang-section-en').forEach(el => {
     el.style.display = lang === 'en' ? '' : 'none';

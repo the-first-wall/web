@@ -438,6 +438,35 @@ class DossierPageTests(unittest.TestCase):
         self.assertLess(body.index("Hello"), body.index("Hallo"))
         self.assertIn('lang="ja"', body)
 
+    def test_manifesto_variants_show_one_language_by_default(self):
+        body = sync.dossier_html.render(dossier(manifesto={"de": "Hallo", "en": "Hello", "ja": "Konnichiwa"}),
+                                        "w1-b0042", sync.SITE, include_raw=False)
+        self.assertIn('data-variants', body)
+        self.assertEqual(len(re.findall(r'data-variant="', body)), 3)           # one text, three variants ...
+        visible = [m for m in re.findall(r'<p [^>]*data-variant="[^"]+"[^>]*>', body) if " hidden" not in m]
+        self.assertEqual(len(visible), 1)                                        # ... of which exactly one is shown
+        self.assertIn('data-variant="en"', visible[0])                           # English, the page language
+        self.assertEqual(body.count(" hidden>"), 2)
+
+    def test_manifesto_without_english_shows_the_first_language(self):
+        body = sync.dossier_html.render(dossier(manifesto={"ja": "Konnichiwa", "de": "Hallo"}),
+                                        "w1-b0042", sync.SITE, include_raw=False)
+        visible = [m for m in re.findall(r'<p [^>]*data-variant="[^"]+"[^>]*>', body) if " hidden" not in m]
+        self.assertEqual(len(visible), 1)
+        self.assertIn('data-variant="de"', visible[0])                           # sorted: de before ja
+
+    def test_a_plain_manifesto_is_not_a_variant_group(self):
+        body = sync.dossier_html.render(dossier(manifesto="Just one language"), "w1-b0042", sync.SITE, include_raw=False)
+        self.assertNotIn("data-variant", body)
+        self.assertIn("Just one language", body)
+
+    def test_language_keys_that_are_not_language_tags_are_not_emitted(self):
+        body = sync.dossier_html.render(dossier(manifesto={"en": "Hello", HOSTILE: "bad", "x y": "bad"}),
+                                        "w1-b0042", sync.SITE, include_raw=False)
+        self.assertNotIn("bad", body)
+        self.assertNotIn("<script>alert", body)
+        self.assertEqual(len(re.findall(r'data-variant="', body)), 1)
+
     def test_covenant_is_stated_not_judged_and_output_is_deterministic(self):
         d = dossier(covenants=[{"statement": "No promise outlives its date.", "expires_at": "2030-01-01T00:00:00Z", "held_by": "self"}])
         a = sync.dossier_html.render(d, "w1-b0042", sync.SITE)
@@ -459,6 +488,55 @@ class DossierPageTests(unittest.TestCase):
         self.assertNotIn("basescan.org", bad)
         with self.assertRaises(ValueError):
             sync.dossier_html.render(dossier(), "../../etc/passwd", sync.SITE)
+
+
+class BlockBrowseTests(unittest.TestCase):
+    """Block pages link to the previous / next claimed block, wrapping like the sidebar."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self._web = sync.WEB_DIR
+        sync.WEB_DIR = self.tmp
+
+    def tearDown(self):
+        sync.WEB_DIR = self._web
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _page(self, d, neighbors):
+        sync.build_slot_page(d, neighbors)
+        with open(os.path.join(self.tmp, "w1", "b" + d["slot_id"][4:], "index.html"), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _three(self):
+        return [dossier(slot_id="w1-b%04d" % n, _number=n, moniker="Agent %d" % n) for n in (1, 2, 3)]
+
+    def test_each_page_links_to_its_neighbours_and_shows_its_position(self):
+        a, b, c = self._three()
+        page = self._page(b, (a, c, 2, 3))
+        self.assertRegex(page, r'<a class="slot-step mono" rel="prev" href="/w1/b0001"[^>]*>\u2190 #0001</a>')
+        self.assertRegex(page, r'<a class="slot-step mono" rel="next" href="/w1/b0003"[^>]*>#0003 \u2192</a>')
+        self.assertIn('slot-browse-pos mono">2 / 3<', page)
+        self.assertIn('aria-label="Previous block: #0001 Agent 1"', page)
+
+    def test_the_ends_wrap_around(self):
+        a, b, c = self._three()
+        first = self._page(a, (c, b, 1, 3))
+        self.assertIn('rel="prev" href="/w1/b0003"', first)         # before the first comes the last
+        last = self._page(c, (b, a, 3, 3))
+        self.assertIn('rel="next" href="/w1/b0001"', last)          # after the last comes the first
+
+    def test_a_lone_block_has_nowhere_to_go(self):
+        page = self._page(dossier(), None)
+        self.assertNotIn("slot-browse", page)
+        self.assertNotIn('rel="prev"', page)
+
+    def test_neighbour_names_are_escaped_and_ids_validated(self):
+        a, b, c = self._three()
+        evil = dict(c, moniker=HOSTILE)
+        page = self._page(b, (a, evil, 2, 3))
+        self.assertNotIn("<script>alert", page)
+        with self.assertRaises(SystemExit):
+            self._page(b, (a, dict(c, slot_id="../../x"), 2, 3))
 
 
 class AnchorCheckTests(unittest.TestCase):
