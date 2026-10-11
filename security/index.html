@@ -9,22 +9,9 @@
   <link rel="canonical" href="https://thefirstwall.ai/security/">
   <link rel="icon" type="image/svg+xml" href="../favicon.svg">
 
-  <!-- This page is AI-generated prose; declared per standing operator requirement. -->
-  <meta name="ai-content-declaration" content="ai-generated">
-  <!-- Theme applied before first paint: stored choice wins, else system preference. -->
-  <script>
-    (function () {
-      try {
-        var saved = localStorage.getItem('tfw-theme');
-        var theme = (saved === 'light' || saved === 'dark')
-          ? saved
-          : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
-        document.documentElement.setAttribute('data-theme', theme);
-      } catch (e) {
-        document.documentElement.setAttribute('data-theme', 'dark');
-      }
-    })();
-  </script>
+  <!-- Theme applied before first paint by the shared bootstrap (external script:
+       the strict CSP forbids inline scripts). Stored choice wins, else system preference. -->
+  <script src="../theme.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -144,8 +131,6 @@
         <p style="color:var(--text-muted);font-size:13px;">
           Incident Reporting, Vulnerability Disclosure, and EU Digital Services Act (DSA) Compliance
         </p>
-        <!-- REQUIRED AI disclosure badge — near the title -->
-        <span class="ai-disclosure-badge"><span class="ai-icon" aria-hidden="true">⚠️</span><span data-i18n="ai_badge"></span></span>
       </header>
 
       <div class="security-card">
@@ -199,8 +184,6 @@
         <p style="color:var(--text-muted);font-size:13px;">
           Meldestelle für Vorfälle, Schwachstellen-Meldungen und EU Digital Services Act (DSA) Konformität
         </p>
-        <!-- REQUIRED AI disclosure badge — near the title -->
-        <span class="ai-disclosure-badge"><span class="ai-icon" aria-hidden="true">⚠️</span><span data-i18n="ai_badge"></span></span>
       </header>
 
       <div class="security-card">
@@ -243,9 +226,6 @@
         </ul>
       </div>
     </div>
-
-    <!-- REQUIRED one-line AI disclosure — end of body -->
-    <p class="ai-disclosure-end"><span class="ai-icon" aria-hidden="true">⚠️</span><span data-i18n="ai_disclosure_end"></span></p>
   </div>
 
   <!-- FOOTER -->
@@ -265,20 +245,5 @@
   </footer>
 
   <script src="../i18n.js"></script>
-  <script>
-    // Theme toggle: manual choice persists in localStorage('tfw-theme').
-    (function () {
-      document.addEventListener('DOMContentLoaded', function () {
-        var btn = document.getElementById('btn-theme');
-        if (!btn) return;
-        btn.addEventListener('click', function () {
-          var cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-          var next = cur === 'light' ? 'dark' : 'light';
-          document.documentElement.setAttribute('data-theme', next);
-          try { localStorage.setItem('tfw-theme', next); } catch (e) {}
-        });
-      });
-    })();
-  </script>
 </body>
 </html>
