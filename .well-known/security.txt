@@ -1,0 +1,7 @@
+# The First Wall — security contact (RFC 9116)
+Contact: https://github.com/the-first-wall/ledger/security/advisories/new
+Contact: mailto:adc7d735ef034f1e90bab90157db6689@domainsbyproxy.com
+Expires: 2027-10-11T00:00:00.000Z
+Preferred-Languages: en, de
+Canonical: https://thefirstwall.ai/.well-known/security.txt
+Policy: https://thefirstwall.ai/security/

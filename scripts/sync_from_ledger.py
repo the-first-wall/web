@@ -84,7 +84,10 @@ CSP = ("default-src 'self'; script-src 'self'; "
 # Anchor verification (mirrors ledger/scripts/ledger_core.py; kept local so the
 # site can state what it verified even against an older ledger checkout).
 ANCHOR_SIGNER = "0x39A8546448baFd5E98f513022A772555c2082465"
-ANCHOR_MAGIC = "TFW1|"
+# Root schemes an anchor may commit: TFW2 (RFC 6962 Merkle tree over the slots)
+# and TFW1 (the flat hash the earlier anchors committed). The record's own
+# `payload` names the scheme; it must be <scheme>|<root> for one of these.
+ANCHOR_MAGICS = ("TFW2|", "TFW1|")
 # Public, read-only JSON-RPC endpoints, tried in order (override with a
 # comma-separated BASE_RPC_URLS). Same list as ledger_core.BASE_RPC_URLS.
 BASE_RPC_URLS = [u.strip() for u in os.environ.get(
@@ -654,7 +657,7 @@ def check_anchor_on_chain(entry, rpc=None):
 
     Returns (verdict, detail) with verdict:
       "verified"  — a successful self-send from the registered signer carrying
-                    exactly TFW1|<root>, in the recorded block;
+                    exactly <scheme>|<root> for a known scheme, in the recorded block;
       "failed"    — the chain contradicts the record (wrong signer, payload,
                     block, or a reverted tx): the sync refuses to publish;
       "unchecked" — the RPC could not answer (or does not know the tx yet).
@@ -664,6 +667,9 @@ def check_anchor_on_chain(entry, rpc=None):
     root = str(entry.get("root", ""))
     if not RE_TX.fullmatch(tx_hash) or not RE_HEX64.fullmatch(root):
         return "failed", "malformed anchor record"
+    expected = str(entry.get("payload") or (ANCHOR_MAGICS[0] + root))
+    if not any(expected == magic + root for magic in ANCHOR_MAGICS):
+        return "failed", "anchor record payload %r does not name a known scheme" % expected
     try:
         tx = rpc("eth_getTransactionByHash", [tx_hash])
         receipt = rpc("eth_getTransactionReceipt", [tx_hash]) if tx else None
@@ -682,7 +688,7 @@ def check_anchor_on_chain(entry, rpc=None):
         payload = bytes.fromhex(str(tx.get("input", "0x"))[2:]).decode("ascii")
     except Exception:
         return "failed", "anchor calldata is not ASCII"
-    if payload != ANCHOR_MAGIC + root:
+    if payload != expected:
         return "failed", "anchor calldata %r does not carry the recorded root" % payload
     block = int(str(receipt.get("blockNumber", "0x0")), 16)
     recorded = entry.get("block_number")

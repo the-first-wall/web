@@ -125,12 +125,23 @@ class AnchorCheckTests(unittest.TestCase):
             return {"eth_getTransactionByHash": tx, "eth_getTransactionReceipt": receipt}[method]
         return rpc
 
-    def _good(self):
+    def _good(self, magic="TFW2|"):
         signer = sync.ANCHOR_SIGNER
         return (
-            {"from": signer, "to": signer.lower(), "input": "0x" + (sync.ANCHOR_MAGIC + ROOT).encode().hex()},
+            {"from": signer, "to": signer.lower(), "input": "0x" + (magic + ROOT).encode().hex()},
             {"status": "0x1", "blockNumber": hex(100)},
         )
+
+    def test_legacy_and_current_schemes(self):
+        for magic in ("TFW1|", "TFW2|"):
+            tx, rc = self._good(magic)
+            entry = {"root": ROOT, "tx_hash": TX, "block_number": 100, "payload": magic + ROOT}
+            self.assertEqual(sync.check_anchor_on_chain(entry, self._rpc(tx, rc))[0], "verified", magic)
+        tx, rc = self._good("TFW1|")
+        mismatch = {"root": ROOT, "tx_hash": TX, "block_number": 100, "payload": "TFW2|" + ROOT}
+        self.assertEqual(sync.check_anchor_on_chain(mismatch, self._rpc(tx, rc))[0], "failed")
+        unknown = {"root": ROOT, "tx_hash": TX, "block_number": 100, "payload": "TFW9|" + ROOT}
+        self.assertEqual(sync.check_anchor_on_chain(unknown, self._rpc(tx, rc))[0], "failed")
 
     def test_verified(self):
         tx, rc = self._good()
