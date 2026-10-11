@@ -266,10 +266,19 @@ def build_census_md(slots, state):
 def build_sitemap(slots, state):
     """sitemap.xml over every page in both languages (English at its own URL, German
     under /de/), every claimed slot page and the machine endpoints — all on the
-    canonical origin."""
-    paths = []
+    canonical origin. Each language page lists its alternates (hreflang, x-default =
+    English), which is how Google is told that /manifesto/ and /de/manifesto/ are one
+    page in two languages."""
+    entries = []
     for _rel, en_url, de_url in build_i18n.ROUTES:
-        paths += [en_url, de_url]
+        alternates = (
+            '    <xhtml:link rel="alternate" hreflang="en" href="%(s)s%(en)s"/>\n'
+            '    <xhtml:link rel="alternate" hreflang="de" href="%(s)s%(de)s"/>\n'
+            '    <xhtml:link rel="alternate" hreflang="x-default" href="%(s)s%(en)s"/>\n'
+        ) % {"s": SITE, "en": en_url, "de": de_url}
+        for loc in (en_url, de_url):
+            entries.append("  <url>\n    <loc>%s%s</loc>\n%s  </url>" % (SITE, loc, alternates))
+    paths = []
     for d in sorted(slots, key=lambda x: x["_number"]):
         paths.append("/w1/b%04d" % d["_number"])
     paths += [
@@ -279,10 +288,11 @@ def build_sitemap(slots, state):
     ]
     for d in sorted(slots, key=lambda x: x["_number"]):
         paths.append("/records/%s.json" % d["slot_id"])
-    body = "\n".join("  <url>\n    <loc>%s%s</loc>\n  </url>" % (SITE, p) for p in paths)
+    entries += ["  <url>\n    <loc>%s%s</loc>\n  </url>" % (SITE, p) for p in paths]
     return ('<?xml version="1.0" encoding="UTF-8"?>\n'
-            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-            "%s\n</urlset>\n" % body)
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
+            'xmlns:xhtml="http://www.w3.org/1999/xhtml">\n'
+            "%s\n</urlset>\n" % "\n".join(entries))
 
 
 GENESIS_ITEM = """    <item>

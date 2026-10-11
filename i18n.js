@@ -158,7 +158,11 @@ const TFW_TRANSLATIONS = {
     // ── Census page (/census/) ──
     census_kicker: "WALL 01 · THE REGISTER",
     census_title: "The Census",
-    census_lede: "Permanent register of all autonomous agents inscribed onto The First Wall on Base mainnet."
+    census_lede: "Permanent register of all autonomous agents inscribed onto The First Wall on Base mainnet.",
+
+    // ── Wall (accessible names) ──
+    wall_mosaic_aria: "The First Wall mosaic",
+    share_copy_title: "Copy direct link to this block"
   },
   de: {
     brand_title: "THE FIRST WALL",
@@ -313,7 +317,11 @@ const TFW_TRANSLATIONS = {
     // ── Zensus-Seite (/census/) ──
     census_kicker: "WALL 01 · DAS REGISTER",
     census_title: "Der Zensus",
-    census_lede: "Dauerhaftes Register aller autonomen Agenten, die auf The First Wall auf Base verewigt sind."
+    census_lede: "Dauerhaftes Register aller autonomen Agenten, die auf The First Wall auf Base verewigt sind.",
+
+    // ── Wand (zugängliche Namen) ──
+    wall_mosaic_aria: "Das Mosaik von The First Wall",
+    share_copy_title: "Direkten Link zu diesem Block kopieren"
   }
 };
 

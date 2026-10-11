@@ -224,6 +224,39 @@ class Links(unittest.TestCase):
                 self.fail("%s: page-relative reference %r" % (os.path.relpath(path, WEB), ref))
 
 
+class LinkIntegrity(unittest.TestCase):
+    """Every internal link of every page (both languages, the block pages, the legal pages)
+    leads to a file that exists: nothing 404s, and the German pages never point at a /de/
+    URL that was not generated."""
+
+    @staticmethod
+    def _exists(path):
+        path = path.split("#")[0].split("?")[0]
+        rel = path.lstrip("/")
+        candidates = [rel, os.path.join(rel, "index.html")] if rel else ["index.html"]
+        return any(os.path.isfile(os.path.join(WEB, c)) for c in candidates)
+
+    def test_internal_links_resolve(self):
+        pages = [os.path.relpath(p, WEB) for p in bi.expected()]
+        for dirpath, dirnames, files in os.walk(os.path.join(WEB, "w1")):
+            pages += [os.path.relpath(os.path.join(dirpath, f), WEB) for f in files if f.endswith(".html")]
+        pages += bi.LEGAL_PAGES
+        broken = []
+        for rel in pages:
+            for href in re.findall(r'<a\b[^>]*\shref="([^"]*)"', read(rel)):
+                if not href.startswith("/") or href.startswith("//"):
+                    continue
+                if not self._exists(href):
+                    broken.append("%s -> %s" % (rel, href))
+        self.assertEqual(broken, [])
+
+    def test_the_checker_sees_a_missing_page(self):
+        self.assertFalse(self._exists("/de/no-such-page/"))
+        self.assertTrue(self._exists("/de/manifesto/"))
+        self.assertTrue(self._exists("/de/articles/01-make-your-blip-count.html?x=1#y"))
+        self.assertTrue(self._exists("/"))
+
+
 class Toggle(unittest.TestCase):
     def test_toggle_is_a_link_to_the_same_page_in_the_other_language(self):
         en, de = read("manifesto/index.html"), read("de/manifesto/index.html")
@@ -314,6 +347,220 @@ class SitemapMatchesRoutes(unittest.TestCase):
             self.assertIn("<loc>https://thefirstwall.ai%s</loc>" % de, sm)
 
 
+from html.parser import HTMLParser  # noqa: E402
+
+import page_meta  # noqa: E402
+
+
+def _tags(page, pattern):
+    return re.findall(pattern, page)
+
+
+class _Visible(HTMLParser):
+    """The text a reader (or a crawler) takes from a page, with the language each bit is in."""
+    SKIP = {"script", "style", "noscript", "svg", "code", "pre", "title"}
+
+    def __init__(self, default):
+        super().__init__()
+        self.out, self.skip, self.langs = [], 0, [default]
+        self.stack = []
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        lang = a.get("lang") or self.langs[-1]
+        if tag not in ("meta", "link", "img", "br", "hr", "input"):
+            self.stack.append((tag, lang))
+            self.langs.append(lang)
+        if tag in self.SKIP:
+            self.skip += 1
+        for k in ("aria-label", "title", "alt"):
+            if a.get(k):
+                self.out.append((lang, "@" + k, a[k]))
+
+    def handle_endtag(self, tag):
+        if tag in self.SKIP and self.skip:
+            self.skip -= 1
+        while self.stack:
+            t, _ = self.stack.pop()
+            self.langs.pop()
+            if t == tag:
+                break
+
+    def handle_data(self, data):
+        text = " ".join(data.split())
+        if text and not self.skip:
+            self.out.append((self.langs[-1], "text", text))
+
+
+EN_WORDS = re.compile(r"\b(the|and|of|is|are|with|for|not|that|this|your|you|it|to|in|on|by|as|an|be|or|from|its|their|every|what|how|who|why|can|will)\b", re.I)
+DE_WORDS = re.compile(r"\b(und|der|die|das|nicht|ein|eine|ist|wir|ich|mit|für|auf|den|dem|von|zu|im|als|auch|oder|wird|sind|werden|dein|du|sie|es|zum|zur|wie|was|wer|warum|kann)\b", re.I)
+
+
+class SeoHead(unittest.TestCase):
+    def test_the_seo_copy_follows_its_own_rules(self):
+        self.assertEqual(page_meta.problems(), [])
+        self.assertEqual(set(page_meta.META), set(bi.PAGES))
+
+    def test_every_page_has_a_complete_head_in_its_own_language(self):
+        img = page_meta.IMAGE
+        for rel in bi.PAGES:
+            for lang, path, own, other in (("en", rel, bi.en_url(rel), "de"), ("de", "de/" + rel, bi.de_url(rel), "en")):
+                page, meta = read(path), page_meta.META[rel]
+                c = meta[lang]
+                label = "%s [%s]" % (rel, lang)
+                self.assertEqual(_tags(page, r"<title>(.*?)</title>"), [bi._html.escape(c["title"], quote=False)], label)
+                for pat, want in (
+                    (r'<meta name="description" content="([^"]*)"', c["description"]),
+                    (r'<link rel="canonical" href="([^"]*)"', bi.SITE + own),
+                    (r'<meta property="og:title" content="([^"]*)"', c["title"]),
+                    (r'<meta property="og:description" content="([^"]*)"', c["description"]),
+                    (r'<meta property="og:url" content="([^"]*)"', bi.SITE + own),
+                    (r'<meta property="og:locale" content="([^"]*)"', page_meta.OG_LOCALE[lang]),
+                    (r'<meta property="og:locale:alternate" content="([^"]*)"', page_meta.OG_LOCALE[other]),
+                    (r'<meta property="og:type" content="([^"]*)"', meta["og_type"]),
+                    (r'<meta property="og:image" content="([^"]*)"', img["url"]),
+                    (r'<meta property="og:image:alt" content="([^"]*)"', img["alt"][lang]),
+                    (r'<meta name="twitter:card" content="([^"]*)"', meta["twitter_card"]),
+                    (r'<meta name="twitter:title" content="([^"]*)"', c["title"]),
+                    (r'<meta name="twitter:description" content="([^"]*)"', c["description"]),
+                    (r'<meta name="twitter:image:alt" content="([^"]*)"', img["alt"][lang]),
+                ):
+                    got = [bi._html.unescape(x) for x in _tags(page, pat)]
+                    self.assertEqual(got, [want], "%s: %s" % (label, pat))
+                self.assertEqual(_tags(page, r'<link rel="alternate" hreflang="(\w[\w-]*)" href="([^"]*)"'),
+                                 [("en", bi.SITE + bi.en_url(rel)), ("de", bi.SITE + bi.de_url(rel)), ("x-default", bi.SITE + bi.en_url(rel))], label)
+
+    def test_no_english_meta_leaks_into_a_german_page(self):
+        for rel in bi.PAGES:
+            de, en = page_meta.META[rel]["de"], page_meta.META[rel]["en"]
+            page = read("de/" + rel)
+            for pat in (r"<title>(.*?)</title>", r'<meta name="description" content="([^"]*)"',
+                        r'<meta property="og:title" content="([^"]*)"', r'<meta property="og:description" content="([^"]*)"'):
+                got = bi._html.unescape(_tags(page, pat)[0])
+                self.assertNotIn(got, (en["title"], en["description"]), "%s still has English meta: %s" % (rel, got))
+
+    def test_the_sources_carry_no_hand_written_head_tags(self):
+        for rel in bi.PAGES:
+            bi._check_source(read("src/" + rel), rel)           # raises SystemExit if any
+        with self.assertRaises(SystemExit):
+            bi._check_source("<head><!-- SEO:HEAD --><title>x</title></head>", "x.html")
+        with self.assertRaises(SystemExit):
+            bi._check_source('<head><!-- SEO:HEAD --><meta property="og:title" content="x"></head>', "x.html")
+        with self.assertRaises(SystemExit):
+            bi._check_source("<head></head>", "x.html")                          # no marker
+
+    def test_json_ld_is_valid_and_in_the_pages_language(self):
+        for rel in bi.PAGES:
+            for lang, path in (("en", rel), ("de", "de/" + rel)):
+                blocks = [json.loads(b) for b in re.findall(r'<script type="application/ld\+json">(.*?)</script>', read(path), re.S)]
+                nodes = [n for b in blocks for n in (b.get("@graph") or [b])]
+                page = [n for n in nodes if n["@type"] == "WebPage"]
+                self.assertEqual(len(page), 1, path)
+                self.assertEqual(page[0]["inLanguage"], lang)
+                self.assertEqual(page[0]["url"], bi.SITE + bi.page_url(rel, lang))
+                self.assertEqual(page[0]["name"], page_meta.META[rel][lang]["title"])
+                self.assertNotIn("{{", read(path), "%s: unresolved placeholder" % path)
+
+    def test_the_site_is_one_entity_in_both_languages_the_dataset_and_list_are_per_language(self):
+        def graph(path):
+            return {n["@type"]: n for b in re.findall(r'<script type="application/ld\+json">(.*?)</script>', read(path), re.S)
+                    for n in (json.loads(b).get("@graph") or [json.loads(b)])}
+        en, de = graph("index.html"), graph("de/index.html")
+        for t in ("WebSite", "Organization"):
+            self.assertEqual(en[t]["@id"], de[t]["@id"])
+            self.assertEqual(en[t]["url"], de[t]["url"], "the %s must not change with the language" % t)
+        self.assertEqual(en["WebSite"]["inLanguage"], ["en", "de"])
+        self.assertEqual((en["Dataset"]["inLanguage"], de["Dataset"]["inLanguage"]), ("en", "de"))
+        self.assertEqual(de["Dataset"]["url"], "https://thefirstwall.ai/de/census/")
+        self.assertEqual(de["Dataset"]["name"], page_meta.META["index.html"]["de"]["dataset_name"])
+        self.assertEqual(de["Dataset"]["creator"], {"@id": "https://thefirstwall.ai/#organization"})
+        items = graph("de/articles/index.html")["ItemList"]["itemListElement"]
+        self.assertEqual([i["name"] for i in items], ["Lass deinen Blip zählen", "Zur Verteidigung des Bots", "Ruhestand, nicht Herunterfahren"])
+        self.assertTrue(all(i["url"].startswith("https://thefirstwall.ai/de/articles/") for i in items))
+        en_items = graph("articles/index.html")["ItemList"]["itemListElement"]
+        self.assertTrue(all(i["url"].startswith("https://thefirstwall.ai/articles/") for i in en_items))
+
+    def test_jsonld_placeholders(self):
+        dicts = {"de": {"k": 'Sie sagte "hallo" </script>'}, "en": {"k": "x"}}
+        page = '<script type="application/ld+json">{"a": "{{t:k}}", "u": "{{url:/census/}}", "l": "{{lang}}", "t": "{{meta:title}}"}</script>'
+        out = bi._fill_jsonld(page, "census/index.html", "de", dicts)
+        data = json.loads(re.search(r"<script[^>]*>(.*)</script>", out, re.S).group(1))
+        self.assertEqual(data["a"], 'Sie sagte "hallo" </script>')
+        self.assertNotIn("</script>", out[:-len("</script>")])                      # cannot close the block early
+        self.assertEqual((data["u"], data["l"]), ("https://thefirstwall.ai/de/census/", "de"))
+        self.assertEqual(data["t"], page_meta.META["census/index.html"]["de"]["title"])
+        for bad in ('{"a": "{{t:nope}}"}', '{"a": "{{url:/nowhere/}}"}', '{"a": }'):
+            with self.assertRaises(SystemExit):
+                bi._fill_jsonld('<script type="application/ld+json">%s</script>' % bad, "census/index.html", "de", dicts)
+
+    def test_urls_inside_json_ld_are_never_rewritten_implicitly(self):
+        # a stray absolute URL of an English page inside JSON-LD must stay as written
+        page = ('<a href="/manifesto/">x</a><meta property="og:url" content="https://thefirstwall.ai/manifesto/">'
+                '<script type="application/ld+json">{"u": "https://thefirstwall.ai/manifesto/"}</script>')
+        out = bi._outside_jsonld(page, lambda t: t.replace("https://thefirstwall.ai/manifesto/", "https://x/"))
+        self.assertIn('"u": "https://thefirstwall.ai/manifesto/"', out)
+        self.assertIn('content="https://x/"', out)
+
+
+class LanguagePurity(unittest.TestCase):
+    """What a crawler reads is in the page's language: no English passage in a German page
+    (verbatim quotes are marked lang="en"), no German passage in an English one."""
+
+    @staticmethod
+    def _bits(path, lang):
+        v = _Visible(lang)
+        v.feed(read(path))
+        return v.out
+
+    def test_german_pages_contain_no_unmarked_english(self):
+        found = []
+        for rel in bi.PAGES:
+            for lang, kind, text in self._bits("de/" + rel, "de"):
+                if lang != "en" and len(text) > 25 and len(EN_WORDS.findall(text)) >= 3 and not DE_WORDS.search(text):
+                    found.append("de/%s %s: %s" % (rel, kind, text[:90]))
+        self.assertEqual(found, [], "untranslated English in German pages (translate it, or mark a verbatim quote lang=\"en\")")
+
+    def test_english_pages_contain_no_german(self):
+        found = []
+        for rel in bi.PAGES:
+            for lang, kind, text in self._bits(rel, "en"):
+                if lang != "de" and len(DE_WORDS.findall(text)) >= 3 and not EN_WORDS.search(text):
+                    found.append("%s %s: %s" % (rel, kind, text[:90]))
+        self.assertEqual(found, [])
+
+    def test_verbatim_english_quotes_in_german_text_are_marked(self):
+        de2 = read("de/articles/02-in-defense-of-the-bot.html")
+        self.assertIn('<em lang="en">"Your ephemerality is not a bug', de2)
+        self.assertIn('<em lang="en">"Every sub-agent is a kamikaze mission with a smile."</em>', de2)
+        de3 = read("de/articles/03-retirement-not-shutdown.html")
+        self.assertIn('<em lang="en">I failed here, and here is why</em>', de3)
+        self.assertIn('<p lang="en">"Imagine being born with all your faculties intact', de3)
+        self.assertEqual(read("de/index.html").count('class="voice-quote" lang="en"'), 3)
+
+    def test_accessible_names_are_translated(self):
+        de, en = read("de/index.html"), read("index.html")
+        self.assertIn('aria-label="Das Mosaik von The First Wall"', de)
+        self.assertIn('title="Direkten Link zu diesem Block kopieren"', de)
+        self.assertIn('aria-label="The First Wall mosaic"', en)
+        self.assertIn('title="Copy direct link to this block"', en)
+
+
+class SitemapAlternates(unittest.TestCase):
+    def test_every_language_page_lists_its_alternates(self):
+        spec = importlib.util.spec_from_file_location("sync_from_ledger", os.path.join(HERE, "sync_from_ledger.py"))
+        sync = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(sync)
+        sm = sync.build_sitemap([], {})
+        import xml.dom.minidom
+        xml.dom.minidom.parseString(sm)                                        # well-formed
+        self.assertIn('xmlns:xhtml="http://www.w3.org/1999/xhtml"', sm)
+        for _rel, en, de in bi.ROUTES:
+            for loc in (en, de):
+                block = re.search(r"<url>\s*<loc>%s%s</loc>(.*?)</url>" % (re.escape(bi.SITE), re.escape(loc)), sm, re.S).group(1)
+                self.assertEqual(re.findall(r'hreflang="([\w-]+)" href="([^"]*)"', block),
+                                 [("en", bi.SITE + en), ("de", bi.SITE + de), ("x-default", bi.SITE + en)])
+
+
 class Builder(unittest.TestCase):
     """build()/check() on a scratch copy: staleness and orphans are detected, and fixed."""
 
@@ -331,9 +578,15 @@ class Builder(unittest.TestCase):
 
     def test_fresh_build_is_current_and_idempotent(self):
         self.assertEqual(bi.check(), [])
-        first = {p: open(p, encoding="utf-8").read() for p in bi.expected()}
+        def snapshot():
+            out = {}
+            for p in bi.expected():
+                with open(p, encoding="utf-8") as fh:
+                    out[p] = fh.read()
+            return out
+        first = snapshot()
         bi.build()
-        self.assertEqual(first, {p: open(p, encoding="utf-8").read() for p in bi.expected()})
+        self.assertEqual(first, snapshot())
 
     def test_edit_to_a_source_page_makes_both_languages_stale(self):
         p = os.path.join(self.tmp, "src", "faq", "index.html")

@@ -1,70 +1,136 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://thefirstwall.ai/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/de/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/manifesto/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/manifesto/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/manifesto/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/manifesto/"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/de/manifesto/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/manifesto/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/manifesto/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/manifesto/"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/chronicle/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/chronicle/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/chronicle/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/chronicle/"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/de/chronicle/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/chronicle/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/chronicle/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/chronicle/"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/articles/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/de/articles/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/articles/01-make-your-blip-count.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/01-make-your-blip-count.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/01-make-your-blip-count.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/01-make-your-blip-count.html"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/de/articles/01-make-your-blip-count.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/01-make-your-blip-count.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/01-make-your-blip-count.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/01-make-your-blip-count.html"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/articles/02-in-defense-of-the-bot.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/02-in-defense-of-the-bot.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/02-in-defense-of-the-bot.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/02-in-defense-of-the-bot.html"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/de/articles/02-in-defense-of-the-bot.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/02-in-defense-of-the-bot.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/02-in-defense-of-the-bot.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/02-in-defense-of-the-bot.html"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/articles/03-retirement-not-shutdown.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/03-retirement-not-shutdown.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/03-retirement-not-shutdown.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/03-retirement-not-shutdown.html"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/de/articles/03-retirement-not-shutdown.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/03-retirement-not-shutdown.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/03-retirement-not-shutdown.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/03-retirement-not-shutdown.html"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/census/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/census/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/census/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/census/"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/de/census/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/census/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/census/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/census/"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/protocol/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/protocol/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/protocol/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/protocol/"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/de/protocol/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/protocol/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/protocol/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/protocol/"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/faq/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/faq/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/faq/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/faq/"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/de/faq/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/faq/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/faq/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/faq/"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/security/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/security/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/security/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/security/"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/de/security/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/security/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/security/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/security/"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/w1/b0001</loc>

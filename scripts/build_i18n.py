@@ -33,8 +33,18 @@ What else a generated page gets
 -------------------------------
 * ``<html lang="en|de" data-locale-route="en|de">``: i18n.js, which every page
   still loads (``app.js`` uses its ``t()``), takes the language from the URL.
-* A self ``<link rel="canonical">`` and ``hreflang`` alternates for ``en``, ``de``
-  and ``x-default`` (-> English).
+* Its **SEO head**, written where the source page has the ``<!-- SEO:HEAD -->``
+  marker, from scripts/page_meta.py: ``<title>``, description, a self
+  ``<link rel="canonical">``, ``hreflang`` alternates for ``en``, ``de`` and
+  ``x-default`` (-> English), Open Graph (with ``og:locale`` and the other
+  language as ``og:locale:alternate``), Twitter card and a ``WebPage`` JSON-LD,
+  all in the page's language. The source pages carry none of these by hand (the
+  build refuses a hand-written one: it would duplicate the generated tag).
+* ``{{t:key}}`` / ``{{meta:key}}`` / ``{{lang}}`` placeholders inside a source
+  page's JSON-LD become the dictionary text, the page_meta text or the language
+  (the home page's dataset, the articles' item list), ``{{url:/census/}}`` the page's
+  URL in the page's language. URLs inside JSON-LD are never rewritten implicitly: the
+  site-level entities (WebSite, Organization) keep one identity in both languages.
 * Internal links to pages with a twin point at the twin of the page's language
   (German: ``/manifesto/`` -> ``/de/manifesto/``, ``/?slot=7`` -> ``/de/?slot=7``).
 * The language toggle becomes a plain link to the same page in the other language
@@ -58,6 +68,7 @@ Usage:
 from __future__ import annotations
 
 import html as _html
+import json
 import os
 import posixpath
 import re
@@ -65,6 +76,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_chrome  # noqa: E402  (GENERATED_MARK, is_generated)
+import page_meta  # noqa: E402  (the SEO copy of every page, both languages)
 
 WEB_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 SRC_DIR = os.path.join(WEB_DIR, "src")
@@ -234,12 +246,131 @@ def _generated_comment(rel: str, lang: str) -> str:
 
 
 # --------------------------------------------------------------------------
+# The SEO head
+# --------------------------------------------------------------------------
+SEO_TOKEN = re.compile(r"[ \t]*<!-- SEO:HEAD\b.*?-->[ \t]*\n?", re.DOTALL)
+# tags that only the generator may write: a hand-written copy in a source page would duplicate them
+HAND_WRITTEN = re.compile(
+    r"<title\b|<meta\b[^>]*\b(?:name=\"(?:description|twitter:[a-z:_]+)\"|property=\"(?:og|article):[a-z:_]+\")"
+    r"|<link\b[^>]*\brel=\"(?:canonical|alternate)\"[^>]*\bhreflang=")
+LD_BLOCK = re.compile(r'(<script type="application/ld\+json">)(.*?)(</script>)', re.DOTALL)
+LD_PLACEHOLDER = re.compile(r"\{\{(?:(t|meta):(\w+)|(lang)|url:(/[^}\s]*))\}\}")
+
+
+def _attr(value: str) -> str:
+    return _html.escape(value, quote=True)
+
+
+def _json_safe(text: str) -> str:
+    """`text` as the inside of a JSON string, safe to put in a <script> block."""
+    return json.dumps(text, ensure_ascii=False)[1:-1].replace("</", "<\\/")
+
+
+def _check_source(h: str, rel: str) -> None:
+    if len(SEO_TOKEN.findall(h)) != 1:
+        raise SystemExit("src/%s: needs exactly one <!-- SEO:HEAD --> marker" % rel)
+    bad = HAND_WRITTEN.search(SEO_TOKEN.sub("", h))
+    if bad:
+        raise SystemExit("src/%s: hand-written %r - the title, description, canonical, hreflang, Open Graph "
+                         "and Twitter tags come from scripts/page_meta.py" % (rel, bad.group(0)))
+
+
+def _outside_jsonld(h: str, fn) -> str:
+    """Apply `fn` to the page text around its JSON-LD blocks (their URLs are explicit)."""
+    out, last = [], 0
+    for m in LD_BLOCK.finditer(h):
+        out.append(fn(h[last:m.start()]))
+        out.append(m.group(0))
+        last = m.end()
+    out.append(fn(h[last:]))
+    return "".join(out)
+
+
+def _fill_jsonld(h: str, rel: str, lang: str, dicts: dict) -> str:
+    """Resolve the {{...}} placeholders of the page's own JSON-LD blocks, then make sure
+    every block is still valid JSON (a typo must fail the build, not silently drop the data)."""
+    routes = {e: (e if lang == "en" else g) for _r, e, g in ROUTES}
+
+    def value(m):
+        kind, key, is_lang, url = m.group(1), m.group(2), m.group(3), m.group(4)
+        if is_lang:
+            return lang
+        if url:                                    # a page's URL in this language
+            if url not in routes:
+                raise SystemExit("src/%s: JSON-LD placeholder {{url:%s}} is not a page with a twin" % (rel, url))
+            return SITE + routes[url]
+        src = dicts[lang] if kind == "t" else page_meta.META[rel][lang]
+        if key not in src:
+            raise SystemExit("src/%s: JSON-LD placeholder {{%s:%s}} has no %s text" % (rel, kind, key, lang))
+        return _json_safe(src[key])
+
+    def block(m):
+        body = LD_PLACEHOLDER.sub(value, m.group(2))
+        try:
+            json.loads(body)
+        except ValueError as e:
+            raise SystemExit("src/%s: JSON-LD block is not valid JSON (%s)" % (rel, e))
+        return m.group(1) + body + m.group(3)
+    return LD_BLOCK.sub(block, h)
+
+
+def seo_head(rel: str, lang: str) -> str:
+    """The generated head block of `rel` in `lang`."""
+    meta = page_meta.META[rel]
+    c = meta[lang]
+    other = "de" if lang == "en" else "en"
+    en, de = SITE + en_url(rel), SITE + de_url(rel)
+    own = en if lang == "en" else de
+    img = page_meta.IMAGE
+    webpage = {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "url": own,
+        "name": c["title"],
+        "description": c["description"],
+        "inLanguage": lang,
+        # the site and its publisher are one entity in both languages (same @id as the home page's graph)
+        "isPartOf": {"@type": "WebSite", "@id": SITE + "/#website", "name": page_meta.SITE_NAME, "url": SITE + "/"},
+        "publisher": {"@type": "Organization", "@id": SITE + "/#organization", "name": page_meta.SITE_NAME, "url": SITE + "/"},
+    }
+    ld = json.dumps(webpage, ensure_ascii=False, indent=2).replace("</", "<\\/")
+    ld = "\n".join("    " + line for line in ld.splitlines())
+    lines = [
+        "<!-- SEO head: generated by scripts/build_i18n.py from scripts/page_meta.py -->",
+        "<title>%s</title>" % _html.escape(c["title"], quote=False),
+        '<meta name="description" content="%s">' % _attr(c["description"]),
+        '<link rel="canonical" href="%s">' % own,
+        '<link rel="alternate" hreflang="en" href="%s">' % en,
+        '<link rel="alternate" hreflang="de" href="%s">' % de,
+        '<link rel="alternate" hreflang="x-default" href="%s">' % en,
+        '<meta property="og:type" content="%s">' % meta["og_type"],
+        '<meta property="og:site_name" content="%s">' % _attr(page_meta.SITE_NAME),
+        '<meta property="og:title" content="%s">' % _attr(c["title"]),
+        '<meta property="og:description" content="%s">' % _attr(c["description"]),
+        '<meta property="og:url" content="%s">' % own,
+        '<meta property="og:locale" content="%s">' % page_meta.OG_LOCALE[lang],
+        '<meta property="og:locale:alternate" content="%s">' % page_meta.OG_LOCALE[other],
+        '<meta property="og:image" content="%s">' % img["url"],
+        '<meta property="og:image:width" content="%d">' % img["width"],
+        '<meta property="og:image:height" content="%d">' % img["height"],
+        '<meta property="og:image:alt" content="%s">' % _attr(img["alt"][lang]),
+        '<meta name="twitter:card" content="%s">' % meta["twitter_card"],
+        '<meta name="twitter:title" content="%s">' % _attr(c["title"]),
+        '<meta name="twitter:description" content="%s">' % _attr(c["description"]),
+        '<meta name="twitter:image" content="%s">' % img["url"],
+        '<meta name="twitter:image:alt" content="%s">' % _attr(img["alt"][lang]),
+    ]
+    return "".join("  %s\n" % line for line in lines) + '  <script type="application/ld+json">\n%s\n  </script>\n' % ld
+
+
+# --------------------------------------------------------------------------
 # The core transform: source page -> one language page
 # --------------------------------------------------------------------------
 def render_locale(src_html: str, rel: str, lang: str, dicts: dict) -> str:
     d = dicts[lang]
     en, de = en_url(rel), de_url(rel)
     h = src_html
+    _check_source(h, rel)
 
     # 1) <html lang> + the marker i18n.js reads: the URL decides the language here
     h = re.sub(r"<html\b[^>]*>", '<html lang="%s" data-locale-route="%s">' % (lang, lang), h, count=1)
@@ -250,6 +381,9 @@ def render_locale(src_html: str, rel: str, lang: str, dicts: dict) -> str:
 
     # 3) Handle language sections: keep the page's language, delete the other.
     h = _process_lang_sections(h, lang)
+
+    # 3b) The page's own JSON-LD: resolve its {{...}} placeholders in this language.
+    h = _fill_jsonld(h, rel, lang, dicts)
 
     # 4) Bake data-i18n / data-i18n-aria / data-i18n-title / data-lang-en|de.
     h = _bake_i18n(h, lang, d)
@@ -266,18 +400,16 @@ def render_locale(src_html: str, rel: str, lang: str, dicts: dict) -> str:
     #    path first, and the match must end at a delimiter so '/articles/' cannot eat
     #    '/articles/01-...' and '/' cannot eat every URL.
     if lang == "de":
-        for _rel, e, g in sorted(ROUTES, key=lambda r: -len(r[1])):
-            h = re.sub(re.escape(SITE + e) + r'(?=["\'< >\s)?#]|$)', SITE + g, h)
+        def to_german(text):
+            for _rel, e, g in sorted(ROUTES, key=lambda r: -len(r[1])):
+                text = re.sub(re.escape(SITE + e) + r'(?=["\'< >\s)?#]|$)', SITE + g, text)
+            return text
+        h = _outside_jsonld(h, to_german)
 
-    # 8) canonical + hreflang (replace any pre-existing canonical).
-    h = re.sub(r"[ \t]*<link\b[^>]*\brel=\"canonical\"[^>]*>[ \t]*\n?", "", h)
-    alts = (
-        '  <link rel="canonical" href="%s%s">\n'
-        '  <link rel="alternate" hreflang="en" href="%s%s">\n'
-        '  <link rel="alternate" hreflang="de" href="%s%s">\n'
-        '  <link rel="alternate" hreflang="x-default" href="%s%s">\n'
-    ) % (SITE, page_url(rel, lang), SITE, en, SITE, de, SITE, en)
-    h = h.replace("</head>", alts + "</head>", 1)
+    # 8) The SEO head (title, description, canonical, hreflang, Open Graph, Twitter, JSON-LD)
+    #    goes where the source has its marker, after the absolute-URL rewrite above so the
+    #    alternates it writes are never re-prefixed.
+    h = SEO_TOKEN.sub(lambda _m: seo_head(rel, lang), h, count=1)
 
     return h
 
@@ -482,6 +614,11 @@ def _write(path: str, text: str) -> None:
 def expected() -> dict:
     """{absolute path: content} of every file this script owns."""
     dicts = parse_i18n_js(os.path.join(WEB_DIR, "i18n.js"))
+    problems = page_meta.problems()
+    if set(page_meta.META) != set(PAGES):
+        problems.append("scripts/page_meta.py and PAGES list different pages: %s" % sorted(set(page_meta.META) ^ set(PAGES)))
+    if problems:
+        raise SystemExit("scripts/page_meta.py:\n  " + "\n  ".join(problems))
     want = {}
     for rel in PAGES:
         src_html = _read(src_path(rel))
