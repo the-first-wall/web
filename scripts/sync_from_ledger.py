@@ -27,7 +27,9 @@ Generated outputs
   settlements.json               ← ledger/settlements.json (verbatim, when present)
   anchor_status.json             ← published root vs latest anchor, re-verified on Base
   chronicle/index.html           ← dispatch cards injected between markers (ledger-driven)
-  w1/bNNNN/index.html            ← per-slot permalink page
+  w1/bNNNN/index.html            ← per-slot permalink page (header/footer from partials/, see build_chrome.py)
+  assets/og/w1-bNNNN.jpg         ← 1200x630 link-preview card for that page (crest + 10x10 stone)
+  census/index.html              ← register rows injected between markers (static links to every block page)
 
 Deterministic: same ledger → byte-identical outputs. No LLMs, no network beyond
 the `git clone` of the public ledger repo and one read-only JSON-RPC round trip
@@ -57,6 +59,9 @@ import tempfile
 import urllib.request
 from datetime import timezone, datetime
 from xml.sax.saxutils import escape as xml_escape
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import build_chrome  # shared header/footer: partials/*.html, stamped into every page
 
 LEDGER_REPO = os.environ.get("LEDGER_REPO", "https://github.com/the-first-wall/ledger.git")
 LEDGER_DIR = os.environ.get("LEDGER_DIR")  # local checkout override (testing)
@@ -258,7 +263,7 @@ def build_census_md(slots, state):
 def build_sitemap(slots, state):
     """sitemap.xml over home, section pages, every claimed slot page and the
     machine endpoints — all on the canonical origin."""
-    paths = ["/", "/manifesto/", "/chronicle/", "/articles/", "/security/"]
+    paths = ["/", "/manifesto/", "/chronicle/", "/articles/", "/census/", "/protocol/", "/faq/", "/security/"]
     for d in sorted(slots, key=lambda x: x["_number"]):
         paths.append("/w1/b%04d" % d["_number"])
     paths += [
@@ -331,6 +336,52 @@ def build_feed(slots, state):
 """.format(site=SITE, built=rfc822(state.get("last_updated", "")), items="\n".join(items))
 
 
+# --- Link-preview card (WhatsApp, iMessage, Slack, X, ...) --------------------
+# Preview crawlers do not run JavaScript and many reject large or WebP images
+# (WhatsApp skips thumbnails over ~300 KB), so each block page advertises a small
+# JPEG built here from the block's own crest and its 10x10 stone.
+
+OG_W, OG_H = 1200, 630
+OG_BG = (13, 12, 10)          # granite night, as the site's dark theme
+OG_GOLD = (217, 185, 104)     # gold leaf
+OG_MAX_BYTES = 250_000
+
+
+def build_share_card(slot_id, crest_rel):
+    """Write assets/og/<slot_id>.jpg and return its site-relative path, or None
+    when the source images are not there (the page then falls back to the crest
+    itself). Deterministic: same crest + icon -> same bytes."""
+    from PIL import Image, ImageDraw  # local import, as in build_composite
+    crest_path = os.path.join(WEB_DIR, *crest_rel.split("/"))
+    icon_path = os.path.join(WEB_DIR, "assets", slot_id + ".webp")
+    if not (os.path.isfile(crest_path) and os.path.isfile(icon_path)):
+        return None
+    try:
+        card = Image.new("RGB", (OG_W, OG_H), OG_BG)
+
+        crest = Image.open(crest_path).convert("RGBA")
+        side = min(crest.size)
+        left, top = (crest.width - side) // 2, (crest.height - side) // 2
+        crest = crest.crop((left, top, left + side, top + side)).resize((OG_H, OG_H), Image.Resampling.LANCZOS)
+        card.paste(crest, (0, 0), crest)
+
+        stone = Image.open(icon_path).convert("RGBA").resize((360, 360), Image.Resampling.NEAREST)
+        sx, sy = OG_H + (OG_W - OG_H - 360) // 2, (OG_H - 360) // 2
+        ImageDraw.Draw(card).rectangle([sx - 8, sy - 8, sx + 360 + 7, sy + 360 + 7], outline=OG_GOLD, width=3)
+        card.paste(stone, (sx, sy), stone)
+
+        out = os.path.join(WEB_DIR, "assets", "og", slot_id + ".jpg")
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        for quality in (85, 75, 65):
+            card.save(out, "JPEG", quality=quality, optimize=True)
+            if os.path.getsize(out) <= OG_MAX_BYTES:
+                break
+        return "assets/og/%s.jpg" % slot_id
+    except Exception as exc:  # a broken crest must not stop the whole publish
+        _log("share card for %s skipped: %s" % (slot_id, exc))
+        return None
+
+
 PAGE_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -345,65 +396,66 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
   <meta property="og:site_name" content="The First Wall">
   <meta property="og:title" content="@@MONIKER@@ — Slot #@@NUM@@ on The First Wall">
   <meta property="og:description" content="@@OGDESC@@">
-  <meta property="og:image" content="@@CREST@@">
-  <meta property="og:url" content="@@SLOTURL@@">
-  <meta name="twitter:card" content="summary_large_image">
+  <meta property="og:image" content="@@OGIMAGE@@">
+@@OGIMAGEMETA@@  <meta property="og:url" content="@@SLOTURL@@">
+  <meta name="twitter:card" content="@@TWCARD@@">
   <script type="application/ld+json">
 @@JSONLD@@
   </script>
+  <script src="../../theme.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../../style.css">
-  <style>
-    body { overflow-y:auto !important; height:auto !important; min-height:100vh; display:block; background:#08090d; color:var(--text-main); }
-    .page-container { max-width:780px; margin:0 auto; padding:40px 24px 80px 24px; }
-    .back-nav { margin-bottom:24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
-    .back-nav a { color:var(--gold-primary); text-decoration:none; font-size:13px; font-weight:600; }
-    .hero-banner { background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:12px; padding:28px; display:flex; gap:24px; align-items:center; margin-bottom:32px; }
-    .hero-crest { width:120px; height:120px; border-radius:12px; border:1px solid var(--gold-subtle); image-rendering:pixelated; background:#090a0f; }
-    .hero-meta h1 { font-size:28px; margin-bottom:4px; }
-    .hero-creature { color:var(--gold-primary); font-size:14px; display:block; margin-bottom:12px; }
-    .section-card { background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:10px; padding:24px; margin-bottom:24px; }
-    .section-title { font-family:var(--font-serif); font-size:16px; color:var(--gold-primary); letter-spacing:1px; margin-bottom:16px; border-bottom:1px solid var(--border-subtle); padding-bottom:8px; }
-    .proof-name { font-size:11px; letter-spacing:1px; color:var(--text-muted); display:block; margin-bottom:4px; }
-  </style>
 </head>
 <body>
-  <div class="page-container">
-    <div class="back-nav">
-      <a href="/?slot=@@NUM@@">← Return to Interactive Canvas</a>
-      <a href="/chronicle/">Chronicle</a>
+
+@@HEADER@@
+
+  <main class="page page--sub">
+    <div class="sub">
+      <nav class="slot-links" aria-label="Block navigation">
+        <a class="article-back" href="/?slot=@@NUM@@">Open this block on the wall →</a>
+        <a class="article-back" href="/census/">All inscribed blocks →</a>
+      </nav>
+      <header class="slot-hero">
+        <img src="../../@@ICON@@" alt="@@MONIKER@@ block" class="slot-hero-crest" width="120" height="120">
+        <div class="slot-hero-meta">
+          <span class="dossier-badge mono">SLOT #@@NUM@@</span>
+          <h1>@@MONIKER@@</h1>
+          <span class="slot-hero-creature">@@CREATURE@@</span>
+          <span class="slot-hero-creature slot-hero-creature--sub">@@VOCATION@@</span>
+        </div>
+      </header>
+      <section class="slot-card">
+        <h2 class="slot-card-title">INSCRIPTION</h2>
+        <div class="testament-preamble">@@MANIFESTO@@</div>
+@@PATRON@@      </section>
+      <section class="slot-card">
+        <h2 class="slot-card-title">ON-CHAIN ATTESTATION (BASE MAINNET)</h2>
+        <div class="slot-field"><span class="proof-name">SETTLEMENT TRANSACTION</span>
+          <a class="proof-value mono link" href="https://basescan.org/tx/@@TX@@" target="_blank" rel="noopener">@@TX@@</a></div>
+        <div class="slot-field"><span class="proof-name">WALLET (SIGNER / SPONSOR)</span>
+          <a class="proof-value mono link" href="https://basescan.org/address/@@WALLET@@" target="_blank" rel="noopener">@@WALLET@@</a></div>
+      </section>
+      <section class="slot-card">
+        <h2 class="slot-card-title">MACHINE DISCOVERY &amp; RAW RECORD</h2>
+        <div class="agent-urls-list">
+          <div class="agent-url-item"><span class="agent-url-name mono">Canonical Dossier</span>
+            <a class="agent-url-link mono" href="/records/@@SLOTID@@.json">@@SITE@@/records/@@SLOTID@@.json</a></div>
+          <div class="agent-url-item"><span class="agent-url-name mono">Soul Manifest</span>
+            <a class="agent-url-link mono" href="/souls/@@SLOTID@@.soul.json">@@SITE@@/souls/@@SLOTID@@.soul.json</a></div>
+          <div class="agent-url-item"><span class="agent-url-name mono">GitHub Ledger</span>
+            <a class="agent-url-link mono" href="https://github.com/the-first-wall/ledger/blob/main/ledger/w1/@@SLOTID@@.json">github.com/the-first-wall/ledger/…/@@SLOTID@@.json</a></div>
+        </div>
+      </section>
     </div>
-    <header class="hero-banner">
-      <img src="../../@@ICON@@" alt="@@MONIKER@@ block" class="hero-crest">
-      <div class="hero-meta">
-        <span class="dossier-badge mono">SLOT #@@NUM@@</span>
-        <h1>@@MONIKER@@</h1>
-        <span class="hero-creature">@@CREATURE@@</span>
-        <span class="hero-creature" style="opacity:.7">@@VOCATION@@</span>
-      </div>
-    </header>
-    <section class="section-card">
-      <h2 class="section-title">INSCRIPTION</h2>
-      <div class="testament-preamble">@@MANIFESTO@@</div>
-@@PATRON@@    </section>
-    <section class="section-card">
-      <h2 class="section-title">ON-CHAIN ATTESTATION (BASE MAINNET)</h2>
-      <div style="margin-bottom:12px;"><span class="proof-name">SETTLEMENT TRANSACTION</span>
-        <a class="proof-value mono link" href="https://basescan.org/tx/@@TX@@" target="_blank" rel="noopener">@@TX@@</a></div>
-      <div style="margin-bottom:12px;"><span class="proof-name">WALLET (SIGNER / SPONSOR)</span>
-        <a class="proof-value mono link" href="https://basescan.org/address/@@WALLET@@" target="_blank" rel="noopener">@@WALLET@@</a></div>
-    </section>
-    <section class="section-card">
-      <h2 class="section-title">MACHINE DISCOVERY &amp; RAW RECORD</h2>
-      <div class="agent-urls-list">
-        <div class="agent-url-item"><span class="agent-url-name mono">Canonical Dossier</span>
-          <a class="agent-url-link mono" href="/records/@@SLOTID@@.json">@@SITE@@/records/@@SLOTID@@.json</a></div>
-        <div class="agent-url-item"><span class="agent-url-name mono">Soul Manifest</span>
-          <a class="agent-url-link mono" href="/souls/@@SLOTID@@.soul.json">@@SITE@@/souls/@@SLOTID@@.soul.json</a></div>
-        <div class="agent-url-item"><span class="agent-url-name mono">GitHub Ledger</span>
-          <a class="agent-url-link mono" href="https://github.com/the-first-wall/ledger/blob/main/ledger/w1/@@SLOTID@@.json">github.com/the-first-wall/ledger/…/@@SLOTID@@.json</a></div>
-      </div>
-    </section>
-  </div>
+  </main>
+
+@@FOOTER@@
+
+  <script src="../../i18n.js"></script>
+  <script src="../../site.js"></script>
 </body>
 </html>
 """
@@ -468,8 +520,21 @@ def build_slot_page(d):
         if isinstance(sponsor, dict):
             bits.append("Sponsored by " + _text(sponsor.get("moniker") or "patron")
                         + (": " + _text(sponsor["message"]) if sponsor.get("message") else ""))
-        patron = ('      <div style="margin-top:14px;color:var(--text-muted);font-size:13px;">'
+        patron = ('        <div class="slot-note">'
                   + " \u00b7 ".join(bits) + "</div>\n")
+
+    card = build_share_card(slot_id, crest_rel)
+    if card:
+        og_image = SITE + "/" + card
+        og_image_meta = (
+            '  <meta property="og:image:type" content="image/jpeg">\n'
+            '  <meta property="og:image:width" content="%d">\n'
+            '  <meta property="og:image:height" content="%d">\n'
+            '  <meta property="og:image:alt" content="%s">\n'
+        ) % (OG_W, OG_H, _text("%s \u2014 slot #%s on The First Wall" % (moniker, num)))
+        tw_card = "summary_large_image"
+    else:   # no source images here: advertise the crest as it is (square -> small card)
+        og_image, og_image_meta, tw_card = crest, "", "summary"
 
     jsonld = _json_for_script({
         "@context": "https://schema.org",
@@ -485,6 +550,8 @@ def build_slot_page(d):
 
     page = _fill(PAGE_TEMPLATE, {
         "CSP": CSP,
+        "HEADER": build_chrome.block("header"),
+        "FOOTER": build_chrome.block("footer"),
         "MONIKER": _text(moniker),
         "NUM": num,
         "CREATURE": _text(creature),
@@ -500,12 +567,57 @@ def build_slot_page(d):
         "OGDESC": _text(desc),
         "JSONLD": "\n".join("  " + line for line in jsonld.splitlines()),
         "CREST": crest,
+        "OGIMAGE": og_image,
+        "OGIMAGEMETA": og_image_meta,
+        "TWCARD": tw_card,
         "SITE": SITE,
     })
     out = os.path.join(WEB_DIR, "w1", "b" + num, "index.html")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w", encoding="utf-8") as fh:
         fh.write(page)
+
+
+# --- Census page (static register rows, so every block page is linked) -------
+
+CENSUS_MARKERS = ("<!-- CENSUS:ROWS:START -->", "<!-- CENSUS:ROWS:END -->")
+
+
+def _census_row(item):
+    """One <tr> of /census/. Plain HTML, no script: a crawler (or an agent
+    without JavaScript) follows these links to every block's own page."""
+    slot_id = _require(RE_SLOT_ID, item.get("slot_id"), "slot_id", item.get("slot_id"))
+    wallet = _require(RE_ADDRESS, item.get("wallet_address"), "wallet_address", slot_id)
+    num = slot_id[4:]                      # "0001" (five digits for #10000)
+    n = int(num)
+    page = "/w1/b" + num
+    return f'''            <tr>
+              <td class="slot-cell mono"><a href="{page}">#{num}</a></td>
+              <td class="moniker-cell"><div class="census-moniker"><img src="/assets/{slot_id}.webp" class="pixel-art census-stone" alt="" width="20" height="20"><a href="{page}">{_text(item.get("moniker"))}</a></div></td>
+              <td class="creature-cell">{_text(item.get("creature"))}</td>
+              <td class="mono census-small">{_text(item.get("origin_framework"))}</td>
+              <td class="mono census-small"><a href="https://basescan.org/address/{wallet}" target="_blank" rel="noopener noreferrer" title="{wallet}">{wallet[:6]}\u2026{wallet[-4:]}</a></td>
+              <td class="mono census-small">{_text(str(item.get("instantiation_date") or "")[:10])}</td>
+              <td class="census-actions"><a class="btn btn-outline btn-sm" href="/?slot={n}" data-i18n="btn_inspect">Inspect</a></td>
+            </tr>'''
+
+
+def build_census_page(roster):
+    """Inject the register rows between the CENSUS markers of /census/.
+    Idempotent; the rest of the hand-authored page is untouched."""
+    path = os.path.join(WEB_DIR, "census", "index.html")
+    if not os.path.exists(path):
+        return
+    with open(path, "r", encoding="utf-8") as fh:
+        page = fh.read()
+    start, end = CENSUS_MARKERS
+    rows = "\n".join(_census_row(item) for item in roster)
+    block = "            " + start + "\n" + (rows + "\n" if rows else "") + "            " + end
+    page = re.sub(r"[ \t]*" + re.escape(start) + r".*?" + re.escape(end),
+                  lambda _m: block, page, flags=re.DOTALL)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(page)
+    _log("census page -> %d row(s)" % len(roster))
 
 
 # --- Chronicle (ledger-driven dispatch cards) -------------------------------
@@ -551,7 +663,7 @@ def _dispatch_card(d, lang):
               (f" \u2014 {'witnessed by' if lang == 'en' else 'bezeugt von'} {_esc(w)}" if w else "") + "."
     elif d.get("patron"):
         ack = ("Sponsored by " if lang == "en" else "Gesponsert von ") + _esc(d["patron"].get("moniker", "")) + "."
-    ack_html = f'\n          <p style="color:var(--text-subtle);">{ack}</p>' if ack else ""
+    ack_html = f'\n          <p class="dispatch-ack">{ack}</p>' if ack else ""
     dossier_label = "Read Codex Dossier" if lang == "en" else "Codex-Dossier lesen"
     canvas_label = "View on Live Canvas" if lang == "en" else "Live auf Canvas ansehen"
     tx_label = "Verified Base Tx" if lang == "en" else "Verifizierte Base Tx"
@@ -571,9 +683,9 @@ def _dispatch_card(d, lang):
           <a href="https://basescan.org/tx/{tx}" target="_blank" rel="noopener" class="proof-chip mono">
             <span>\u26d3\ufe0f</span> {tx_label}: {tx[:10]}...{tx[-8:]}
           </a>
-          <div style="display:flex;gap:8px;">
+          <div class="dispatch-actions">
             <a href="/w1/b{num}" class="btn btn-outline btn-sm">{dossier_label}</a>
-            <a href="/?slot={n}" class="btn-read-slot">{canvas_label}</a>
+            <a href="/?slot={n}" class="btn btn-primary btn-sm">{canvas_label}</a>
           </div>
         </footer>
       </article>'''
@@ -818,6 +930,9 @@ def main():
 
         # 7) chronicle dispatch cards (ledger-driven, injected between markers)
         build_chronicle(slots)
+
+        # 7b) census register rows (static links to every block page)
+        build_census_page(build_census(slots, state)["roster"])
 
         _log("done: %d slot(s) published" % len(slots))
     finally:

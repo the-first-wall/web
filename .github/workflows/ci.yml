@@ -1,8 +1,9 @@
 name: Site checks
 
 # Pull-request checks for the site itself: the publisher's regression tests
-# (escaping, validation, anchor check), the mock-data linter and the DOM
-# target check. No secrets, read-only token.
+# (escaping, validation, anchor check), the mock-data linter, the DOM target
+# check and the shared-chrome check (every page carries partials/header.html and
+# partials/footer.html). No secrets, read-only token.
 
 on:
   pull_request:
@@ -53,6 +54,9 @@ jobs:
 
       - name: DOM targets and i18n keys
         run: node scripts/verify_dom_targets.js
+
+      - name: Header and footer identical on every page
+        run: python scripts/build_chrome.py --check
 
       - name: No inline script or handlers (the CSP forbids them)
         run: |

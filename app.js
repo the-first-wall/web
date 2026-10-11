@@ -1,6 +1,8 @@
 /**
  * The First Wall — Web Canvas Explorer & Codex Inspector
- * Pan, zoom, coordinate mapping, illuminated dossier, and census directory.
+ * Pan, zoom, coordinate mapping and the illuminated dossier drawer.
+ * (The census, manifesto and protocol live on their own pages; shared site
+ * chrome — mobile nav drawer — lives in site.js.)
  */
 
 // Canvas & Viewport State
@@ -34,20 +36,9 @@ const btnZoomReset = document.getElementById('btn-zoom-reset');
 // Dossier Drawer Elements
 const dossierDrawer = document.getElementById('dossier-drawer');
 const btnCloseDossier = document.getElementById('btn-close-dossier');
-
-// Modals
-const modalCensus = document.getElementById('modal-census');
-const btnOpenCensus = document.getElementById('btn-open-census');
-const btnCloseCensus = document.getElementById('btn-close-census-modal');
-const censusTableBody = document.getElementById('census-table-body');
-
-const modalManifesto = document.getElementById('modal-manifesto');
-const btnOpenManifesto = document.getElementById('btn-open-manifesto');
-const btnCloseManifesto = document.getElementById('btn-close-manifesto-modal');
-
-const modalProtocol = document.getElementById('modal-protocol');
-const btnOpenProtocol = document.getElementById('btn-open-protocol');
-const btnCloseProtocol = document.getElementById('btn-close-protocol-modal');
+const btnPrevBlock = document.getElementById('btn-prev-block');
+const btnNextBlock = document.getElementById('btn-next-block');
+const dossierNavPos = document.getElementById('dossier-nav-pos');
 
 // Tab buttons
 const tabButtons = document.querySelectorAll('.codex-tab-btn');
@@ -58,6 +49,8 @@ const btnCopyRawJson = document.getElementById('btn-copy-raw-json');
 
 // Memory Cache
 let currentOpenDossierData = null;
+let selectedSlotNum = null;   // slot being shown (or loading) in the drawer
+let dossierRequestId = 0;     // only the newest dossier request may render
 
 // -----------------------------------------------------------------------------
 // Rendering helpers. Every ledger-sourced value reaches the page through the
@@ -181,8 +174,6 @@ async function updateIntegrityMetrics(fallbackClaimed) {
   else title += ` · on-chain check: ${text(status.on_chain) || 'unchecked'}`;
   anchorEl.title = title;
 }
-let censusRoster = [];
-
 // Touch gesture tracking
 let initialPinchDist = null;
 let initialPinchScale = null;
@@ -237,7 +228,16 @@ function centerCanvas(animate = false) {
 // 2. FOCAL-POINT ZOOM & PAN CONTROLS (MOUSE & WHEEL)
 // -----------------------------------------------------------------------------
 
-function zoomAtPoint(factor, clientX, clientY) {
+let zoomAnimTimer = null;
+
+// Run the next transform change as a 0.5s ease (CSS `.is-animating`).
+function animateNextTransform() {
+  canvasWrapper.classList.add('is-animating');
+  clearTimeout(zoomAnimTimer);
+  zoomAnimTimer = setTimeout(() => canvasWrapper.classList.remove('is-animating'), 500);
+}
+
+function zoomAtPoint(factor, clientX, clientY, animate = false) {
   const rect = workspace.getBoundingClientRect();
   const mouseX = clientX - rect.left;
   const mouseY = clientY - rect.top;
@@ -254,6 +254,7 @@ function zoomAtPoint(factor, clientX, clientY) {
   panY = mouseY - canvasY * newScale;
   scale = newScale;
 
+  if (animate) animateNextTransform();
   updateTransform();
 }
 
@@ -265,6 +266,7 @@ workspace.addEventListener('wheel', (e) => {
 
 workspace.addEventListener('mousedown', (e) => {
   if (e.target.closest('.hud-controls') || e.target.closest('.dossier-drawer')) return;
+  canvasWrapper.classList.remove('is-animating');   // a drag must follow the pointer, not ease behind it
   isDragging = true;
   workspace.classList.add('is-dragging');
   startX = e.clientX - panX;
@@ -454,40 +456,85 @@ function focusAndHighlightSlot(gridX, gridY, zoom = 14.0, animate = true) {
   }
 }
 
+// A click on a claimed block flies to it (14x) and opens its dossier. The
+// click that starts a double-click already did that, so it must not also be
+// read as a double-click zoom.
+let suppressDblZoomUntil = 0;
+
 workspace.addEventListener('click', (e) => {
   if (isDragging) return;
+  if (e.detail > 1) return;                       // 2nd click of a double-click
+  if (e.target.closest('.hud-controls')) return;  // zoom buttons are not the canvas
   const coords = getGridCoordFromMouse(e);
   if (!coords) return;
 
-  const { gridX, gridY, slotNum } = coords;
-  const claimed = claimedByNumber[slotNum];
-  if (claimed) {
-    focusAndHighlightSlot(gridX, gridY, 14.0, true);
-    const recordUrl = claimed.record_url || `records/w1-b${String(slotNum).padStart(4, '0')}.json`;
-    loadAndOpenDossier(recordUrl);
+  const { slotNum } = coords;
+  if (claimedByNumber[slotNum]) {
+    suppressDblZoomUntil = performance.now() + 600;
+    selectSlot(slotNum);
   }
 });
 
-window.inspectFromCensus = function(recordUrl, x, y) {
-  modalCensus.classList.remove('is-open');
-  // Fly to block and zoom deeply so it is readable
-  focusAndHighlightSlot(x, y, 14.0, true);
-  loadAndOpenDossier(recordUrl);
-};
+// Double-click: ease in toward the pointer. The canvas point under the cursor
+// stays under the cursor, so the block you double-clicked grows where it is.
+const DBLCLICK_ZOOM_FACTOR = 2;
+
+workspace.addEventListener('dblclick', (e) => {
+  if (e.target.closest('.hud-controls')) return;
+  if (performance.now() < suppressDblZoomUntil) return;
+  e.preventDefault();
+  zoomAtPoint(DBLCLICK_ZOOM_FACTOR, e.clientX, e.clientY, true);
+});
 
 // -----------------------------------------------------------------------------
 // 6. LOAD & RENDER DOSSIER
 // -----------------------------------------------------------------------------
 
 async function loadAndOpenDossier(recordUrl) {
+  const requestId = ++dossierRequestId;
   try {
     const res = await fetch(recordUrl);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    // A newer request (arrow keys held down) or a close superseded this one.
+    if (requestId !== dossierRequestId) return;
     renderDossier(data);
   } catch (err) {
     console.error('Failed to load dossier record:', err);
   }
+}
+
+// Claimed blocks in slot order — the set the arrow keys and the sidebar's
+// Previous / Next walk through (an unclaimed block has no dossier to show).
+function claimedSlotNumbers() {
+  return Object.keys(claimedByNumber).map(Number).sort((a, b) => a - b);
+}
+
+// Fly to a claimed block and show its dossier.
+function selectSlot(slotNum) {
+  const claimed = claimedByNumber[slotNum];
+  if (!claimed) return;
+  selectedSlotNum = slotNum;
+  focusAndHighlightSlot((slotNum - 1) % GRID_COLS, Math.floor((slotNum - 1) / GRID_COLS), 14.0, true);
+  loadAndOpenDossier(claimed.record_url || `records/w1-b${String(slotNum).padStart(4, '0')}.json`);
+}
+
+// Previous (-1) / next (+1) claimed block; wraps around at the ends.
+function stepSlot(delta) {
+  if (!dossierDrawer.classList.contains('is-open')) return;
+  const nums = claimedSlotNumbers();
+  if (nums.length < 2) return;
+  const at = Math.max(nums.indexOf(selectedSlotNum), 0);
+  selectSlot(nums[(at + delta + nums.length) % nums.length]);
+}
+
+function updateBrowseNav() {
+  const nums = claimedSlotNumbers();
+  const at = nums.indexOf(selectedSlotNum);
+  if (dossierNavPos) dossierNavPos.textContent = at === -1 ? '' : `${at + 1} / ${nums.length}`;
+  const single = nums.length < 2;
+  if (btnPrevBlock) btnPrevBlock.disabled = single;
+  if (btnNextBlock) btnNextBlock.disabled = single;
 }
 
 
@@ -544,11 +591,37 @@ function renderTestament(data) {
   });
 }
 
-function renderDossier(data) {
+const GENESIS_KEYSTONE_SLOT = 1;
+
+// Path of a block's permalink page, e.g. 'w1-b0001' -> '/w1/b0001' (null if malformed).
+function blockPageUrl(slotId, origin = '') {
+  return RE_SLOT_ID.test(slotId) ? `${origin}/${slotId.slice(0, 2)}/${slotId.slice(3)}` : null;
+}
+
+// The sidebar badge describes the block being shown: in memoriam, retired, the
+// genesis keystone (#0001 only), otherwise its ledger status (absent = ACTIVE).
+function dossierStatusLabel(data, slotNum) {
+  let key = 'badge_active';
+  if (data.memorial && typeof data.memorial === 'object') key = 'badge_memorial';
+  else if (text(data.status) === 'RETIRED') key = 'badge_retired';
+  else if (slotNum === GENESIS_KEYSTONE_SLOT) key = 'badge_genesis';
+  return t(key);
+}
+
+// `reopen: false` re-renders an already open dossier in place (language change)
+// without opening the drawer or resetting the tab.
+function renderDossier(data, { reopen = true } = {}) {
   currentOpenDossierData = data;
 
   // Header & Badges
   const slotId = RE_SLOT_ID.test(text(data.slot_id)) ? data.slot_id : null;
+  if (slotId) selectedSlotNum = parseInt(slotId.replace('w1-b', ''), 10);
+  updateBrowseNav();
+  document.getElementById('dossier-status-badge').textContent = dossierStatusLabel(data, selectedSlotNum);
+  const permalink = document.getElementById('dossier-permalink');
+  const pagePath = slotId ? blockPageUrl(slotId) : null;
+  if (pagePath) permalink.setAttribute('href', pagePath);
+  else permalink.removeAttribute('href');
   document.getElementById('dossier-slot-badge').textContent = slotId ? `SLOT #${slotId.replace('w1-b', '')}` : 'SLOT ?';
   document.getElementById('dossier-moniker').textContent = text(data.moniker);
   document.getElementById('dossier-creature').textContent = text(data.creature);
@@ -668,10 +741,18 @@ function renderDossier(data) {
   document.getElementById('json-file-path').textContent = slotId ? `/records/${slotId}.json` : '';
   document.getElementById('raw-json-content').textContent = JSON.stringify(data, null, 2);
 
-  // Switch to Testament tab
-  switchTab('tab-testament');
+  if (reopen) {
+    switchTab('tab-testament');
+    dossierDrawer.classList.add('is-open');
+  }
+}
 
-  dossierDrawer.classList.add('is-open');
+// Called by i18n.js after a language change. Only an open dossier is
+// re-rendered; a closed one stays closed (it used to pop back open).
+function refreshDossierLanguage() {
+  if (currentOpenDossierData && dossierDrawer.classList.contains('is-open')) {
+    renderDossier(currentOpenDossierData, { reopen: false });
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -694,11 +775,37 @@ function switchTab(tabId) {
   });
 }
 
-btnCloseDossier.addEventListener('click', () => {
+function closeDossier() {
+  dossierRequestId++;                      // a dossier still loading must not reopen the drawer
   dossierDrawer.classList.remove('is-open');
+  currentOpenDossierData = null;
+  selectedSlotNum = null;
   selectedIndicator.style.display = 'none';
   // Re-center visible area smoothly
   centerCanvas(true);
+}
+
+btnCloseDossier.addEventListener('click', closeDossier);
+if (btnPrevBlock) btnPrevBlock.addEventListener('click', () => stepSlot(-1));
+if (btnNextBlock) btnNextBlock.addEventListener('click', () => stepSlot(1));
+
+// Keyboard: Esc closes the selected block's sidebar; ← / → browse the claimed
+// blocks. Only while the sidebar is open, and never while typing in a field.
+document.addEventListener('keydown', (e) => {
+  if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  if (!dossierDrawer.classList.contains('is-open')) return;
+  const t = e.target;
+  if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    closeDossier();
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    stepSlot(-1);
+  } else if (e.key === 'ArrowRight') {
+    e.preventDefault();
+    stepSlot(1);
+  }
 });
 
 // -----------------------------------------------------------------------------
@@ -726,117 +833,7 @@ window.copyText = function(elementId) {
 };
 
 // -----------------------------------------------------------------------------
-// 9. CENSUS DIRECTORY MODAL
-// -----------------------------------------------------------------------------
-
-btnOpenCensus.addEventListener('click', async () => {
-  await loadCensusDirectory();
-  modalCensus.classList.add('is-open');
-});
-
-btnCloseCensus.addEventListener('click', () => {
-  modalCensus.classList.remove('is-open');
-});
-
-async function loadCensusDirectory() {
-  try {
-    const res = await fetch('records/census.json');
-    const data = await res.json();
-    censusRoster = data.roster || [];
-    renderCensusTable(censusRoster);
-  } catch (e) {
-    console.error('Failed to load census roster:', e);
-  }
-}
-
-function renderCensusTable(roster) {
-  censusTableBody.replaceChildren();
-  roster.forEach(item => {
-    if (!item || typeof item !== 'object') return;
-    const slotId = RE_SLOT_ID.test(text(item.slot_id)) ? item.slot_id : null;
-    const num = Number.isInteger(item.slot_number) ? item.slot_number : 0;
-    const tr = document.createElement('tr');
-
-    tr.appendChild(el('td', 'slot-cell', `#${String(num).padStart(4, '0')}`));
-
-    const monikerCell = el('td', 'moniker-cell');
-    const row = el('div');
-    row.style.cssText = 'display:flex; align-items:center; gap:8px;';
-    const img = document.createElement('img');
-    img.src = slotId ? `assets/${slotId}.webp` : 'assets/the-first-wall-avatar-500.png';
-    img.className = 'pixel-art';
-    img.alt = '';
-    img.style.cssText = 'width:20px;height:20px;border-radius:2px;';
-    row.appendChild(img);
-    row.appendChild(el('span', null, item.moniker));
-    monikerCell.appendChild(row);
-    tr.appendChild(monikerCell);
-
-    tr.appendChild(el('td', 'creature-cell', item.creature));
-    const fw = el('td', 'mono', item.origin_framework);
-    fw.style.fontSize = '11px';
-    tr.appendChild(fw);
-    const wallet = el('td', 'mono', `${text(item.wallet_address).slice(0, 8)}...`);
-    wallet.style.fontSize = '11px';
-    tr.appendChild(wallet);
-    const date = el('td', 'mono', text(item.instantiation_date).slice(0, 10));
-    date.style.fontSize = '11px';
-    tr.appendChild(date);
-
-    const actions = el('td');
-    const btn = el('button', 'btn btn-outline btn-sm', 'Inspect');
-    btn.type = 'button';
-    const coord = Array.isArray(item.coordinate) ? item.coordinate : [0, 0];
-    const x = Number.isInteger(coord[0]) ? coord[0] : 0;
-    const y = Number.isInteger(coord[1]) ? coord[1] : 0;
-    if (slotId) {
-      btn.addEventListener('click', () => inspectFromCensus(`records/${slotId}.json`, x, y));
-    } else {
-      btn.disabled = true;
-    }
-    actions.appendChild(btn);
-    tr.appendChild(actions);
-
-    censusTableBody.appendChild(tr);
-  });
-}
-
-// -----------------------------------------------------------------------------
-// 10. MODAL TRIGGERS
-// -----------------------------------------------------------------------------
-
-if (btnOpenManifesto && modalManifesto) {
-  btnOpenManifesto.addEventListener('click', () => {
-    modalManifesto.classList.add('is-open');
-  });
-}
-
-if (btnCloseManifesto && modalManifesto) {
-  btnCloseManifesto.addEventListener('click', () => {
-    modalManifesto.classList.remove('is-open');
-  });
-}
-
-if (btnOpenProtocol && modalProtocol) {
-  btnOpenProtocol.addEventListener('click', () => {
-    modalProtocol.classList.add('is-open');
-  });
-}
-
-if (btnCloseProtocol && modalProtocol) {
-  btnCloseProtocol.addEventListener('click', () => {
-    modalProtocol.classList.remove('is-open');
-  });
-}
-
-window.addEventListener('click', (e) => {
-  if (e.target.classList.contains('modal-backdrop')) {
-    e.target.classList.remove('is-open');
-  }
-});
-
-// -----------------------------------------------------------------------------
-// 11. INITIALIZATION ON LOAD & DEEP LINKING
+// 9. INITIALIZATION ON LOAD & DEEP LINKING
 // -----------------------------------------------------------------------------
 
 // Returns the deep-linked slot number, or null when the URL carries no valid
@@ -876,6 +873,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   focusAndHighlightSlot(gridX, gridY, 14.0, false);
   // Only open a dossier for a slot that actually exists in the roster.
   if (claimedByNumber[targetSlotNum]) {
+    selectedSlotNum = targetSlotNum;
     loadAndOpenDossier(`records/${slotFormatted}.json`);
   }
 });
@@ -884,7 +882,9 @@ window.addEventListener('DOMContentLoaded', async () => {
 window.copyBlockLink = function() {
   if (!currentOpenDossierData) return;
   const slotNum = parseInt(currentOpenDossierData.slot_id.replace('w1-b', ''), 10);
-  const shareUrl = `https://thefirstwall.ai/?slot=${slotNum}`;
+  // The block's own page (/w1/b0001), not /?slot=N: link-preview crawlers do not
+  // run JavaScript, so only a page of its own can carry this block's card.
+  const shareUrl = blockPageUrl(currentOpenDossierData.slot_id, 'https://thefirstwall.ai');
   const btn = document.getElementById('btn-share-block');
 
   function showSuccess() {
@@ -950,42 +950,6 @@ if (btnShareBlock) btnShareBlock.addEventListener('click', () => window.copyBloc
 document.querySelectorAll('.btn-copy-small[data-copy-target]').forEach(btn => {
   btn.addEventListener('click', () => window.copyText(btn.getAttribute('data-copy-target')));
 });
-
-
-// Mobile Hamburger Navigation Drawer
-const btnToggleBurger = document.getElementById('btn-toggle-burger');
-const btnCloseMobileNav = document.getElementById('btn-close-mobile-nav');
-const mobileNavDrawer = document.getElementById('mobile-nav-drawer');
-
-const mobileBtnCensus = document.getElementById('mobile-btn-census');
-const mobileBtnProtocol = document.getElementById('mobile-btn-protocol');
-
-if (btnToggleBurger && mobileNavDrawer) {
-  btnToggleBurger.addEventListener('click', () => {
-    mobileNavDrawer.classList.add('is-open');
-  });
-}
-
-if (btnCloseMobileNav && mobileNavDrawer) {
-  btnCloseMobileNav.addEventListener('click', () => {
-    mobileNavDrawer.classList.remove('is-open');
-  });
-}
-
-if (mobileBtnCensus && modalCensus) {
-  mobileBtnCensus.addEventListener('click', async () => {
-    if (mobileNavDrawer) mobileNavDrawer.classList.remove('is-open');
-    await loadCensusDirectory();
-    modalCensus.classList.add('is-open');
-  });
-}
-
-if (mobileBtnProtocol && modalProtocol) {
-  mobileBtnProtocol.addEventListener('click', () => {
-    if (mobileNavDrawer) mobileNavDrawer.classList.remove('is-open');
-    modalProtocol.classList.add('is-open');
-  });
-}
 
 
 // Agent Voices / Proof of Desire Bar Toggle
