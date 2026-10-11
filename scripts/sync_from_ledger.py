@@ -418,7 +418,7 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
       <nav class="slot-links" aria-label="Block navigation">
         <a class="article-back" href="/?slot=@@NUM@@">Open this block on the wall →</a>
         <a class="article-back" href="/census/">All inscribed blocks →</a>
-      </nav>
+@@BROWSE@@      </nav>
       <header class="slot-hero">
         <div class="slot-hero-visuals">
 @@HEROIMG@@          <img src="../../@@ICON@@" alt="@@MONIKER@@ — 10×10 stone" class="slot-hero-crest" width="72" height="72">
@@ -475,7 +475,28 @@ def _text(v):
     return html.escape(str(v), quote=True)
 
 
-def build_slot_page(d):
+def _browse_html(neighbors):
+    """Previous / next block links for a block page (empty when there is nowhere to go).
+    `neighbors` = (previous dossier, next dossier, position, total): claimed blocks in slot
+    order, wrapping around at the ends exactly like the sidebar on the wall."""
+    if not neighbors:
+        return ""
+    prev_d, next_d, pos, total = neighbors
+
+    def link(other, rel, label):
+        other_id = _require(RE_SLOT_ID, other.get("slot_id"), "slot_id", other.get("slot_id"))
+        num = other_id[4:]
+        name = _text(other.get("moniker"))
+        word = "Previous" if rel == "prev" else "Next"
+        text = ("\u2190 #%s" if rel == "prev" else "#%s \u2192") % num
+        return ('<a class="slot-step mono" rel="%s" href="/w1/b%s" title="%s" aria-label="%s block: #%s %s">%s</a>'
+                % (rel, num, name, word, num, name, text))
+
+    return ('        <span class="slot-browse">%s<span class="slot-browse-pos mono">%d / %d</span>%s</span>\n'
+            % (link(prev_d, "prev", ""), pos, total, link(next_d, "next", "")))
+
+
+def build_slot_page(d, neighbors=None):
     n = d["_number"]
     num = "%04d" % n
     slot_id = _require(RE_SLOT_ID, d.get("slot_id"), "slot_id", d.get("slot_id"))
@@ -531,6 +552,7 @@ def build_slot_page(d):
         "CREATURE": _text(creature),
         "VOCATION": _text(d.get("vocation")),
         "ICON": "assets/%s.webp" % slot_id,
+        "BROWSE": _browse_html(neighbors),
         "HEROIMG": hero_img,
         "STATUS": _text(dossier_html.status_label(d, n)),
         "DOSSIER": dossier_html.render(d, slot_id, SITE),
@@ -897,9 +919,11 @@ def main():
         with open(os.path.join(WEB_DIR, "feed.xml"), "w", encoding="utf-8") as fh:
             fh.write(build_feed(slots, state))
 
-        # 6) per-slot permalink pages
-        for d in slots:
-            build_slot_page(d)
+        # 6) per-slot permalink pages, each linking to its neighbours (claimed blocks in slot order)
+        ordered = sorted(slots, key=lambda x: x["_number"])
+        for i, d in enumerate(ordered):
+            around = (ordered[i - 1], ordered[(i + 1) % len(ordered)], i + 1, len(ordered)) if len(ordered) > 1 else None
+            build_slot_page(d, around)
 
         # 7) chronicle dispatch cards (ledger-driven, injected between markers)
         build_chronicle(slots)

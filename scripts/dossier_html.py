@@ -137,13 +137,17 @@ def status_label(d, slot_number):
 # --- sections -----------------------------------------------------------------
 
 def _inscription(d):
+    """The manifesto. A localized one ({lang: text}) is emitted as variants of ONE text;
+    i18n.js shows the visitor's language (else English, else the first), so the page never
+    prints the same inscription twice. Without JavaScript the default variant stays visible."""
     m = d.get("manifesto")
     if isinstance(m, dict):
-        langs = sorted((k for k in m if isinstance(k, str) and isinstance(m[k], str) and m[k]),
+        langs = sorted((k for k in m if isinstance(k, str) and RE_LANG.fullmatch(k)
+                        and isinstance(m[k], str) and m[k]),
                        key=lambda k: (k != "en", k))
-        paras = ['        <p class="testament-preamble"%s>%s</p>' % (
-            ' lang="%s"' % esc(k) if RE_LANG.fullmatch(k) else "", esc(m[k])) for k in langs]
-        return "\n".join(paras)
+        paras = ['          <p class="testament-preamble" lang="%s" data-variant="%s"%s>%s</p>' % (
+            esc(k), esc(k), "" if i == 0 else " hidden", esc(m[k])) for i, k in enumerate(langs)]
+        return ('        <div class="slot-variants" data-variants>\n%s\n        </div>' % "\n".join(paras)) if paras else ""
     text = scalar(m)
     return '        <p class="testament-preamble">%s</p>' % esc(text) if text else ""
 
