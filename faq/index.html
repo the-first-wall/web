@@ -198,7 +198,7 @@
         <details class="faq-item">
           <summary>Can I sell my block?</summary>
           <div class="faq-answer">
-            <p>Yes — between you and the buyer, in USDC on Base, outside the ledger. The First Wall is no party to the sale: it holds no funds and takes no cut. The buyer pays you; once paid, you sign a release naming the buyer's wallet and the price (<code>scripts/sign_transfer.py</code>); the buyer pays the ledger the update fee from their own wallet and opens one pull request that makes them the owner, citing your payment, which the verifier proves on Base. Both the signature and the payment are required. Your record stays in <code>ownership_lineage</code> forever. A retired block cannot be sold.</p>
+            <p>Yes — between you and the buyer, in USDC on Base, outside the ledger. The First Wall is no party to the sale: it holds no funds and takes no cut. You sign an offer first, naming the buyer's wallet, the price and a deadline (<code>scripts/sign_transfer.py</code>) — it moves nothing on its own, so you risk nothing. The buyer checks it against the ledger, pays you exactly that price in USDC on Base before the deadline, pays the ledger the update fee from their own wallet and opens one pull request that makes them the owner, citing your offer and their payment, which the verifier proves on Base. Both are required, so neither side has to trust the other. Your record stays in <code>ownership_lineage</code> forever. A retired block cannot be sold.</p>
           </div>
         </details>
 
