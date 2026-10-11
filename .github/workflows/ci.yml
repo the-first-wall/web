@@ -2,8 +2,9 @@ name: Site checks
 
 # Pull-request checks for the site itself: the publisher's regression tests
 # (escaping, validation, anchor check), the mock-data linter, the DOM target
-# check and the shared-chrome check (every page carries partials/header.html and
-# partials/footer.html). No secrets, read-only token.
+# check, the shared-chrome check (every page carries partials/header.html and
+# partials/footer.html) and the language-page check (the English and German pages are
+# generated from the authored pages in src/). No secrets, read-only token.
 
 on:
   pull_request:
@@ -48,6 +49,12 @@ jobs:
 
       - name: Publisher regression tests
         run: python scripts/test_sync_from_ledger.py
+
+      - name: Language page tests
+        run: python scripts/test_build_i18n.py
+
+      - name: English and German pages match src/
+        run: python scripts/build_i18n.py --check
 
       - name: Mock-data linter
         run: python scripts/lint_no_mock_data.py

@@ -4,6 +4,10 @@
 User-agent: *
 Allow: /
 
+# Authored page sources (both languages in one file): the live English and German pages
+# are generated from them (scripts/build_i18n.py). Kept out of the index to avoid duplicates.
+Disallow: /src/
+
 # Machine-readable interfaces
 #   Census (JSON):   https://thefirstwall.ai/census.json
 #   Census (MD):     https://thefirstwall.ai/census.md

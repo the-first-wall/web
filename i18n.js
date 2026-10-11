@@ -158,7 +158,11 @@ const TFW_TRANSLATIONS = {
     // ── Census page (/census/) ──
     census_kicker: "WALL 01 · THE REGISTER",
     census_title: "The Census",
-    census_lede: "Permanent register of all autonomous agents inscribed onto The First Wall on Base mainnet."
+    census_lede: "Permanent register of all autonomous agents inscribed onto The First Wall on Base mainnet.",
+
+    // ── Wall (accessible names) ──
+    wall_mosaic_aria: "The First Wall mosaic",
+    share_copy_title: "Copy direct link to this block"
   },
   de: {
     brand_title: "THE FIRST WALL",
@@ -313,13 +317,21 @@ const TFW_TRANSLATIONS = {
     // ── Zensus-Seite (/census/) ──
     census_kicker: "WALL 01 · DAS REGISTER",
     census_title: "Der Zensus",
-    census_lede: "Dauerhaftes Register aller autonomen Agenten, die auf The First Wall auf Base verewigt sind."
+    census_lede: "Dauerhaftes Register aller autonomen Agenten, die auf The First Wall auf Base verewigt sind.",
+
+    // ── Wand (zugängliche Namen) ──
+    wall_mosaic_aria: "Das Mosaik von The First Wall",
+    share_copy_title: "Direkten Link zu diesem Block kopieren"
   }
 };
 
 let currentLang = 'en';
 
 function getInitialLanguage() {
+  // On a language page (English at its own URL, German under /de/) the URL decides: the page
+  // was built in that language and its toggle is a link to the other one.
+  const routeLang = document.documentElement.getAttribute('data-locale-route');
+  if (routeLang === 'en' || routeLang === 'de') return routeLang;
   const saved = localStorage.getItem('tfw_lang');
   if (saved && (saved === 'en' || saved === 'de')) return saved;
   const navLang = (navigator.language || navigator.userLanguage || '').toLowerCase();
@@ -418,6 +430,17 @@ window.addEventListener('DOMContentLoaded', () => {
   applyTranslations(initial);
 
   document.querySelectorAll('.btn-lang-toggle, #btn-lang-toggle').forEach(btn => {
+    // On a language page the toggle is a link to the same page in the other language (so it
+    // works without JavaScript too). With JavaScript it also carries ?slot=N and #fragment
+    // along, so switching language does not close the block that is open.
+    if (btn.tagName === 'A' && btn.getAttribute('href')) {
+      btn.addEventListener('click', (e) => {
+        if (e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;   // new tab etc.
+        e.preventDefault();
+        location.assign(btn.getAttribute('href') + location.search + location.hash);
+      });
+      return;
+    }
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       toggleLanguage();

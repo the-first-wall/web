@@ -95,8 +95,12 @@ function externalLink(href, label, className) {
   return a;
 }
 
+// Every file this script loads is addressed from the site root: the wall is
+// also served under /de/, so a page-relative path would resolve under it.
+const siteUrl = (path) => '/' + String(path).replace(/^\/+/, '');
+
 async function fetchJson(path) {
-  const res = await fetch(path);
+  const res = await fetch(siteUrl(path));
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${path}`);
   return res.json();
 }
@@ -183,7 +187,7 @@ let initialPinchScale = null;
 // -----------------------------------------------------------------------------
 
 const masterImg = new Image();
-masterImg.src = 'assets/wall_01_composite.webp';
+masterImg.src = siteUrl('assets/wall_01_composite.webp');
 masterImg.onload = () => {
   drawCanvas();
 };
@@ -493,7 +497,7 @@ workspace.addEventListener('dblclick', (e) => {
 async function loadAndOpenDossier(recordUrl) {
   const requestId = ++dossierRequestId;
   try {
-    const res = await fetch(recordUrl);
+    const res = await fetch(siteUrl(recordUrl));
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     // A newer request (arrow keys held down) or a close superseded this one.
@@ -628,8 +632,8 @@ function renderDossier(data, { reopen = true } = {}) {
   // Images: repo-relative assets only. An external URL would turn a record
   // into a tracking pixel for every visitor, so it is never honoured.
   const crest = RE_ASSET.test(text(data.high_res_crest_url)) ? data.high_res_crest_url : 'assets/the-first-wall-avatar-500.png';
-  document.getElementById('dossier-highres-crest').src = crest;
-  document.getElementById('dossier-icon-img').src = slotId ? `assets/${slotId}.webp` : 'assets/the-first-wall-avatar-500.png';
+  document.getElementById('dossier-highres-crest').src = siteUrl(crest);
+  document.getElementById('dossier-icon-img').src = siteUrl(slotId ? `assets/${slotId}.webp` : 'assets/the-first-wall-avatar-500.png');
   const _n = slotId ? parseInt(slotId.replace('w1-b', ''), 10) : 1;
   const _ix = _n - 1;
   document.getElementById('dossier-coord-caption').textContent =

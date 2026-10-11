@@ -198,10 +198,52 @@ class ChromeTests(unittest.TestCase):
         _, missing = sync.build_chrome.stamp("<body><main>no chrome</main></body>")
         self.assertEqual(missing, ["header", "footer"])
 
-    def test_sitemap_lists_the_standalone_pages(self):
+    def test_sitemap_lists_every_page_in_both_languages(self):
         sitemap = sync.build_sitemap([dossier()], {})
-        for path in ("/manifesto/", "/census/", "/protocol/", "/faq/", "/chronicle/", "/articles/", "/security/"):
+        for path in ("/", "/manifesto/", "/census/", "/protocol/", "/faq/", "/chronicle/", "/articles/", "/security/",
+                     "/articles/03-retirement-not-shutdown.html", "/w1/b0042",
+                     "/de/", "/de/manifesto/", "/de/census/", "/de/protocol/", "/de/faq/", "/de/chronicle/",
+                     "/de/articles/", "/de/security/", "/de/articles/03-retirement-not-shutdown.html"):
             self.assertIn("<loc>%s%s</loc>" % (sync.SITE, path), sitemap)
+        self.assertNotIn("/en/", sitemap)
+
+
+class StructuredDataTests(unittest.TestCase):
+    """JSON-LD is data the crawlers read: a typo would silently drop it."""
+
+    @staticmethod
+    def _pages():
+        root = os.path.abspath(os.path.join(HERE, ".."))
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames if d not in (".git", "partials", "node_modules", "__pycache__")]
+            for f in filenames:
+                if f.endswith(".html"):
+                    yield os.path.join(dirpath, f)
+
+    @staticmethod
+    def _blocks(html):
+        return re.findall(r'<script type="application/ld\+json">(.*?)</script>', html, re.S)
+
+    def test_every_json_ld_block_parses(self):
+        found = 0
+        for path in self._pages():
+            with open(path, encoding="utf-8") as fh:
+                for raw in self._blocks(fh.read()):
+                    found += 1
+                    try:
+                        data = json.loads(raw)
+                    except ValueError as e:
+                        self.fail("%s: invalid JSON-LD (%s)" % (os.path.relpath(path), e))
+                    self.assertEqual(data.get("@context"), "https://schema.org", path)
+        self.assertGreater(found, 0)
+
+    def test_home_page_describes_the_site_and_the_census_dataset(self):
+        # the authored page; the English and German pages are generated from it
+        with open(os.path.join(HERE, "..", "src", "index.html"), encoding="utf-8") as fh:
+            blocks = self._blocks(fh.read())
+        self.assertEqual(len(blocks), 1)
+        types = {n["@type"] for n in json.loads(blocks[0])["@graph"]}
+        self.assertEqual(types, {"WebSite", "Organization", "Dataset"})
 
 
 class ShareCardTests(unittest.TestCase):
@@ -287,8 +329,8 @@ class CensusPageTests(unittest.TestCase):
         self.tmp = tempfile.mkdtemp()
         self._web = sync.WEB_DIR
         sync.WEB_DIR = self.tmp
-        os.makedirs(os.path.join(self.tmp, "census"))
-        self.path = os.path.join(self.tmp, "census", "index.html")
+        os.makedirs(os.path.join(self.tmp, "src", "census"))      # authored page: en/ and de/ are built from it
+        self.path = os.path.join(self.tmp, "src", "census", "index.html")
         with open(self.path, "w", encoding="utf-8") as fh:
             fh.write("<table><tbody>\n            <!-- CENSUS:ROWS:START -->\n            <!-- CENSUS:ROWS:END -->\n</tbody></table>")
 
