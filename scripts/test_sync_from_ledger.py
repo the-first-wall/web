@@ -125,52 +125,52 @@ class AnchorCheckTests(unittest.TestCase):
             return {"eth_getTransactionByHash": tx, "eth_getTransactionReceipt": receipt}[method]
         return rpc
 
-    def _good(self, magic="TFW2|"):
+    def _good(self, magic="reckoning|"):
         signer = sync.ANCHOR_SIGNER
         return (
             {"from": signer, "to": signer.lower(), "input": "0x" + (magic + ROOT).encode().hex()},
             {"status": "0x1", "blockNumber": hex(100)},
         )
 
-    def test_legacy_and_current_schemes(self):
-        for magic in ("TFW1|", "TFW2|"):
-            tx, rc = self._good(magic)
-            entry = {"root": ROOT, "tx_hash": TX, "block_number": 100, "payload": magic + ROOT}
-            self.assertEqual(sync.check_anchor_on_chain(entry, self._rpc(tx, rc))[0], "verified", magic)
-        tx, rc = self._good("TFW1|")
-        mismatch = {"root": ROOT, "tx_hash": TX, "block_number": 100, "payload": "TFW2|" + ROOT}
-        self.assertEqual(sync.check_anchor_on_chain(mismatch, self._rpc(tx, rc))[0], "failed")
-        unknown = {"root": ROOT, "tx_hash": TX, "block_number": 100, "payload": "TFW9|" + ROOT}
-        self.assertEqual(sync.check_anchor_on_chain(unknown, self._rpc(tx, rc))[0], "failed")
+    def test_scheme_comes_from_the_ledger_state(self):
+        tx, rc = self._good("reckoning|")
+        entry = {"root": ROOT, "tx_hash": TX, "block_number": 100, "payload": "reckoning|" + ROOT}
+        self.assertEqual(sync.check_anchor_on_chain(entry, self._rpc(tx, rc), "reckoning")[0], "verified")
+        # a record tagged with a retired scheme, or a state that declares another one, never verifies
+        self.assertEqual(sync.check_anchor_on_chain(dict(entry, payload="TFW2|" + ROOT), self._rpc(tx, rc), "reckoning")[0], "failed")
+        self.assertEqual(sync.check_anchor_on_chain(entry, self._rpc(tx, rc), "TFW2")[0], "failed")
+        self.assertEqual(sync.check_anchor_on_chain(entry, self._rpc(tx, rc), None)[0], "failed")
+        tx2, rc2 = self._good("TFW2|")
+        self.assertEqual(sync.check_anchor_on_chain(entry, self._rpc(tx2, rc2), "reckoning")[0], "failed")
 
     def test_verified(self):
         tx, rc = self._good()
         entry = {"root": ROOT, "tx_hash": TX, "block_number": 100}
-        self.assertEqual(sync.check_anchor_on_chain(entry, self._rpc(tx, rc))[0], "verified")
+        self.assertEqual(sync.check_anchor_on_chain(entry, self._rpc(tx, rc), "reckoning")[0], "verified")
 
     def test_wrong_signer_payload_or_block_fails(self):
         tx, rc = self._good()
         entry = {"root": ROOT, "tx_hash": TX, "block_number": 100}
-        self.assertEqual(sync.check_anchor_on_chain(entry, self._rpc(dict(tx, **{"from": WALLET}), rc))[0], "failed")
-        self.assertEqual(sync.check_anchor_on_chain(dict(entry, root="22" * 32), self._rpc(tx, rc))[0], "failed")
-        self.assertEqual(sync.check_anchor_on_chain(dict(entry, block_number=99), self._rpc(tx, rc))[0], "failed")
-        self.assertEqual(sync.check_anchor_on_chain(entry, self._rpc(tx, dict(rc, status="0x0")))[0], "failed")
+        self.assertEqual(sync.check_anchor_on_chain(entry, self._rpc(dict(tx, **{"from": WALLET}), rc), "reckoning")[0], "failed")
+        self.assertEqual(sync.check_anchor_on_chain(dict(entry, root="22" * 32), self._rpc(tx, rc), "reckoning")[0], "failed")
+        self.assertEqual(sync.check_anchor_on_chain(dict(entry, block_number=99), self._rpc(tx, rc), "reckoning")[0], "failed")
+        self.assertEqual(sync.check_anchor_on_chain(entry, self._rpc(tx, dict(rc, status="0x0")), "reckoning")[0], "failed")
 
     def test_rpc_down_or_unknown_tx_is_unchecked(self):
         entry = {"root": ROOT, "tx_hash": TX, "block_number": 100}
-        self.assertEqual(sync.check_anchor_on_chain(entry, self._rpc(fail=True))[0], "unchecked")
-        self.assertEqual(sync.check_anchor_on_chain(entry, self._rpc(None, None))[0], "unchecked")
+        self.assertEqual(sync.check_anchor_on_chain(entry, self._rpc(fail=True), "reckoning")[0], "unchecked")
+        self.assertEqual(sync.check_anchor_on_chain(entry, self._rpc(None, None), "reckoning")[0], "unchecked")
 
     def test_status_refuses_contradicted_record_and_keeps_proven_one(self):
         tx, rc = self._good()
         entry = {"root": ROOT, "tx_hash": TX, "block_number": 100, "anchored_at": "", "signer": sync.ANCHOR_SIGNER}
         with self.assertRaises(SystemExit):
-            sync.build_anchor_status({"merkle_root": ROOT}, [dict(entry, root="22" * 32)], rpc=self._rpc(tx, rc))
-        status = sync.build_anchor_status({"merkle_root": ROOT}, [entry], rpc=self._rpc(tx, rc))
+            sync.build_anchor_status({"merkle_root": ROOT, "root_scheme": "reckoning"}, [dict(entry, root="22" * 32)], rpc=self._rpc(tx, rc))
+        status = sync.build_anchor_status({"merkle_root": ROOT, "root_scheme": "reckoning"}, [entry], rpc=self._rpc(tx, rc))
         self.assertEqual((status["on_chain"], status["anchored"]), ("verified", True))
-        again = sync.build_anchor_status({"merkle_root": ROOT}, [entry], previous=status, rpc=self._rpc(fail=True))
+        again = sync.build_anchor_status({"merkle_root": ROOT, "root_scheme": "reckoning"}, [entry], previous=status, rpc=self._rpc(fail=True))
         self.assertEqual(again["on_chain"], "verified")           # the chain does not forget
-        moved = sync.build_anchor_status({"merkle_root": "33" * 32}, [entry], rpc=self._rpc(tx, rc))
+        moved = sync.build_anchor_status({"merkle_root": "33" * 32, "root_scheme": "reckoning"}, [entry], rpc=self._rpc(tx, rc))
         self.assertEqual((moved["on_chain"], moved["anchored"]), ("verified", False))
         self.assertNotIn("checked_at", status)                     # no wall-clock churn
 
