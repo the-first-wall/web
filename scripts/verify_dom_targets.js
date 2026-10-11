@@ -4,7 +4,7 @@
  * every translation key used by a page must exist in both the EN and DE
  * dictionaries of i18n.js.
  *
- *   app.js     <-> index.html
+ *   app.js     <-> the wall page (src/index.html and its generated /en/ and /de/ copies)
  *   site.js    <-> every page (header, mobile menu)
  *   data-i18n / data-i18n-aria / data-i18n-title keys: every .html page
  */
@@ -40,11 +40,12 @@ const hasClass = (html, cls) => new RegExp(`class="[^"]*\\b${cls}\\b`).test(html
 
 const missing = [];
 
-// --- 1. app.js <-> index.html -------------------------------------------------
+// --- 1. app.js <-> the wall page ---------------------------------------------
+// The authored page is src/index.html; /en/ and /de/ are generated from it by
+// scripts/build_i18n.py (the old /index.html is only a redirect stub). The script
+// is written against all three, so all three are checked.
 const appSrc = read('app.js');
-const indexHtml = read('index.html');
 const app = getElementByIdTargets(appSrc);
-for (const id of app.ids) if (!hasId(indexHtml, id)) missing.push(`index.html: #${id} (app.js)`);
 
 // Selector targets that MUST have at least one element (guarded lookups may be empty)
 const mustExistSelectors = [
@@ -54,10 +55,14 @@ const mustExistSelectors = [
   '.btn-lang-toggle',       // i18n language toggle
   '.lang-toggle-text',      // i18n language toggle label
 ];
-for (const sel of mustExistSelectors) {
-  if (!hasClass(indexHtml, sel.replace(/^\./, ''))) missing.push(`index.html: ${sel}`);
+for (const wall of ['src/index.html', 'en/index.html', 'de/index.html']) {
+  const html = read(wall);
+  for (const id of app.ids) if (!hasId(html, id)) missing.push(`${wall}: #${id} (app.js)`);
+  for (const sel of mustExistSelectors) {
+    if (!hasClass(html, sel.replace(/^\./, ''))) missing.push(`${wall}: ${sel}`);
+  }
+  if (!hasId(html, 'btn-lang-toggle')) missing.push(`${wall}: #btn-lang-toggle`);
 }
-if (!hasId(indexHtml, 'btn-lang-toggle')) missing.push('index.html: #btn-lang-toggle');
 
 // --- 2. site.js <-> every page -------------------------------------------------
 const siteSrc = read('site.js');

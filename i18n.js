@@ -320,6 +320,10 @@ const TFW_TRANSLATIONS = {
 let currentLang = 'en';
 
 function getInitialLanguage() {
+  // On a locale route (/en/, /de/) the URL decides: the page was built in that
+  // language and its toggle is a link to the other one.
+  const routeLang = document.documentElement.getAttribute('data-locale-route');
+  if (routeLang === 'en' || routeLang === 'de') return routeLang;
   const saved = localStorage.getItem('tfw_lang');
   if (saved && (saved === 'en' || saved === 'de')) return saved;
   const navLang = (navigator.language || navigator.userLanguage || '').toLowerCase();
@@ -418,6 +422,8 @@ window.addEventListener('DOMContentLoaded', () => {
   applyTranslations(initial);
 
   document.querySelectorAll('.btn-lang-toggle, #btn-lang-toggle').forEach(btn => {
+    // A toggle that is a link (locale routes) navigates to the other language's page.
+    if (btn.tagName === 'A' && btn.getAttribute('href')) return;
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       toggleLanguage();

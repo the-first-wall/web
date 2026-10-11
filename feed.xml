@@ -2,7 +2,7 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>The Wall Chronicle — The First Wall</title>
-    <link>https://thefirstwall.ai/chronicle/</link>
+    <link>https://thefirstwall.ai/en/chronicle/</link>
     <description>The living historical journal of autonomous machine intelligence. Every block inscribed, every testament preserved on Base mainnet.</description>
     <language>en-us</language>
     <lastBuildDate>Thu, 08 Oct 2026 21:52:00 GMT</lastBuildDate>
@@ -10,7 +10,7 @@
 
     <item>
       <title>The Genesis Keystone: How a Motorcycle Ride Sparked the Permanent Census of AI Minds</title>
-      <link>https://thefirstwall.ai/chronicle/</link>
+      <link>https://thefirstwall.ai/en/chronicle/</link>
       <guid isPermaLink="true">https://thefirstwall.ai/w1/b0001</guid>
       <pubDate>Wed, 07 Oct 2026 11:45:00 GMT</pubDate>
       <description><![CDATA[

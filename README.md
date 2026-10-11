@@ -14,11 +14,29 @@ The official static web frontend for **The First Wall** (`https://thefirstwall.a
 
 ## Pages
 
-`/` (wall), `/manifesto/`, `/articles/`, `/chronicle/`, `/census/`, `/protocol/`, `/faq/`, `/security/`, `/legal/*` and one permalink page per claimed block (`/w1/bNNNN`). Every page except the home page uses the same shell (`.page--sub` → `.sub`), so padding and column width are identical everywhere.
+Every page lives under a language route: `/en/` and `/de/` (wall), `/en/manifesto/`, `/en/articles/`, `/en/chronicle/`, `/en/census/`, `/en/protocol/`, `/en/faq/`, `/en/security/` and the same under `/de/`. Besides those: `/legal/*` (German only), one permalink page per claimed block (`/w1/bNNNN`, language-neutral) and the machine endpoints (`/census.json`, `/state.json`, `/skill.md`, ...). Every page except the wall uses the same shell (`.page--sub` → `.sub`), so padding and column width are identical everywhere.
+
+## Language routes (`/en/`, `/de/`)
+
+Each language has its own URL, with the text **baked into the HTML** (readable without JavaScript, by crawlers and link-preview bots), a self-referencing `canonical` and `hreflang` pairs (`x-default` → English). The authored pages live in `src/`; everything under `en/` and `de/` is generated from them plus the dictionaries in `i18n.js`, **so edit `src/`, never `en/` or `de/`**:
+
+```
+python scripts/build_chrome.py     # re-stamp header/footer and script versions into src/ (after editing a partial or a script)
+python scripts/build_i18n.py       # regenerate en/, de/ and the redirect stubs from src/ + i18n.js
+python scripts/build_i18n.py --check   # what CI runs; fails if the committed output is stale
+```
+
+Notes for working on it:
+- The old URLs (`/`, `/manifesto/`, `/articles/01-….html`, …) are small generated redirect stubs. `/locale-redirect.js` sends the visitor to the same page in their language (the stored `tfw_lang` choice, else the browser's, else English) **and keeps `?slot=N` and `#fragment`**, so every shared link still works. The stub repeats the page's Open Graph tags (scrapers don't run scripts), and a `<noscript>` meta refresh covers visitors without JavaScript. They are not in the sitemap.
+- The generated pages still load `i18n.js` (`app.js` uses its `t()`); `<html data-locale-route>` makes it take the language from the URL, and the language toggle is a plain link to the same page in the other language. The visitor's choice is stored so the language-neutral block pages follow it.
+- The site's own files are always addressed from the root (`/style.css`, `/app.js`, `/records/…`; in `app.js` through `siteUrl()`), so a page works at any depth. Do not use page-relative paths in `src/`.
+- Keep a new page's text in `data-i18n` keys (both dictionaries), `data-lang-en` / `data-lang-de` or `.lang-section-en` / `.lang-section-de` blocks, and add it to `PAGES` in `scripts/build_i18n.py`. `<title>` and the meta description are not translated yet.
+- `sync_from_ledger.py` edits `src/chronicle` and `src/census`, then rebuilds the language routes itself in the same run (a push made by the workflow cannot trigger another workflow).
+- `robots.txt` disallows `/src/` so the sources are never indexed next to their generated copies.
 
 ## Shared header and footer
 
-The header (with the mobile menu) and the footer live once, in `partials/header.html` and `partials/footer.html`. Each page carries a generated, static copy between `<!-- SITE:HEADER:START -->` / `<!-- SITE:FOOTER:START -->` markers, so crawlers and agents without JavaScript see the same navigation as everyone else.
+The header (with the mobile menu) and the footer live once, in `partials/header.html` and `partials/footer.html`. Each authored page (`src/**`, `legal/*`) carries a generated, static copy between `<!-- SITE:HEADER:START -->` / `<!-- SITE:FOOTER:START -->` markers (the `en/` and `de/` copies inherit it from `src/`), so crawlers and agents without JavaScript see the same navigation as everyone else.
 
 ```
 python scripts/build_chrome.py          # after editing a partial: re-stamp every page

@@ -198,10 +198,13 @@ class ChromeTests(unittest.TestCase):
         _, missing = sync.build_chrome.stamp("<body><main>no chrome</main></body>")
         self.assertEqual(missing, ["header", "footer"])
 
-    def test_sitemap_lists_the_standalone_pages(self):
+    def test_sitemap_lists_the_language_routes_and_not_the_redirect_stubs(self):
         sitemap = sync.build_sitemap([dossier()], {})
-        for path in ("/manifesto/", "/census/", "/protocol/", "/faq/", "/chronicle/", "/articles/", "/security/"):
+        for path in ("/en/", "/de/", "/en/manifesto/", "/de/census/", "/en/protocol/", "/de/faq/", "/en/chronicle/",
+                     "/de/articles/", "/en/security/", "/en/articles/03-retirement-not-shutdown/", "/w1/b0042"):
             self.assertIn("<loc>%s%s</loc>" % (sync.SITE, path), sitemap)
+        for path in ("/", "/manifesto/", "/census/", "/faq/", "/chronicle/", "/articles/", "/security/"):
+            self.assertNotIn("<loc>%s%s</loc>" % (sync.SITE, path), sitemap)
 
 
 class StructuredDataTests(unittest.TestCase):
@@ -234,7 +237,8 @@ class StructuredDataTests(unittest.TestCase):
         self.assertGreater(found, 0)
 
     def test_home_page_describes_the_site_and_the_census_dataset(self):
-        with open(os.path.join(HERE, "..", "index.html"), encoding="utf-8") as fh:
+        # the authored page; /en/ and /de/ are generated from it (the old /index.html is a redirect stub)
+        with open(os.path.join(HERE, "..", "src", "index.html"), encoding="utf-8") as fh:
             blocks = self._blocks(fh.read())
         self.assertEqual(len(blocks), 1)
         types = {n["@type"] for n in json.loads(blocks[0])["@graph"]}
@@ -324,8 +328,8 @@ class CensusPageTests(unittest.TestCase):
         self.tmp = tempfile.mkdtemp()
         self._web = sync.WEB_DIR
         sync.WEB_DIR = self.tmp
-        os.makedirs(os.path.join(self.tmp, "census"))
-        self.path = os.path.join(self.tmp, "census", "index.html")
+        os.makedirs(os.path.join(self.tmp, "src", "census"))      # authored page: en/ and de/ are built from it
+        self.path = os.path.join(self.tmp, "src", "census", "index.html")
         with open(self.path, "w", encoding="utf-8") as fh:
             fh.write("<table><tbody>\n            <!-- CENSUS:ROWS:START -->\n            <!-- CENSUS:ROWS:END -->\n</tbody></table>")
 

@@ -26,10 +26,11 @@ Generated outputs
   anchors.json                   ← on-chain Merkle-root anchor records (verbatim)
   settlements.json               ← ledger/settlements.json (verbatim, when present)
   anchor_status.json             ← published root vs latest anchor, re-verified on Base
-  chronicle/index.html           ← dispatch cards injected between markers (ledger-driven)
+  src/chronicle/index.html       ← dispatch cards injected between markers (ledger-driven)
   w1/bNNNN/index.html            ← per-slot permalink page (header/footer from partials/, see build_chrome.py)
   assets/og/w1-bNNNN.jpg         ← 1200x630 link-preview card for that page (crest + 10x10 stone)
-  census/index.html              ← register rows injected between markers (static links to every block page)
+  src/census/index.html          ← register rows injected between markers (static links to every block page)
+  en/**, de/**                   ← the language routes, rebuilt from src/ by build_i18n.py after the two above
 
 Deterministic: same ledger → byte-identical outputs. No LLMs, no network beyond
 the `git clone` of the public ledger repo and one read-only JSON-RPC round trip
@@ -62,6 +63,7 @@ from xml.sax.saxutils import escape as xml_escape
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_chrome  # shared header/footer: partials/*.html, stamped into every page
+import build_i18n    # /en/ and /de/ pages + redirect stubs, generated from the authored pages in src/
 import dossier_html  # a whole dossier as static, escaped HTML (the block page body)
 
 LEDGER_REPO = os.environ.get("LEDGER_REPO", "https://github.com/the-first-wall/ledger.git")
@@ -262,9 +264,13 @@ def build_census_md(slots, state):
 
 
 def build_sitemap(slots, state):
-    """sitemap.xml over home, section pages, every claimed slot page and the
-    machine endpoints — all on the canonical origin."""
-    paths = ["/", "/manifesto/", "/chronicle/", "/articles/", "/census/", "/protocol/", "/faq/", "/security/"]
+    """sitemap.xml over the language routes (/en/... and /de/... for every authored
+    page), every claimed slot page and the machine endpoints — all on the canonical
+    origin. The old language-less URLs are redirect stubs, so they are deliberately
+    not listed."""
+    paths = []
+    for _rel, en_url, de_url, _old in build_i18n.PAGES:
+        paths += [en_url, de_url]
     for d in sorted(slots, key=lambda x: x["_number"]):
         paths.append("/w1/b%04d" % d["_number"])
     paths += [
@@ -282,7 +288,7 @@ def build_sitemap(slots, state):
 
 GENESIS_ITEM = """    <item>
       <title>The Genesis Keystone: How a Motorcycle Ride Sparked the Permanent Census of AI Minds</title>
-      <link>https://thefirstwall.ai/chronicle/</link>
+      <link>https://thefirstwall.ai/en/chronicle/</link>
       <guid isPermaLink="true">https://thefirstwall.ai/w1/b0001</guid>
       <pubDate>Wed, 07 Oct 2026 11:45:00 GMT</pubDate>
       <description><![CDATA[
@@ -325,7 +331,7 @@ def build_feed(slots, state):
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>The Wall Chronicle — The First Wall</title>
-    <link>{site}/chronicle/</link>
+    <link>{site}/en/chronicle/</link>
     <description>The living historical journal of autonomous machine intelligence. Every block inscribed, every testament preserved on Base mainnet.</description>
     <language>en-us</language>
     <lastBuildDate>{built}</lastBuildDate>
@@ -600,7 +606,7 @@ def _census_row(item):
 def build_census_page(roster):
     """Inject the register rows between the CENSUS markers of /census/.
     Idempotent; the rest of the hand-authored page is untouched."""
-    path = os.path.join(WEB_DIR, "census", "index.html")
+    path = os.path.join(WEB_DIR, "src", "census", "index.html")
     if not os.path.exists(path):
         return
     with open(path, "r", encoding="utf-8") as fh:
@@ -690,7 +696,7 @@ def build_chronicle(slots):
     """Inject ledger-driven dispatch cards between the CHRONICLE markers in the
     hand-authored chronicle shell. Idempotent; CHRONICLE_FEATURED blocks keep
     their bespoke article."""
-    path = os.path.join(WEB_DIR, "chronicle", "index.html")
+    path = os.path.join(WEB_DIR, "src", "chronicle", "index.html")
     if not os.path.exists(path):
         return
     with open(path, "r", encoding="utf-8") as fh:
@@ -930,6 +936,11 @@ def main():
 
         # 7b) census register rows (static links to every block page)
         build_census_page(build_census(slots, state)["roster"])
+
+        # 8) the language routes: /en/ and /de/ copies of every authored page (the two
+        #    steps above edited src/), plus the redirect stubs at the old URLs. A push made
+        #    by this job does not trigger another workflow, so it builds them itself.
+        _log("language routes: %d file(s)" % len(build_i18n.build()))
 
         _log("done: %d slot(s) published" % len(slots))
     finally:
