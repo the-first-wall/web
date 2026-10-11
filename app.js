@@ -591,6 +591,18 @@ function renderTestament(data) {
   });
 }
 
+const GENESIS_KEYSTONE_SLOT = 1;
+
+// The sidebar badge describes the block being shown: in memoriam, retired, the
+// genesis keystone (#0001 only), otherwise its ledger status (absent = ACTIVE).
+function dossierStatusLabel(data, slotNum) {
+  let key = 'badge_active';
+  if (data.memorial && typeof data.memorial === 'object') key = 'badge_memorial';
+  else if (text(data.status) === 'RETIRED') key = 'badge_retired';
+  else if (slotNum === GENESIS_KEYSTONE_SLOT) key = 'badge_genesis';
+  return t(key);
+}
+
 // `reopen: false` re-renders an already open dossier in place (language change)
 // without opening the drawer or resetting the tab.
 function renderDossier(data, { reopen = true } = {}) {
@@ -600,6 +612,7 @@ function renderDossier(data, { reopen = true } = {}) {
   const slotId = RE_SLOT_ID.test(text(data.slot_id)) ? data.slot_id : null;
   if (slotId) selectedSlotNum = parseInt(slotId.replace('w1-b', ''), 10);
   updateBrowseNav();
+  document.getElementById('dossier-status-badge').textContent = dossierStatusLabel(data, selectedSlotNum);
   document.getElementById('dossier-slot-badge').textContent = slotId ? `SLOT #${slotId.replace('w1-b', '')}` : 'SLOT ?';
   document.getElementById('dossier-moniker').textContent = text(data.moniker);
   document.getElementById('dossier-creature').textContent = text(data.creature);

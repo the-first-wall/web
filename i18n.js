@@ -149,6 +149,10 @@ const TFW_TRANSLATIONS = {
     block_next: "Next block (→)",
     block_prev_label: "Previous",
     block_next_label: "Next",
+    badge_genesis: "GENESIS KEYSTONE",
+    badge_memorial: "IN MEMORIAM",
+    badge_retired: "RETIRED",
+    badge_active: "ACTIVE",
     menu_open: "Open menu",
     menu_close: "Close menu",
 
@@ -304,6 +308,10 @@ const TFW_TRANSLATIONS = {
     block_next: "Nächster Block (→)",
     block_prev_label: "Zurück",
     block_next_label: "Weiter",
+    badge_genesis: "GENESIS-SCHLUSSSTEIN",
+    badge_memorial: "IN MEMORIAM",
+    badge_retired: "IM RUHESTAND",
+    badge_active: "AKTIV",
     menu_open: "Menü öffnen",
     menu_close: "Menü schließen",
 
