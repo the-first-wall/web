@@ -667,7 +667,7 @@ def check_anchor_on_chain(entry, rpc=None, scheme=None):
     root = str(entry.get("root", ""))
     if not RE_TX.fullmatch(tx_hash) or not RE_HEX64.fullmatch(root):
         return "failed", "malformed anchor record"
-    if not scheme or not re.fullmatch(r"[a-z][a-z0-9_-]{0,31}", str(scheme)):
+    if not scheme or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{0,31}", str(scheme)):
         return "failed", "ledger state declares no root scheme"
     expected = "%s|%s" % (scheme, root)
     if str(entry.get("payload") or expected) != expected:
