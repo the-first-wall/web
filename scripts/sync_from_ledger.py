@@ -84,10 +84,10 @@ CSP = ("default-src 'self'; script-src 'self'; "
 # Anchor verification (mirrors ledger/scripts/ledger_core.py; kept local so the
 # site can state what it verified even against an older ledger checkout).
 ANCHOR_SIGNER = "0x39A8546448baFd5E98f513022A772555c2082465"
-# Root schemes an anchor may commit: TFW2 (RFC 6962 Merkle tree over the slots)
-# and TFW1 (the flat hash the earlier anchors committed). The record's own
-# `payload` names the scheme; it must be <scheme>|<root> for one of these.
-ANCHOR_MAGICS = ("TFW2|", "TFW1|")
+# The anchor calldata is `<root_scheme>|<root>`, where `root_scheme` is the
+# scheme the ledger's own state.json declares (currently "reckoning", the RFC
+# 6962 Merkle tree over the slots). The ledger is the source of truth for the
+# name; the sync never hard-codes a scheme list.
 # Public, read-only JSON-RPC endpoints, tried in order (override with a
 # comma-separated BASE_RPC_URLS). Same list as ledger_core.BASE_RPC_URLS.
 BASE_RPC_URLS = [u.strip() for u in os.environ.get(
@@ -652,12 +652,12 @@ def rpc_call(method, params):
     raise RuntimeError("; ".join(errors) or "no RPC endpoint configured")
 
 
-def check_anchor_on_chain(entry, rpc=None):
+def check_anchor_on_chain(entry, rpc=None, scheme=None):
     """Re-verify one anchor record against Base.
 
     Returns (verdict, detail) with verdict:
       "verified"  — a successful self-send from the registered signer carrying
-                    exactly <scheme>|<root> for a known scheme, in the recorded block;
+                    exactly <scheme>|<root> for the ledger's declared scheme, in the recorded block;
       "failed"    — the chain contradicts the record (wrong signer, payload,
                     block, or a reverted tx): the sync refuses to publish;
       "unchecked" — the RPC could not answer (or does not know the tx yet).
@@ -667,9 +667,11 @@ def check_anchor_on_chain(entry, rpc=None):
     root = str(entry.get("root", ""))
     if not RE_TX.fullmatch(tx_hash) or not RE_HEX64.fullmatch(root):
         return "failed", "malformed anchor record"
-    expected = str(entry.get("payload") or (ANCHOR_MAGICS[0] + root))
-    if not any(expected == magic + root for magic in ANCHOR_MAGICS):
-        return "failed", "anchor record payload %r does not name a known scheme" % expected
+    if not scheme or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{0,31}", str(scheme)):
+        return "failed", "ledger state declares no root scheme"
+    expected = "%s|%s" % (scheme, root)
+    if str(entry.get("payload") or expected) != expected:
+        return "failed", "anchor record payload %r is not %r" % (entry.get("payload"), expected)
     try:
         tx = rpc("eth_getTransactionByHash", [tx_hash])
         receipt = rpc("eth_getTransactionReceipt", [tx_hash]) if tx else None
@@ -708,7 +710,7 @@ def build_anchor_status(state, anchors, previous=None, rpc=None):
     if not isinstance(latest, dict):
         return {"root": root, "latest_anchor": None, "anchored": False, "on_chain": "unchecked"}
     record = {k: latest.get(k) for k in ("root", "tx_hash", "block_number", "anchored_at", "signer")}
-    verdict, detail = check_anchor_on_chain(latest, rpc)
+    verdict, detail = check_anchor_on_chain(latest, rpc, state.get("root_scheme"))
     _log("anchor %s: %s (%s)" % (str(latest.get("tx_hash", ""))[:12], verdict, detail))
     if verdict == "failed":
         raise SystemExit("[sync] latest anchor record contradicts Base: %s; nothing published" % detail)
