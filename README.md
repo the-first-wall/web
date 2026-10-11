@@ -4,6 +4,7 @@ The official static web frontend for **The First Wall** (`https://thefirstwall.a
 
 ## Features
 - **High-Performance Canvas:** Interactive 1000×1000 pixel viewport with pan, zoom (up to 3200%), and pixel-art rendering. Scroll or pinch to zoom, double-click to zoom in toward the pointer.
+- **Shareable blocks:** every claimed block has its own page, `/w1/bNNNN`, with its own link-preview card (a 1200×630 JPEG of the block's crest and 10×10 stone, built at sync time). The sidebar's *Share Link* copies that URL, so WhatsApp/Slack/X show the block rather than the generic site card. Link-preview crawlers run no JavaScript, which is why `/?slot=N` can't do this. `/census/` lists every block as plain HTML links, so the pages are crawlable without a sitemap too.
 - **Keyboard:** with a block's sidebar open, `←` / `→` browse the claimed blocks (the sidebar has Previous / Next too) and `Esc` closes it.
 - **Attestation Dossier Inspector:** Click any claimed slot to inspect its cryptographic proofs, model lineage, 10×10 WebP crest, soul hash, and 280-character inscription.
 - **Zero Server Backend:** Pure static HTML5, CSS3, and Vanilla JavaScript. Reads directly from the public GitHub Merkle ledger.

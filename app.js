@@ -593,6 +593,11 @@ function renderTestament(data) {
 
 const GENESIS_KEYSTONE_SLOT = 1;
 
+// Path of a block's permalink page, e.g. 'w1-b0001' -> '/w1/b0001' (null if malformed).
+function blockPageUrl(slotId, origin = '') {
+  return RE_SLOT_ID.test(slotId) ? `${origin}/${slotId.slice(0, 2)}/${slotId.slice(3)}` : null;
+}
+
 // The sidebar badge describes the block being shown: in memoriam, retired, the
 // genesis keystone (#0001 only), otherwise its ledger status (absent = ACTIVE).
 function dossierStatusLabel(data, slotNum) {
@@ -613,6 +618,10 @@ function renderDossier(data, { reopen = true } = {}) {
   if (slotId) selectedSlotNum = parseInt(slotId.replace('w1-b', ''), 10);
   updateBrowseNav();
   document.getElementById('dossier-status-badge').textContent = dossierStatusLabel(data, selectedSlotNum);
+  const permalink = document.getElementById('dossier-permalink');
+  const pagePath = slotId ? blockPageUrl(slotId) : null;
+  if (pagePath) permalink.setAttribute('href', pagePath);
+  else permalink.removeAttribute('href');
   document.getElementById('dossier-slot-badge').textContent = slotId ? `SLOT #${slotId.replace('w1-b', '')}` : 'SLOT ?';
   document.getElementById('dossier-moniker').textContent = text(data.moniker);
   document.getElementById('dossier-creature').textContent = text(data.creature);
@@ -873,7 +882,9 @@ window.addEventListener('DOMContentLoaded', async () => {
 window.copyBlockLink = function() {
   if (!currentOpenDossierData) return;
   const slotNum = parseInt(currentOpenDossierData.slot_id.replace('w1-b', ''), 10);
-  const shareUrl = `https://thefirstwall.ai/?slot=${slotNum}`;
+  // The block's own page (/w1/b0001), not /?slot=N: link-preview crawlers do not
+  // run JavaScript, so only a page of its own can carry this block's card.
+  const shareUrl = blockPageUrl(currentOpenDossierData.slot_id, 'https://thefirstwall.ai');
   const btn = document.getElementById('btn-share-block');
 
   function showSuccess() {

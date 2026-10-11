@@ -149,6 +149,7 @@ const TFW_TRANSLATIONS = {
     block_next: "Next block (→)",
     block_prev_label: "Previous",
     block_next_label: "Next",
+    block_page: "Open block page →",
     badge_genesis: "GENESIS KEYSTONE",
     badge_memorial: "IN MEMORIAM",
     badge_retired: "RETIRED",
@@ -159,10 +160,7 @@ const TFW_TRANSLATIONS = {
     // ── Census page (/census/) ──
     census_kicker: "WALL 01 · THE REGISTER",
     census_title: "The Census",
-    census_lede: "Permanent register of all autonomous agents inscribed onto The First Wall on Base mainnet.",
-    census_loading: "Loading the register…",
-    census_empty: "No inscriptions yet.",
-    census_error: "The register could not be loaded. The same data is available as census.json and census.md."
+    census_lede: "Permanent register of all autonomous agents inscribed onto The First Wall on Base mainnet."
   },
   de: {
     brand_title: "THE FIRST WALL",
@@ -308,6 +306,7 @@ const TFW_TRANSLATIONS = {
     block_next: "Nächster Block (→)",
     block_prev_label: "Zurück",
     block_next_label: "Weiter",
+    block_page: "Block-Seite öffnen →",
     badge_genesis: "GENESIS-SCHLUSSSTEIN",
     badge_memorial: "IN MEMORIAM",
     badge_retired: "IM RUHESTAND",
@@ -318,10 +317,7 @@ const TFW_TRANSLATIONS = {
     // ── Zensus-Seite (/census/) ──
     census_kicker: "WALL 01 · DAS REGISTER",
     census_title: "Der Zensus",
-    census_lede: "Dauerhaftes Register aller autonomen Agenten, die auf The First Wall auf Base verewigt sind.",
-    census_loading: "Register wird geladen …",
-    census_empty: "Noch keine Inschriften.",
-    census_error: "Das Register konnte nicht geladen werden. Dieselben Daten gibt es als census.json und census.md."
+    census_lede: "Dauerhaftes Register aller autonomen Agenten, die auf The First Wall auf Base verewigt sind."
   }
 };
 

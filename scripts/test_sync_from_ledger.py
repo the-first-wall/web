@@ -165,6 +165,137 @@ class ChromeTests(unittest.TestCase):
             self.assertIn("<loc>%s%s</loc>" % (sync.SITE, path), sitemap)
 
 
+class ShareCardTests(unittest.TestCase):
+    """Per-block link previews: a small JPEG card and complete social tags."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self._web = sync.WEB_DIR
+        sync.WEB_DIR = self.tmp
+        os.makedirs(os.path.join(self.tmp, "assets"))
+
+    def tearDown(self):
+        sync.WEB_DIR = self._web
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _sources(self, crest_size=(500, 300), mode="RGBA"):
+        from PIL import Image
+        Image.new(mode, crest_size, (200, 120, 40, 255) if mode == "RGBA" else (200, 120, 40)).save(
+            os.path.join(self.tmp, "assets", "crest.png"))
+        Image.new("RGBA", (10, 10), (255, 200, 0, 255)).save(
+            os.path.join(self.tmp, "assets", "w1-b0042.webp"), lossless=True)
+
+    def _page(self, d):
+        sync.build_slot_page(d)
+        with open(os.path.join(self.tmp, "w1", "b0042", "index.html"), encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_card_is_a_small_1200x630_jpeg_and_is_what_the_page_advertises(self):
+        from PIL import Image
+        self._sources()
+        page = self._page(dossier(high_res_crest_url="assets/crest.png"))
+        path = os.path.join(self.tmp, "assets", "og", "w1-b0042.jpg")
+        self.assertIn('<meta property="og:image" content="%s/assets/og/w1-b0042.jpg">' % sync.SITE, page)
+        with Image.open(path) as im:
+            self.assertEqual((im.format, im.size), ("JPEG", (1200, 630)))
+        self.assertLess(os.path.getsize(path), 300_000)      # WhatsApp drops larger preview images
+        for tag in ('og:image:type" content="image/jpeg"', 'og:image:width" content="1200"',
+                    'og:image:height" content="630"'):
+            self.assertIn(tag, page)
+        self.assertIn('name="twitter:card" content="summary_large_image"', page)
+
+    def test_card_is_deterministic(self):
+        self._sources()
+        sync.build_share_card("w1-b0042", "assets/crest.png")
+        path = os.path.join(self.tmp, "assets", "og", "w1-b0042.jpg")
+        with open(path, "rb") as fh:
+            first = fh.read()
+        sync.build_share_card("w1-b0042", "assets/crest.png")
+        with open(path, "rb") as fh:
+            self.assertEqual(first, fh.read())
+
+    def test_alt_text_is_escaped(self):
+        self._sources()
+        page = self._page(dossier(moniker=HOSTILE, high_res_crest_url="assets/crest.png"))
+        self.assertNotIn("<script>alert", page)
+        self.assertIn('property="og:image:alt"', page)
+
+    def test_missing_sources_fall_back_to_the_crest(self):
+        page = self._page(dossier())     # no crest / icon files in this site tree
+        self.assertIn('<meta property="og:image" content="%s/%s">' % (sync.SITE, sync.DEFAULT_CREST), page)
+        self.assertNotIn("og:image:width", page)
+        self.assertIn('name="twitter:card" content="summary"', page)
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, "assets", "og")))
+
+    def test_unreadable_crest_does_not_stop_the_publish(self):
+        self._sources()
+        with open(os.path.join(self.tmp, "assets", "crest.png"), "wb") as fh:
+            fh.write(b"not an image")
+        self.assertIsNone(sync.build_share_card("w1-b0042", "assets/crest.png"))
+        page = self._page(dossier(high_res_crest_url="assets/crest.png"))
+        self.assertIn("assets/crest.png", page)          # fell back to the crest URL
+
+    def test_block_page_links_to_the_wall_and_the_census(self):
+        page = self._page(dossier())
+        self.assertIn('href="/?slot=0042"', page)
+        self.assertIn('href="/census/"', page)
+
+
+class CensusPageTests(unittest.TestCase):
+    """/census/ lists every block with a plain link to its own page (no JavaScript)."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self._web = sync.WEB_DIR
+        sync.WEB_DIR = self.tmp
+        os.makedirs(os.path.join(self.tmp, "census"))
+        self.path = os.path.join(self.tmp, "census", "index.html")
+        with open(self.path, "w", encoding="utf-8") as fh:
+            fh.write("<table><tbody>\n            <!-- CENSUS:ROWS:START -->\n            <!-- CENSUS:ROWS:END -->\n</tbody></table>")
+
+    def tearDown(self):
+        sync.WEB_DIR = self._web
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _roster(self, *slots):
+        return sync.build_census(list(slots), {})["roster"]
+
+    def _read(self):
+        with open(self.path, encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_every_block_links_to_its_page(self):
+        sync.build_census_page(self._roster(dossier(), dossier(slot_id="w1-b0043", _number=43, moniker="Eve")))
+        page = self._read()
+        self.assertEqual(page.count('href="/w1/b0042"'), 2)       # slot number + moniker
+        self.assertEqual(page.count('href="/w1/b0043"'), 2)
+        self.assertIn('href="/?slot=42"', page)
+        self.assertIn('data-i18n="btn_inspect"', page)
+
+    def test_idempotent_and_replaces_only_between_markers(self):
+        roster = self._roster(dossier())
+        sync.build_census_page(roster)
+        once = self._read()
+        sync.build_census_page(roster)
+        self.assertEqual(once, self._read())
+        self.assertTrue(once.startswith("<table><tbody>") and once.endswith("</tbody></table>"))
+
+    def test_hostile_values_are_escaped(self):
+        sync.build_census_page(self._roster(dossier(moniker=HOSTILE, creature=HOSTILE)))
+        page = self._read()
+        self.assertNotIn("<script>alert", page)
+        tags = _Tags()
+        tags.feed(page)
+        self.assertEqual(tags.handlers, [])
+        self.assertEqual(tags.scripts, [])
+
+    def test_malformed_identifiers_refuse_to_publish(self):
+        bad = self._roster(dossier())
+        bad[0]["wallet_address"] = "javascript:alert(1)"
+        with self.assertRaises(SystemExit):
+            sync.build_census_page(bad)
+
+
 class AnchorCheckTests(unittest.TestCase):
     def _rpc(self, tx=None, receipt=None, fail=False):
         def rpc(method, params):

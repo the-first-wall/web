@@ -5,7 +5,6 @@
  * dictionaries of i18n.js.
  *
  *   app.js     <-> index.html
- *   census.js  <-> census/index.html
  *   site.js    <-> every page (header, mobile menu)
  *   data-i18n / data-i18n-aria / data-i18n-title keys: every .html page
  */
@@ -60,13 +59,7 @@ for (const sel of mustExistSelectors) {
 }
 if (!hasId(indexHtml, 'btn-lang-toggle')) missing.push('index.html: #btn-lang-toggle');
 
-// --- 2. census.js <-> census/index.html ---------------------------------------
-const censusSrc = read('census.js');
-const censusHtml = read('census/index.html');
-const census = getElementByIdTargets(censusSrc);
-for (const id of census.ids) if (!hasId(censusHtml, id)) missing.push(`census/index.html: #${id} (census.js)`);
-
-// --- 3. site.js <-> every page -------------------------------------------------
+// --- 2. site.js <-> every page -------------------------------------------------
 const siteSrc = read('site.js');
 const site = getElementByIdTargets(siteSrc);
 const pages = htmlFiles();
@@ -79,7 +72,7 @@ for (const file of pages) {
   for (const id of site.ids) if (!hasId(html, id)) missing.push(`${file}: #${id} (site.js)`);
 }
 
-// --- 4. i18n keys on every page ------------------------------------------------
+// --- 3. i18n keys on every page ------------------------------------------------
 function dictHas(key, lang) {
   const start = i18nSrc.indexOf(`${lang}: {`);
   if (start < 0) return false;
@@ -105,14 +98,8 @@ for (const file of pages) {
   const html = read(file);
   while ((m = keyRe.exec(html)) !== null) checkKey(m[1], file);
 }
-// keys that census.js attaches to nodes it creates
-const dynRe = /(?:setAttribute\('data-i18n',\s*'([^']+)'\)|setStatus\([^,]+,\s*'([^']+)')/g;
-let dm;
-while ((dm = dynRe.exec(censusSrc)) !== null) checkKey(dm[1] || dm[2], 'census.js');
-
 // --- Report --------------------------------------------------------------------
 console.log(`app.js getElementById unique targets: ${app.ids.size} (total calls: ${app.calls})`);
-console.log(`census.js getElementById unique targets: ${census.ids.size}`);
 console.log(`site.js getElementById unique targets: ${site.ids.size} (checked on every page)`);
 console.log(`html pages scanned: ${pages.length}`);
 console.log(`distinct data-i18n / -aria / -title keys: ${allKeys.size}`);
