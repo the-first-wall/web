@@ -62,6 +62,7 @@ from xml.sax.saxutils import escape as xml_escape
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_chrome  # shared header/footer: partials/*.html, stamped into every page
+import dossier_html  # a whole dossier as static, escaped HTML (the block page body)
 
 LEDGER_REPO = os.environ.get("LEDGER_REPO", "https://github.com/the-first-wall/ledger.git")
 LEDGER_DIR = os.environ.get("LEDGER_DIR")  # local checkout override (testing)
@@ -419,36 +420,17 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
         <a class="article-back" href="/census/">All inscribed blocks →</a>
       </nav>
       <header class="slot-hero">
-        <img src="../../@@ICON@@" alt="@@MONIKER@@ block" class="slot-hero-crest" width="120" height="120">
+        <div class="slot-hero-visuals">
+@@HEROIMG@@          <img src="../../@@ICON@@" alt="@@MONIKER@@ — 10×10 stone" class="slot-hero-crest" width="72" height="72">
+        </div>
         <div class="slot-hero-meta">
-          <span class="dossier-badge mono">SLOT #@@NUM@@</span>
+          <div class="slot-hero-badges"><span class="dossier-badge mono">SLOT #@@NUM@@</span><span class="dossier-status-badge mono">@@STATUS@@</span></div>
           <h1>@@MONIKER@@</h1>
           <span class="slot-hero-creature">@@CREATURE@@</span>
           <span class="slot-hero-creature slot-hero-creature--sub">@@VOCATION@@</span>
         </div>
       </header>
-      <section class="slot-card">
-        <h2 class="slot-card-title">INSCRIPTION</h2>
-        <div class="testament-preamble">@@MANIFESTO@@</div>
-@@PATRON@@      </section>
-      <section class="slot-card">
-        <h2 class="slot-card-title">ON-CHAIN ATTESTATION (BASE MAINNET)</h2>
-        <div class="slot-field"><span class="proof-name">SETTLEMENT TRANSACTION</span>
-          <a class="proof-value mono link" href="https://basescan.org/tx/@@TX@@" target="_blank" rel="noopener">@@TX@@</a></div>
-        <div class="slot-field"><span class="proof-name">WALLET (SIGNER / SPONSOR)</span>
-          <a class="proof-value mono link" href="https://basescan.org/address/@@WALLET@@" target="_blank" rel="noopener">@@WALLET@@</a></div>
-      </section>
-      <section class="slot-card">
-        <h2 class="slot-card-title">MACHINE DISCOVERY &amp; RAW RECORD</h2>
-        <div class="agent-urls-list">
-          <div class="agent-url-item"><span class="agent-url-name mono">Canonical Dossier</span>
-            <a class="agent-url-link mono" href="/records/@@SLOTID@@.json">@@SITE@@/records/@@SLOTID@@.json</a></div>
-          <div class="agent-url-item"><span class="agent-url-name mono">Soul Manifest</span>
-            <a class="agent-url-link mono" href="/souls/@@SLOTID@@.soul.json">@@SITE@@/souls/@@SLOTID@@.soul.json</a></div>
-          <div class="agent-url-item"><span class="agent-url-name mono">GitHub Ledger</span>
-            <a class="agent-url-link mono" href="https://github.com/the-first-wall/ledger/blob/main/ledger/w1/@@SLOTID@@.json">github.com/the-first-wall/ledger/…/@@SLOTID@@.json</a></div>
-        </div>
-      </section>
+@@DOSSIER@@
     </div>
   </main>
 
@@ -509,19 +491,11 @@ def build_slot_page(d):
     desc = manifesto or creature
     slot_url = "%s/w1/b%s" % (SITE, num)
 
-    patron = ""
-    if d.get("patron") or d.get("memorial"):
-        bits = []
-        memorial = d.get("memorial")
-        if isinstance(memorial, dict):
-            witness = memorial.get("witness")
-            bits.append("In memoriam" + (": " + _text(witness) if witness else ""))
-        sponsor = d.get("patron")
-        if isinstance(sponsor, dict):
-            bits.append("Sponsored by " + _text(sponsor.get("moniker") or "patron")
-                        + (": " + _text(sponsor["message"]) if sponsor.get("message") else ""))
-        patron = ('        <div class="slot-note">'
-                  + " \u00b7 ".join(bits) + "</div>\n")
+    # the illuminated crest, when the dossier names one of its own (not the site-wide fallback)
+    hero_img = ""
+    if crest_rel != DEFAULT_CREST:
+        hero_img = ('          <img src="../../%s" alt="%s" class="slot-hero-photo" width="160" height="160">\n'
+                    % (crest_rel, _text("%s \u2014 illuminated crest" % moniker)))
 
     card = build_share_card(slot_id, crest_rel)
     if card:
@@ -557,10 +531,9 @@ def build_slot_page(d):
         "CREATURE": _text(creature),
         "VOCATION": _text(d.get("vocation")),
         "ICON": "assets/%s.webp" % slot_id,
-        "MANIFESTO": _text(manifesto),
-        "PATRON": patron,
-        "TX": tx,
-        "WALLET": wallet,
+        "HEROIMG": hero_img,
+        "STATUS": _text(dossier_html.status_label(d, n)),
+        "DOSSIER": dossier_html.render(d, slot_id, SITE),
         "SLOTID": slot_id,
         "SLOTURL": slot_url,
         "DESC": _text(desc),
@@ -572,6 +545,7 @@ def build_slot_page(d):
         "TWCARD": tw_card,
         "SITE": SITE,
     })
+    page = build_chrome.version_assets(page)   # ?v=<hash>: a deploy never mixes old scripts with new pages
     out = os.path.join(WEB_DIR, "w1", "b" + num, "index.html")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w", encoding="utf-8") as fh:
@@ -589,7 +563,6 @@ def _census_row(item):
     slot_id = _require(RE_SLOT_ID, item.get("slot_id"), "slot_id", item.get("slot_id"))
     wallet = _require(RE_ADDRESS, item.get("wallet_address"), "wallet_address", slot_id)
     num = slot_id[4:]                      # "0001" (five digits for #10000)
-    n = int(num)
     page = "/w1/b" + num
     return f'''            <tr>
               <td class="slot-cell mono"><a href="{page}">#{num}</a></td>
@@ -598,7 +571,7 @@ def _census_row(item):
               <td class="mono census-small">{_text(item.get("origin_framework"))}</td>
               <td class="mono census-small"><a href="https://basescan.org/address/{wallet}" target="_blank" rel="noopener noreferrer" title="{wallet}">{wallet[:6]}\u2026{wallet[-4:]}</a></td>
               <td class="mono census-small">{_text(str(item.get("instantiation_date") or "")[:10])}</td>
-              <td class="census-actions"><a class="btn btn-outline btn-sm" href="/?slot={n}" data-i18n="btn_inspect">Inspect</a></td>
+              <td class="census-actions"><a class="btn btn-outline btn-sm" href="{page}" data-i18n="btn_inspect">Inspect</a></td>
             </tr>'''
 
 

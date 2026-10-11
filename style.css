@@ -973,17 +973,38 @@ canvas#wall-canvas {
 .btn-close-drawer:hover { color: var(--text-primary); }
 
 .dossier-title-section { display: flex; flex-direction: column; gap: var(--space-1); }
-.dossier-permalink { align-self: flex-start; margin-top: var(--space-1); font-size: var(--step--1); color: var(--accent); }
-.dossier-nav {
+/* Browse + permalink: one quiet row, no borders — it must not compete with the dossier itself */
+.dossier-meta-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border-hairline);
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  margin-top: calc(-1 * var(--space-1));
 }
-.dossier-nav-pos { font-size: var(--step--1); color: var(--text-tertiary); }
-.dossier-nav .btn:disabled { opacity: 0.4; cursor: default; pointer-events: none; }
+.dossier-nav { display: inline-flex; align-items: center; gap: 2px; margin-left: -6px; }
+.dossier-step {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-entry), background-color var(--dur-1) var(--ease-entry);
+}
+.dossier-step:hover { color: var(--text-primary); background: var(--surface-hover); }
+.dossier-step:disabled { opacity: 0.35; cursor: default; pointer-events: none; }
+.dossier-nav-pos { min-width: 3.5em; text-align: center; font-size: 11px; color: var(--text-tertiary); }
+.dossier-permalink { font-size: 11px; color: var(--text-tertiary); }
+.dossier-permalink:hover { color: var(--accent); text-decoration: none; }
 .dossier-agent-name {
   margin: 0;
   font-family: var(--font-display);
@@ -1818,15 +1839,26 @@ body.nav-open { overflow: hidden; }
   border: 1px solid var(--border-hairline);
   border-radius: var(--radius-lg);
 }
-.slot-hero-crest {
-  flex-shrink: 0;
-  width: 120px;
-  height: 120px;
+.slot-hero-visuals { display: flex; align-items: flex-end; gap: var(--space-3); flex-shrink: 0; }
+.slot-hero-photo {
+  width: 160px;
+  height: 160px;
+  object-fit: cover;
   border: 1px solid var(--border-hairline);
   border-radius: var(--radius-lg);
   background: var(--surface-sunk);
+}
+.slot-hero-crest {
+  flex-shrink: 0;
+  width: 72px;
+  height: 72px;
+  padding: var(--space-1);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunk);
   image-rendering: pixelated;
 }
+.slot-hero-badges { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .slot-hero-meta h1 {
   margin: var(--space-2) 0 var(--space-1);
   font-family: var(--font-display);
@@ -1855,9 +1887,38 @@ body.nav-open { overflow: hidden; }
 .slot-field { margin-bottom: var(--space-3); }
 .slot-field .proof-name { display: block; margin-bottom: var(--space-1); }
 .slot-field .proof-value { overflow-wrap: anywhere; }
-.slot-note { margin-top: var(--space-3); font-size: var(--step--1); color: var(--text-secondary); }
+.slot-note { margin: var(--space-3) 0 0; font-size: var(--step--1); line-height: 1.7; color: var(--text-secondary); }
+.slot-subtitle {
+  margin: var(--space-5) 0 var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  font-weight: 600;
+  letter-spacing: var(--letterspacing-caps);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.slot-card > .slot-subtitle:first-child, .slot-card-title + .slot-subtitle { margin-top: 0; }
+.slot-card .meta-dl { grid-template-columns: minmax(120px, 200px) 1fr; }
+.slot-card .meta-dl dd { overflow-wrap: anywhere; }
+.slot-card .testament-preamble { margin: 0 0 var(--space-3); }
+.slot-card .testament-chapter h3 { margin: 0 0 var(--space-1); font-family: var(--font-display); font-size: 15px; color: var(--text-primary); }
+.slot-card .testament-chapters { margin-top: 0; gap: var(--space-3); }
+.slot-card .testament-chapters > .slot-subtitle, .slot-card .testament-chapters > .testament-preamble { margin: 0; }
+.slot-list { margin: 0; padding-left: var(--space-4); color: var(--text-secondary); font-size: 14px; line-height: 1.7; }
+.slot-list li { margin-bottom: var(--space-2); }
+.slot-entry { margin-bottom: var(--space-3); padding: var(--space-3); background: var(--surface-sunk); border: 1px solid var(--border-hairline); border-radius: var(--radius-md); }
+.slot-entry .meta-dl { margin: 0; }
+.slot-hash { font-size: 12px; overflow-wrap: anywhere; }
+.slot-json { font-size: 11px; overflow-wrap: anywhere; color: var(--text-secondary); }
+.slot-meta { font-size: 11px; color: var(--text-tertiary); }
+.slot-raw { margin-top: var(--space-4); }
+.slot-raw summary { cursor: pointer; font-family: var(--font-mono); font-size: var(--step--1); color: var(--text-tertiary); }
+.slot-raw summary:hover { color: var(--accent); }
+.slot-raw .raw-json-block { margin-top: var(--space-2); max-height: 60vh; }
 @media (max-width: 560px) {
   .slot-hero { flex-direction: column; align-items: flex-start; }
+  .slot-card .meta-dl { grid-template-columns: 1fr; gap: var(--space-1) 0; }
+  .slot-card .meta-dl dd { margin-bottom: var(--space-2); }
 }
 
 /* ===================================================================
