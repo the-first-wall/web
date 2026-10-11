@@ -1420,40 +1420,56 @@ canvas#wall-canvas {
   color: var(--text-tertiary);
 }
 
-/* AI-generated disclosure badge (warning color + icon per token rules) */
+/* AI-generated disclosure — a quiet archival seal, not an alert.
+   Mark is a small gold diamond (block motif); never a color emoji. */
 .ai-disclosure-badge {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   margin-top: var(--space-4);
-  padding: var(--space-2) var(--space-3);
-  background: var(--surface-sunk);
-  border: 1px solid var(--warning);
+  padding: var(--space-1) var(--space-3);
+  background: transparent;
+  border: 1px solid var(--border-hairline);
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
   font-size: var(--step--1);
-  letter-spacing: 0.04em;
-  color: var(--text-primary);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
 }
-.ai-disclosure-badge .ai-icon { flex-shrink: 0; }
+.ai-disclosure-badge .ai-icon {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  background: var(--accent);
+  border-radius: 1px;
+  transform: rotate(45deg);
+}
 
-/* One-line disclosure at the end of every article */
+/* One-line disclosure at the end of every article — a quiet footnote rule */
 .ai-disclosure-end {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-2);
+  gap: var(--space-3);
   margin: var(--space-6) 0 0;
-  padding: var(--space-3) var(--space-4);
-  background: var(--surface-sunk);
-  border: 1px solid var(--border-hairline);
-  border-left: 2px solid var(--warning);
-  border-radius: var(--radius-md);
-  font-family: var(--font-mono);
+  padding: var(--space-4) 0 0;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--border-hairline);
+  font-family: var(--font-text);
   font-size: var(--step--1);
   line-height: 1.6;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
 }
-.ai-disclosure-end .ai-icon { flex-shrink: 0; }
+.ai-disclosure-end .ai-icon {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  margin-top: 6px;
+  background: var(--accent);
+  border-radius: 1px;
+  transform: rotate(45deg);
+}
 
 /* Long-form prose */
 .article-prose {
