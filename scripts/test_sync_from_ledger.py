@@ -38,14 +38,14 @@ class _Tags(HTMLParser):
     """Collects what a browser would actually execute or load from a page."""
     def __init__(self):
         super().__init__()
-        self.scripts, self.handlers, self.images = [], [], 0
+        self.scripts, self.handlers, self.images = [], [], []
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
         if tag == "script":
-            self.scripts.append({"type": attrs.get("type")})
+            self.scripts.append({"type": attrs.get("type"), "src": attrs.get("src")})
         if tag == "img":
-            self.images += 1
+            self.images.append(attrs.get("src") or "")
         self.handlers += [a for a in attrs if a.startswith("on")]
 
 
@@ -89,9 +89,16 @@ class EscapingTests(unittest.TestCase):
         self.assertNotIn("<script>alert", page)
         tags = _Tags()
         tags.feed(page)
-        self.assertEqual(tags.scripts, [{"type": "application/ld+json"}])   # only the JSON-LD data block
+        # Scripts: the JSON-LD data block plus the site's own files — never inline code.
+        data = [t for t in tags.scripts if t["type"] == "application/ld+json"]
+        code = [t for t in tags.scripts if t["type"] != "application/ld+json"]
+        self.assertEqual(len(data), 1)
+        self.assertEqual(sorted(t["src"] for t in code), ["../../i18n.js", "../../site.js", "../../theme.js"])
         self.assertEqual(tags.handlers, [])                               # no on* attribute anywhere
-        self.assertEqual(tags.images, 1)                                  # only the hero icon
+        # Images: the hero icon and the site's own brand mark; never a remote URL.
+        self.assertTrue(any(src.endswith("assets/w1-b0042.webp") for src in tags.images))
+        for src in tags.images:
+            self.assertNotRegex(src, r"^(?:[a-z][a-z0-9+.-]*:|//)")
         self.assertIn('http-equiv="Content-Security-Policy"', page)
         start = page.index('<script type="application/ld+json">') + len('<script type="application/ld+json">')
         ld = json.loads(page[start:page.index("</script>", start)])
@@ -115,6 +122,47 @@ class EscapingTests(unittest.TestCase):
         card = sync._dispatch_card(dossier(moniker=HOSTILE, creature=HOSTILE, manifesto=HOSTILE), "en")
         self.assertNotIn("<script>alert", card)
         self.assertIn("basescan.org/tx/" + TX, card)
+
+
+class ChromeTests(unittest.TestCase):
+    """The header/footer shared by every page (partials/ → scripts/build_chrome.py)."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self._web = sync.WEB_DIR
+        sync.WEB_DIR = self.tmp
+
+    def tearDown(self):
+        sync.WEB_DIR = self._web
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_slot_page_carries_the_shared_chrome(self):
+        sync.build_slot_page(dossier())
+        with open(os.path.join(self.tmp, "w1", "b0042", "index.html"), encoding="utf-8") as fh:
+            page = fh.read()
+        self.assertIn(sync.build_chrome.block("header"), page)
+        self.assertIn(sync.build_chrome.block("footer"), page)
+        # a generated page is already in the state `build_chrome.py --check` expects
+        self.assertEqual(sync.build_chrome.stamp(page), (page, []))
+
+    def test_stamp_replaces_only_between_markers_and_is_idempotent(self):
+        page = ("<body>\n  <!-- SITE:HEADER:START -->\nold header\n  <!-- SITE:HEADER:END -->\n"
+                "<main>keep me</main>\n  <!-- SITE:FOOTER:START -->\nold footer\n  <!-- SITE:FOOTER:END -->\n</body>")
+        once, missing = sync.build_chrome.stamp(page)
+        self.assertEqual(missing, [])
+        self.assertNotIn("old header", once)
+        self.assertNotIn("old footer", once)
+        self.assertIn("<main>keep me</main>", once)
+        self.assertEqual(sync.build_chrome.stamp(once), (once, []))
+
+    def test_page_without_markers_is_reported(self):
+        _, missing = sync.build_chrome.stamp("<body><main>no chrome</main></body>")
+        self.assertEqual(missing, ["header", "footer"])
+
+    def test_sitemap_lists_the_standalone_pages(self):
+        sitemap = sync.build_sitemap([dossier()], {})
+        for path in ("/manifesto/", "/census/", "/protocol/", "/faq/", "/chronicle/", "/articles/", "/security/"):
+            self.assertIn("<loc>%s%s</loc>" % (sync.SITE, path), sitemap)
 
 
 class AnchorCheckTests(unittest.TestCase):

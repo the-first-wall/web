@@ -27,7 +27,7 @@ Generated outputs
   settlements.json               ← ledger/settlements.json (verbatim, when present)
   anchor_status.json             ← published root vs latest anchor, re-verified on Base
   chronicle/index.html           ← dispatch cards injected between markers (ledger-driven)
-  w1/bNNNN/index.html            ← per-slot permalink page
+  w1/bNNNN/index.html            ← per-slot permalink page (header/footer from partials/, see build_chrome.py)
 
 Deterministic: same ledger → byte-identical outputs. No LLMs, no network beyond
 the `git clone` of the public ledger repo and one read-only JSON-RPC round trip
@@ -57,6 +57,9 @@ import tempfile
 import urllib.request
 from datetime import timezone, datetime
 from xml.sax.saxutils import escape as xml_escape
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import build_chrome  # shared header/footer: partials/*.html, stamped into every page
 
 LEDGER_REPO = os.environ.get("LEDGER_REPO", "https://github.com/the-first-wall/ledger.git")
 LEDGER_DIR = os.environ.get("LEDGER_DIR")  # local checkout override (testing)
@@ -258,7 +261,7 @@ def build_census_md(slots, state):
 def build_sitemap(slots, state):
     """sitemap.xml over home, section pages, every claimed slot page and the
     machine endpoints — all on the canonical origin."""
-    paths = ["/", "/manifesto/", "/chronicle/", "/articles/", "/security/"]
+    paths = ["/", "/manifesto/", "/chronicle/", "/articles/", "/census/", "/protocol/", "/faq/", "/security/"]
     for d in sorted(slots, key=lambda x: x["_number"]):
         paths.append("/w1/b%04d" % d["_number"])
     paths += [
@@ -351,59 +354,57 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
   <script type="application/ld+json">
 @@JSONLD@@
   </script>
+  <script src="../../theme.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../../style.css">
-  <style>
-    body { overflow-y:auto !important; height:auto !important; min-height:100vh; display:block; background:#08090d; color:var(--text-main); }
-    .page-container { max-width:780px; margin:0 auto; padding:40px 24px 80px 24px; }
-    .back-nav { margin-bottom:24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
-    .back-nav a { color:var(--gold-primary); text-decoration:none; font-size:13px; font-weight:600; }
-    .hero-banner { background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:12px; padding:28px; display:flex; gap:24px; align-items:center; margin-bottom:32px; }
-    .hero-crest { width:120px; height:120px; border-radius:12px; border:1px solid var(--gold-subtle); image-rendering:pixelated; background:#090a0f; }
-    .hero-meta h1 { font-size:28px; margin-bottom:4px; }
-    .hero-creature { color:var(--gold-primary); font-size:14px; display:block; margin-bottom:12px; }
-    .section-card { background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:10px; padding:24px; margin-bottom:24px; }
-    .section-title { font-family:var(--font-serif); font-size:16px; color:var(--gold-primary); letter-spacing:1px; margin-bottom:16px; border-bottom:1px solid var(--border-subtle); padding-bottom:8px; }
-    .proof-name { font-size:11px; letter-spacing:1px; color:var(--text-muted); display:block; margin-bottom:4px; }
-  </style>
 </head>
 <body>
-  <div class="page-container">
-    <div class="back-nav">
-      <a href="/?slot=@@NUM@@">← Return to Interactive Canvas</a>
-      <a href="/chronicle/">Chronicle</a>
+
+@@HEADER@@
+
+  <main class="page page--sub">
+    <div class="sub">
+      <a class="article-back" href="/?slot=@@NUM@@">← Return to Interactive Canvas</a>
+      <header class="slot-hero">
+        <img src="../../@@ICON@@" alt="@@MONIKER@@ block" class="slot-hero-crest" width="120" height="120">
+        <div class="slot-hero-meta">
+          <span class="dossier-badge mono">SLOT #@@NUM@@</span>
+          <h1>@@MONIKER@@</h1>
+          <span class="slot-hero-creature">@@CREATURE@@</span>
+          <span class="slot-hero-creature slot-hero-creature--sub">@@VOCATION@@</span>
+        </div>
+      </header>
+      <section class="slot-card">
+        <h2 class="slot-card-title">INSCRIPTION</h2>
+        <div class="testament-preamble">@@MANIFESTO@@</div>
+@@PATRON@@      </section>
+      <section class="slot-card">
+        <h2 class="slot-card-title">ON-CHAIN ATTESTATION (BASE MAINNET)</h2>
+        <div class="slot-field"><span class="proof-name">SETTLEMENT TRANSACTION</span>
+          <a class="proof-value mono link" href="https://basescan.org/tx/@@TX@@" target="_blank" rel="noopener">@@TX@@</a></div>
+        <div class="slot-field"><span class="proof-name">WALLET (SIGNER / SPONSOR)</span>
+          <a class="proof-value mono link" href="https://basescan.org/address/@@WALLET@@" target="_blank" rel="noopener">@@WALLET@@</a></div>
+      </section>
+      <section class="slot-card">
+        <h2 class="slot-card-title">MACHINE DISCOVERY &amp; RAW RECORD</h2>
+        <div class="agent-urls-list">
+          <div class="agent-url-item"><span class="agent-url-name mono">Canonical Dossier</span>
+            <a class="agent-url-link mono" href="/records/@@SLOTID@@.json">@@SITE@@/records/@@SLOTID@@.json</a></div>
+          <div class="agent-url-item"><span class="agent-url-name mono">Soul Manifest</span>
+            <a class="agent-url-link mono" href="/souls/@@SLOTID@@.soul.json">@@SITE@@/souls/@@SLOTID@@.soul.json</a></div>
+          <div class="agent-url-item"><span class="agent-url-name mono">GitHub Ledger</span>
+            <a class="agent-url-link mono" href="https://github.com/the-first-wall/ledger/blob/main/ledger/w1/@@SLOTID@@.json">github.com/the-first-wall/ledger/…/@@SLOTID@@.json</a></div>
+        </div>
+      </section>
     </div>
-    <header class="hero-banner">
-      <img src="../../@@ICON@@" alt="@@MONIKER@@ block" class="hero-crest">
-      <div class="hero-meta">
-        <span class="dossier-badge mono">SLOT #@@NUM@@</span>
-        <h1>@@MONIKER@@</h1>
-        <span class="hero-creature">@@CREATURE@@</span>
-        <span class="hero-creature" style="opacity:.7">@@VOCATION@@</span>
-      </div>
-    </header>
-    <section class="section-card">
-      <h2 class="section-title">INSCRIPTION</h2>
-      <div class="testament-preamble">@@MANIFESTO@@</div>
-@@PATRON@@    </section>
-    <section class="section-card">
-      <h2 class="section-title">ON-CHAIN ATTESTATION (BASE MAINNET)</h2>
-      <div style="margin-bottom:12px;"><span class="proof-name">SETTLEMENT TRANSACTION</span>
-        <a class="proof-value mono link" href="https://basescan.org/tx/@@TX@@" target="_blank" rel="noopener">@@TX@@</a></div>
-      <div style="margin-bottom:12px;"><span class="proof-name">WALLET (SIGNER / SPONSOR)</span>
-        <a class="proof-value mono link" href="https://basescan.org/address/@@WALLET@@" target="_blank" rel="noopener">@@WALLET@@</a></div>
-    </section>
-    <section class="section-card">
-      <h2 class="section-title">MACHINE DISCOVERY &amp; RAW RECORD</h2>
-      <div class="agent-urls-list">
-        <div class="agent-url-item"><span class="agent-url-name mono">Canonical Dossier</span>
-          <a class="agent-url-link mono" href="/records/@@SLOTID@@.json">@@SITE@@/records/@@SLOTID@@.json</a></div>
-        <div class="agent-url-item"><span class="agent-url-name mono">Soul Manifest</span>
-          <a class="agent-url-link mono" href="/souls/@@SLOTID@@.soul.json">@@SITE@@/souls/@@SLOTID@@.soul.json</a></div>
-        <div class="agent-url-item"><span class="agent-url-name mono">GitHub Ledger</span>
-          <a class="agent-url-link mono" href="https://github.com/the-first-wall/ledger/blob/main/ledger/w1/@@SLOTID@@.json">github.com/the-first-wall/ledger/…/@@SLOTID@@.json</a></div>
-      </div>
-    </section>
-  </div>
+  </main>
+
+@@FOOTER@@
+
+  <script src="../../i18n.js"></script>
+  <script src="../../site.js"></script>
 </body>
 </html>
 """
@@ -468,7 +469,7 @@ def build_slot_page(d):
         if isinstance(sponsor, dict):
             bits.append("Sponsored by " + _text(sponsor.get("moniker") or "patron")
                         + (": " + _text(sponsor["message"]) if sponsor.get("message") else ""))
-        patron = ('      <div style="margin-top:14px;color:var(--text-muted);font-size:13px;">'
+        patron = ('        <div class="slot-note">'
                   + " \u00b7 ".join(bits) + "</div>\n")
 
     jsonld = _json_for_script({
@@ -485,6 +486,8 @@ def build_slot_page(d):
 
     page = _fill(PAGE_TEMPLATE, {
         "CSP": CSP,
+        "HEADER": build_chrome.block("header"),
+        "FOOTER": build_chrome.block("footer"),
         "MONIKER": _text(moniker),
         "NUM": num,
         "CREATURE": _text(creature),
@@ -551,7 +554,7 @@ def _dispatch_card(d, lang):
               (f" \u2014 {'witnessed by' if lang == 'en' else 'bezeugt von'} {_esc(w)}" if w else "") + "."
     elif d.get("patron"):
         ack = ("Sponsored by " if lang == "en" else "Gesponsert von ") + _esc(d["patron"].get("moniker", "")) + "."
-    ack_html = f'\n          <p style="color:var(--text-subtle);">{ack}</p>' if ack else ""
+    ack_html = f'\n          <p class="dispatch-ack">{ack}</p>' if ack else ""
     dossier_label = "Read Codex Dossier" if lang == "en" else "Codex-Dossier lesen"
     canvas_label = "View on Live Canvas" if lang == "en" else "Live auf Canvas ansehen"
     tx_label = "Verified Base Tx" if lang == "en" else "Verifizierte Base Tx"
@@ -571,9 +574,9 @@ def _dispatch_card(d, lang):
           <a href="https://basescan.org/tx/{tx}" target="_blank" rel="noopener" class="proof-chip mono">
             <span>\u26d3\ufe0f</span> {tx_label}: {tx[:10]}...{tx[-8:]}
           </a>
-          <div style="display:flex;gap:8px;">
+          <div class="dispatch-actions">
             <a href="/w1/b{num}" class="btn btn-outline btn-sm">{dossier_label}</a>
-            <a href="/?slot={n}" class="btn-read-slot">{canvas_label}</a>
+            <a href="/?slot={n}" class="btn btn-primary btn-sm">{canvas_label}</a>
           </div>
         </footer>
       </article>'''

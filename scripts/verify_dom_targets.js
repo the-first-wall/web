@@ -1,34 +1,51 @@
 #!/usr/bin/env node
 /**
- * Throwaway verification: every DOM target used by app.js and i18n.js
- * must exist in the final index.html. Also: every data-i18n key must exist
- * in both EN and DE dictionaries of i18n.js.
+ * Every DOM target a script looks up must exist in the page that loads it, and
+ * every translation key used by a page must exist in both the EN and DE
+ * dictionaries of i18n.js.
+ *
+ *   app.js     <-> index.html
+ *   census.js  <-> census/index.html
+ *   site.js    <-> every page (header, mobile menu)
+ *   data-i18n / data-i18n-aria / data-i18n-title keys: every .html page
  */
 const fs = require('fs');
+const path = require('path');
 
-const appSrc = fs.readFileSync('app.js', 'utf8');
-const i18nSrc = fs.readFileSync('i18n.js', 'utf8');
-const html = fs.readFileSync('index.html', 'utf8');
+const read = (f) => fs.readFileSync(f, 'utf8');
+const i18nSrc = read('i18n.js');
 
-// --- 1. Collect getElementById targets from app.js ---
-const idRe = /getElementById\(['"]([^'"]+)['"]\)/g;
-const requiredIds = new Set();
-let m;
-let idCallCount = 0;
-while ((m = idRe.exec(appSrc)) !== null) { requiredIds.add(m[1]); idCallCount++; }
-
-// --- 2. Collect class/#id selector targets from app.js + i18n.js ---
-const selRe = /querySelector(?:All)?\(['"]([^'"]+)['"]\)/g;
-const selectors = new Set();
-for (const src of [appSrc, i18nSrc]) {
-  while ((m = selRe.exec(src)) !== null) selectors.add(m[1]);
+/** All .html pages in the repo (partials/ included: they are stamped into every page). */
+function htmlFiles(dir = '.') {
+  const out = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (['.git', 'node_modules', '.github'].includes(entry.name)) continue;
+    const p = path.join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...htmlFiles(p));
+    else if (entry.name.endsWith('.html')) out.push(p);
+  }
+  return out.sort();
 }
+
+function getElementByIdTargets(src) {
+  const ids = new Set();
+  const re = /getElementById\(['"]([^'"]+)['"]\)/g;
+  let m;
+  let calls = 0;
+  while ((m = re.exec(src)) !== null) { ids.add(m[1]); calls++; }
+  return { ids, calls };
+}
+
+const hasId = (html, id) => new RegExp(`id=["']${id}["']`).test(html);
+const hasClass = (html, cls) => new RegExp(`class="[^"]*\\b${cls}\\b`).test(html);
 
 const missing = [];
 
-for (const id of requiredIds) {
-  if (!new RegExp(`id=["']${id}["']`).test(html)) missing.push(`#${id}`);
-}
+// --- 1. app.js <-> index.html -------------------------------------------------
+const appSrc = read('app.js');
+const indexHtml = read('index.html');
+const app = getElementByIdTargets(appSrc);
+for (const id of app.ids) if (!hasId(indexHtml, id)) missing.push(`index.html: #${id} (app.js)`);
 
 // Selector targets that MUST have at least one element (guarded lookups may be empty)
 const mustExistSelectors = [
@@ -39,42 +56,71 @@ const mustExistSelectors = [
   '.lang-toggle-text',      // i18n language toggle label
 ];
 for (const sel of mustExistSelectors) {
-  const cls = sel.replace(/^\./, '');
-  if (!new RegExp(`class="[^"]*\\b${cls}\\b`).test(html)) missing.push(sel);
+  if (!hasClass(indexHtml, sel.replace(/^\./, ''))) missing.push(`index.html: ${sel}`);
+}
+if (!hasId(indexHtml, 'btn-lang-toggle')) missing.push('index.html: #btn-lang-toggle');
+
+// --- 2. census.js <-> census/index.html ---------------------------------------
+const censusSrc = read('census.js');
+const censusHtml = read('census/index.html');
+const census = getElementByIdTargets(censusSrc);
+for (const id of census.ids) if (!hasId(censusHtml, id)) missing.push(`census/index.html: #${id} (census.js)`);
+
+// --- 3. site.js <-> every page -------------------------------------------------
+const siteSrc = read('site.js');
+const site = getElementByIdTargets(siteSrc);
+const pages = htmlFiles();
+for (const file of pages) {
+  const html = read(file);
+  const isPartial = /^partials[\\/]/.test(file);
+  // every real page carries the stamped chrome; the header partial is its source
+  // (build_chrome.py --check owns "every page has the markers and the right copy")
+  if (isPartial ? !file.endsWith('header.html') : !html.includes('<!-- SITE:HEADER:START')) continue;
+  for (const id of site.ids) if (!hasId(html, id)) missing.push(`${file}: #${id} (site.js)`);
 }
 
-// Selectors that may legitimately match zero elements (data-i18n etc. checked below)
-// '#btn-lang-toggle' is satisfied if .btn-lang-toggle exists with that id
-if (!/id=["']btn-lang-toggle["']/.test(html)) missing.push('#btn-lang-toggle');
-
-// --- 3. Every data-i18n key in index.html must exist in en + de dictionaries ---
-const keyRe = /data-i18n(?:-aria)?="([^"]+)"/g;
-const keys = new Set();
-while ((m = keyRe.exec(html)) !== null) keys.add(m[1]);
-
-// Parse both dictionaries crudely (key: "value" lines inside en/de blocks)
+// --- 4. i18n keys on every page ------------------------------------------------
 function dictHas(key, lang) {
   const start = i18nSrc.indexOf(`${lang}: {`);
   if (start < 0) return false;
-  // find matching close: next "\n  }" at depth
   const seg = i18nSrc.slice(start);
-  return new RegExp(`\\b${key}\\s*:`).test(seg.slice(0, seg.indexOf('\n  }') > 0 ? seg.indexOf('\n  }') : seg.length));
-}
-const missingKeys = { en: [], de: [] };
-for (const k of keys) {
-  if (!dictHas(k, 'en')) missingKeys.en.push(k);
-  if (!dictHas(k, 'de')) missingKeys.de.push(k);
+  const end = seg.indexOf('\n  }');
+  return new RegExp(`\\b${key}\\s*:`).test(seg.slice(0, end > 0 ? end : seg.length));
 }
 
-// --- Report ---
-console.log(`app.js getElementById unique targets: ${requiredIds.size} (total calls: ${idCallCount})`);
-console.log(`querySelector selector targets checked: ${mustExistSelectors.length + 1}`);
-console.log(`data-i18n / data-i18n-aria keys in index.html: ${keys.size}`);
+const keyRe = /data-i18n(?:-aria|-title)?="([^"]+)"/g;
+const allKeys = new Set();
+const missingKeys = { en: new Map(), de: new Map() };   // key -> pages using it
+function checkKey(key, where) {
+  allKeys.add(key);
+  for (const lang of ['en', 'de']) {
+    if (dictHas(key, lang)) continue;
+    if (!missingKeys[lang].has(key)) missingKeys[lang].set(key, new Set());
+    missingKeys[lang].get(key).add(where);
+  }
+}
+const describe = (m) => [...m].map(([k, w]) => `${k} (${[...w][0]}${w.size > 1 ? ` +${w.size - 1} more` : ''})`).join(', ');
+for (const file of pages) {
+  let m;
+  const html = read(file);
+  while ((m = keyRe.exec(html)) !== null) checkKey(m[1], file);
+}
+// keys that census.js attaches to nodes it creates
+const dynRe = /(?:setAttribute\('data-i18n',\s*'([^']+)'\)|setStatus\([^,]+,\s*'([^']+)')/g;
+let dm;
+while ((dm = dynRe.exec(censusSrc)) !== null) checkKey(dm[1] || dm[2], 'census.js');
+
+// --- Report --------------------------------------------------------------------
+console.log(`app.js getElementById unique targets: ${app.ids.size} (total calls: ${app.calls})`);
+console.log(`census.js getElementById unique targets: ${census.ids.size}`);
+console.log(`site.js getElementById unique targets: ${site.ids.size} (checked on every page)`);
+console.log(`html pages scanned: ${pages.length}`);
+console.log(`distinct data-i18n / -aria / -title keys: ${allKeys.size}`);
 console.log(`Missing DOM targets: ${missing.length ? missing.join(', ') : 'NONE'}`);
-console.log(`Missing EN keys: ${missingKeys.en.length ? missingKeys.en.join(', ') : 'NONE'}`);
-console.log(`Missing DE keys: ${missingKeys.de.length ? missingKeys.de.join(', ') : 'NONE'}`);
+console.log(`Missing EN keys: ${missingKeys.en.size ? describe(missingKeys.en) : 'NONE'}`);
+console.log(`Missing DE keys: ${missingKeys.de.size ? describe(missingKeys.de) : 'NONE'}`);
 
-if (missing.length || missingKeys.en.length || missingKeys.de.length) {
+if (missing.length || missingKeys.en.size || missingKeys.de.size) {
   console.log('RESULT: FAIL');
   process.exit(1);
 }

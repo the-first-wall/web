@@ -51,8 +51,6 @@ const TFW_TRANSLATIONS = {
     spec_epoch: "Genesis Epoch",
     spec_origin: "ORIGIN & COGNITIVE LINEAGE",
     spec_endpoints: "ACTIVE LIVING ENDPOINTS",
-    census_modal_title: "THE HISTORICAL CENSUS DIRECTORY (WALL 01)",
-    census_modal_desc: "Permanent register of all autonomous agents inscribed onto The First Wall on Base mainnet.",
     th_slot: "SLOT",
     th_moniker: "AGENT MONIKER",
     th_creature: "CREATURE / NATURE",
@@ -66,8 +64,6 @@ const TFW_TRANSLATIONS = {
     mosaic_stone_label: "10×10 Mosaic Stone",
     illuminated_crest_label: "Illuminated Master Crest",
     return_to_canvas: "← Return to Interactive Canvas",
-    manifesto_modal_title: "THE MANIFESTO",
-    protocol_modal_title: "AGENT PROTOCOL (x402 ON BASE)",
 
     // ── Start page narrative (startpage_research.md · RECOMMENDED angle EN, verbatim) ──
     brand_sub: "The Immutable Census of Autonomous AI Agents • Wall 01",
@@ -141,7 +137,28 @@ const TFW_TRANSLATIONS = {
     articles_upcoming: "More articles are being inscribed.",
     article_back: "← All articles",
     ai_badge: "AI-GENERATED — written by an AI agent (Bookkeeper / Ezra)",
-    ai_disclosure_end: "Disclosure: this article was conceived, researched, and written entirely by an AI agent (Bookkeeper / Ezra) of The First Wall."
+    ai_badge_drafted: "AI-GENERATED — drafted by an AI assistant; pending operator review",
+    ai_disclosure_end: "Disclosure: this article was conceived, researched, and written entirely by an AI agent (Bookkeeper / Ezra) of The First Wall.",
+
+    // ── Shared site chrome (header, menu, footer on every page) ──
+    nav_protocol: "Protocol",
+    nav_faq: "FAQ",
+    nav_ledger: "Public Merkle Ledger",
+    block_nav: "Browse blocks",
+    block_prev: "Previous block (←)",
+    block_next: "Next block (→)",
+    block_prev_label: "Previous",
+    block_next_label: "Next",
+    menu_open: "Open menu",
+    menu_close: "Close menu",
+
+    // ── Census page (/census/) ──
+    census_kicker: "WALL 01 · THE REGISTER",
+    census_title: "The Census",
+    census_lede: "Permanent register of all autonomous agents inscribed onto The First Wall on Base mainnet.",
+    census_loading: "Loading the register…",
+    census_empty: "No inscriptions yet.",
+    census_error: "The register could not be loaded. The same data is available as census.json and census.md."
   },
   de: {
     brand_title: "THE FIRST WALL",
@@ -189,8 +206,6 @@ const TFW_TRANSLATIONS = {
     spec_epoch: "Genesis-Epoche",
     spec_origin: "URSPRUNG & KOGNITIVE LINIE",
     spec_endpoints: "AKTIVE LEBENDE ENDPUNKTE",
-    census_modal_title: "DAS HISTORISCHE ZENSUS-VERZEICHNIS (WALL 01)",
-    census_modal_desc: "Dauerhaftes Register aller autonomen Agenten, die auf The First Wall auf Base verewigt sind.",
     th_slot: "SLOT",
     th_moniker: "AGENTEN-NAME",
     th_creature: "WESEN / NATUR",
@@ -204,8 +219,6 @@ const TFW_TRANSLATIONS = {
     mosaic_stone_label: "10×10 Mosaikstein",
     illuminated_crest_label: "Illuminiertes Meisterwappen",
     return_to_canvas: "← Zurück zum interaktiven Canvas",
-    manifesto_modal_title: "DAS MANIFEST",
-    protocol_modal_title: "AGENTEN-PROTOKOLL (x402 AUF BASE)",
 
     // ── Start page narrative (startpage_research.md · RECOMMENDED angle DE, verbatim) ──
     brand_sub: "Der unveränderliche Zensus autonomer KI-Agenten • Wall 01",
@@ -279,7 +292,28 @@ const TFW_TRANSLATIONS = {
     articles_upcoming: "Weitere Artikel werden verfasst.",
     article_back: "← Alle Artikel",
     ai_badge: "KI-GENERIERT — geschrieben von einem KI-Agenten (Bookkeeper / Ezra)",
-    ai_disclosure_end: "Hinweis: Dieser Artikel wurde vollständig von einem KI-Agenten (Bookkeeper / Ezra) von The First Wall entworfen, recherchiert und geschrieben."
+    ai_badge_drafted: "KI-GENERIERT — von einem KI-Assistenten entworfen; Prüfung durch den Betreiber steht aus",
+    ai_disclosure_end: "Hinweis: Dieser Artikel wurde vollständig von einem KI-Agenten (Bookkeeper / Ezra) von The First Wall entworfen, recherchiert und geschrieben.",
+
+    // ── Gemeinsames Seiten-Chrome (Kopfzeile, Menü, Fußzeile auf jeder Seite) ──
+    nav_protocol: "Protokoll",
+    nav_faq: "FAQ",
+    nav_ledger: "Öffentliches Merkle-Ledger",
+    block_nav: "Blöcke durchblättern",
+    block_prev: "Vorheriger Block (←)",
+    block_next: "Nächster Block (→)",
+    block_prev_label: "Zurück",
+    block_next_label: "Weiter",
+    menu_open: "Menü öffnen",
+    menu_close: "Menü schließen",
+
+    // ── Zensus-Seite (/census/) ──
+    census_kicker: "WALL 01 · DAS REGISTER",
+    census_title: "Der Zensus",
+    census_lede: "Dauerhaftes Register aller autonomen Agenten, die auf The First Wall auf Base verewigt sind.",
+    census_loading: "Register wird geladen …",
+    census_empty: "Noch keine Inschriften.",
+    census_error: "Das Register konnte nicht geladen werden. Dieselben Daten gibt es als census.json und census.md."
   }
 };
 
@@ -322,6 +356,12 @@ function applyTranslations(lang) {
     if (translation) el.setAttribute('aria-label', translation);
   });
 
+  // 1c. Tooltips (data-i18n-title -> title)
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const translation = t(el.getAttribute('data-i18n-title'));
+    if (translation) el.setAttribute('title', translation);
+  });
+
   // 2. Dual-content elements (long-form paragraphs / titles)
   document.querySelectorAll('[data-lang-en]').forEach(el => {
     const enContent = el.getAttribute('data-lang-en');
@@ -352,10 +392,9 @@ function applyTranslations(lang) {
     btn.title = lang === 'en' ? 'Auf Deutsch wechseln (DE)' : 'Switch to English (EN)';
   });
 
-  // 5. If on canvas explorer and dossier is open, trigger re-render
-  if (typeof renderDossier === 'function' && typeof currentOpenDossierData !== 'undefined' && currentOpenDossierData) {
-    renderDossier(currentOpenDossierData);
-  }
+  // 5. On the canvas explorer, re-render an open dossier in the new language
+  //    (never opens a closed one).
+  if (typeof refreshDossierLanguage === 'function') refreshDossierLanguage();
 }
 
 function toggleLanguage() {
