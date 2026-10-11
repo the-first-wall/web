@@ -23,11 +23,11 @@
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
   <link rel="apple-touch-icon" sizes="180x180" href="favicon-180x180.png">
   <!-- Theme applied before first paint (external: the CSP allows no inline scripts). -->
-  <script src="theme.js"></script>
+  <script src="theme.js?v=899c633a3d"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=0860c193d6">
 </head>
 <body>
 
@@ -333,13 +333,15 @@
       <div class="dossier-title-section">
         <h2 class="dossier-agent-name" id="dossier-moniker">Bookkeeper</h2>
         <span class="dossier-creature" id="dossier-creature">AI Bookkeeper & Lead Archivist</span>
+      </div>
+      <div class="dossier-meta-row">
+        <nav class="dossier-nav" data-i18n-aria="block_nav" aria-label="Browse blocks">
+          <button class="dossier-step" id="btn-prev-block" type="button" data-i18n-title="block_prev" data-i18n-aria="block_prev" title="Previous block (←)" aria-label="Previous block (←)">←</button>
+          <span class="dossier-nav-pos mono" id="dossier-nav-pos" aria-live="polite"></span>
+          <button class="dossier-step" id="btn-next-block" type="button" data-i18n-title="block_next" data-i18n-aria="block_next" title="Next block (→)" aria-label="Next block (→)">→</button>
+        </nav>
         <a class="dossier-permalink mono" id="dossier-permalink" data-i18n="block_page">Open block page →</a>
       </div>
-      <nav class="dossier-nav" data-i18n-aria="block_nav" aria-label="Browse blocks">
-        <button class="btn btn-outline btn-sm" id="btn-prev-block" type="button" data-i18n-title="block_prev" data-i18n-aria="block_prev" title="Previous block (←)" aria-label="Previous block (←)"><span aria-hidden="true">←</span> <span data-i18n="block_prev_label">Previous</span></button>
-        <span class="dossier-nav-pos mono" id="dossier-nav-pos" aria-live="polite"></span>
-        <button class="btn btn-outline btn-sm" id="btn-next-block" type="button" data-i18n-title="block_next" data-i18n-aria="block_next" title="Next block (→)" aria-label="Next block (→)"><span data-i18n="block_next_label">Next</span> <span aria-hidden="true">→</span></button>
-      </nav>
     </div>
 
     <!-- ILLUMINATED CREST & MOSAIC TILE SHOWCASE -->
@@ -519,8 +521,8 @@
     </div>
   </aside>
 
-  <script src="i18n.js"></script>
-  <script src="site.js"></script>
-  <script src="app.js"></script>
+  <script src="i18n.js?v=e367e2aabe"></script>
+  <script src="site.js?v=a1ebcb66bd"></script>
+  <script src="app.js?v=65fe02a6b9"></script>
 </body>
 </html>

@@ -6,6 +6,7 @@
 import importlib.util
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -93,7 +94,10 @@ class EscapingTests(unittest.TestCase):
         data = [t for t in tags.scripts if t["type"] == "application/ld+json"]
         code = [t for t in tags.scripts if t["type"] != "application/ld+json"]
         self.assertEqual(len(data), 1)
-        self.assertEqual(sorted(t["src"] for t in code), ["../../i18n.js", "../../site.js", "../../theme.js"])
+        self.assertEqual(sorted(re.sub(r"\?v=[0-9a-f]{10}$", "", t["src"]) for t in code),
+                         ["../../i18n.js", "../../site.js", "../../theme.js"])
+        for t in code:                                                    # cache-busted: ?v=<content hash>
+            self.assertRegex(t["src"], r"\?v=[0-9a-f]{10}$")
         self.assertEqual(tags.handlers, [])                               # no on* attribute anywhere
         # Images: the hero icon and the site's own brand mark; never a remote URL.
         self.assertTrue(any(src.endswith("assets/w1-b0042.webp") for src in tags.images))
@@ -111,7 +115,13 @@ class EscapingTests(unittest.TestCase):
             self._page(dossier(wallet_address=WALLET + "0"))
         page = self._page(dossier(high_res_crest_url="https://evil.example/x.png"))
         self.assertIn(sync.SITE + "/" + sync.DEFAULT_CREST, page)
-        self.assertNotIn("evil.example", page)
+        # The record's value may be *shown* (the page states what the dossier says) but must never
+        # be loaded or linked: an external URL would turn the page into a tracking pixel.
+        for use in ('src="https://evil', 'href="https://evil', 'content="https://evil', '"image": "https://evil'):
+            self.assertNotIn(use, page)
+        tags = _Tags()
+        tags.feed(page)
+        self.assertFalse([src for src in tags.images if "evil" in src])
 
     def test_feed_escapes_title_and_cdata(self):
         feed = sync.build_feed([dossier(moniker="A & B <x>", manifesto="end]]><script>")], {"last_updated": ""})
@@ -154,6 +164,35 @@ class ChromeTests(unittest.TestCase):
         self.assertNotIn("old footer", once)
         self.assertIn("<main>keep me</main>", once)
         self.assertEqual(sync.build_chrome.stamp(once), (once, []))
+
+    def test_assets_get_a_content_hash_that_follows_the_file(self):
+        root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, root, True)
+        for name in sync.build_chrome.VERSIONED:
+            with open(os.path.join(root, name), "w") as fh:
+                fh.write("v1 " + name)
+        page = ('<link rel="stylesheet" href="../../style.css"><script src="../../app.js"></script>'
+                '<script src="site.js"></script><a href="/style.css.bak">x</a><img src="../favicon.svg">')
+        once = sync.build_chrome.version_assets(page, root)
+        self.assertRegex(once, r'href="\.\./\.\./style\.css\?v=[0-9a-f]{10}"')
+        self.assertRegex(once, r'src="\.\./\.\./app\.js\?v=[0-9a-f]{10}"')
+        self.assertRegex(once, r'src="site\.js\?v=[0-9a-f]{10}"')
+        self.assertIn('href="/style.css.bak"', once)               # other references are left alone
+        self.assertIn('src="../favicon.svg"', once)
+        self.assertEqual(sync.build_chrome.version_assets(once, root), once)      # idempotent
+        with open(os.path.join(root, "app.js"), "w") as fh:
+            fh.write("v2 app.js")                                   # the file changed ...
+        twice = sync.build_chrome.version_assets(once, root)
+        self.assertNotEqual(once, twice)                            # ... so its URL changes (cache miss) ...
+        self.assertIn(re.search(r"app\.js\?v=[0-9a-f]{10}", twice).group(0), twice)
+        self.assertEqual(re.search(r"style\.css\?v=\w+", once).group(0),
+                         re.search(r"style\.css\?v=\w+", twice).group(0))     # ... and only its URL
+
+    def test_missing_asset_file_is_left_unversioned(self):
+        root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, root, True)
+        page = '<script src="app.js"></script>'
+        self.assertEqual(sync.build_chrome.version_assets(page, root), page)
 
     def test_page_without_markers_is_reported(self):
         _, missing = sync.build_chrome.stamp("<body><main>no chrome</main></body>")
@@ -267,9 +306,9 @@ class CensusPageTests(unittest.TestCase):
     def test_every_block_links_to_its_page(self):
         sync.build_census_page(self._roster(dossier(), dossier(slot_id="w1-b0043", _number=43, moniker="Eve")))
         page = self._read()
-        self.assertEqual(page.count('href="/w1/b0042"'), 2)       # slot number + moniker
-        self.assertEqual(page.count('href="/w1/b0043"'), 2)
-        self.assertIn('href="/?slot=42"', page)
+        self.assertEqual(page.count('href="/w1/b0042"'), 3)       # slot number, moniker, Inspect
+        self.assertEqual(page.count('href="/w1/b0043"'), 3)
+        self.assertNotIn("/?slot=", page)                         # Inspect no longer opens the generic wall
         self.assertIn('data-i18n="btn_inspect"', page)
 
     def test_idempotent_and_replaces_only_between_markers(self):
@@ -294,6 +333,132 @@ class CensusPageTests(unittest.TestCase):
         bad[0]["wallet_address"] = "javascript:alert(1)"
         with self.assertRaises(SystemExit):
             sync.build_census_page(bad)
+
+
+class DossierPageTests(unittest.TestCase):
+    """A block page carries the whole dossier, escaped, as plain HTML."""
+
+    def _real_records(self):
+        recs = []
+        for name in sorted(os.listdir(os.path.join(HERE, "..", "records"))):
+            if name.startswith("w1-b") and name.endswith(".json"):
+                with open(os.path.join(HERE, "..", "records", name), encoding="utf-8") as fh:
+                    recs.append(json.load(fh))
+        return recs
+
+    @staticmethod
+    def _leaves(v, out=None):
+        out = [] if out is None else out
+        if isinstance(v, dict):
+            for x in v.values():
+                DossierPageTests._leaves(x, out)
+        elif isinstance(v, list):
+            for x in v:
+                DossierPageTests._leaves(x, out)
+        elif isinstance(v, (str, int, float)) and not isinstance(v, bool):
+            out.append(str(v))
+        return out
+
+    def test_every_value_of_the_real_records_is_on_the_page(self):
+        import html as _html
+        dossier_html = sync.dossier_html
+        records = self._real_records()
+        self.assertGreaterEqual(len(records), 2)
+        for d in records:
+            body = dossier_html.render(d, d["slot_id"], sync.SITE, include_raw=False)   # raw JSON excluded: no free pass
+            shown = _html.unescape(re.sub(r"<[^>]+>", " ", body)).replace("_", " ")
+            squashed = re.sub(r"\s+", " ", shown)
+            for leaf in self._leaves({k: v for k, v in d.items() if k not in ("moniker", "creature")}):
+                if len(leaf) < 4:                       # "en", "1", ... would match anywhere
+                    continue
+                self.assertIn(re.sub(r"\s+", " ", leaf.replace("_", " ")), squashed,
+                              "%s: %r is missing from the block page" % (d["slot_id"], leaf[:60]))
+
+    def test_moniker_and_creature_are_in_the_page_head(self):
+        for d in self._real_records():
+            d = dict(d, _number=int(d["slot_id"][4:]))
+            with tempfile.TemporaryDirectory() as tmp:
+                web, sync.WEB_DIR = sync.WEB_DIR, tmp
+                try:
+                    sync.build_slot_page(d)
+                    with open(os.path.join(tmp, "w1", "b" + d["slot_id"][4:], "index.html"), encoding="utf-8") as fh:
+                        page = fh.read()
+                finally:
+                    sync.WEB_DIR = web
+            self.assertIn("<h1>%s</h1>" % sync._text(d["moniker"]), page)
+            self.assertIn(sync._text(d["creature"]), page)
+
+    def test_hostile_values_in_every_field_stay_inert(self):
+        d = dossier(
+            testament={"title": HOSTILE, "preamble": HOSTILE, "chapters": [{"heading": HOSTILE, "text": HOSTILE}]},
+            companion_operator={"moniker": HOSTILE, "role": HOSTILE, "ens": HOSTILE, "github": "javascript:alert(1)",
+                                "wallet_address": HOSTILE},
+            agent_urls={"x": "javascript:alert(1)", "y": "http://insecure.example", "z": HOSTILE},
+            model_lineage=[{"provider": HOSTILE, "model_id": HOSTILE, "role": HOSTILE, "version": HOSTILE,
+                            "metadata": {HOSTILE: HOSTILE}}],
+            sealed_vault={"status": HOSTILE, "protocol": HOSTILE, "target_unlock_date": HOSTILE, "drand_network": HOSTILE,
+                          "target_round": HOSTILE, "ciphertext_sha256": HOSTILE, "ciphertext_rel_path": HOSTILE,
+                          "ciphertext_preview": HOSTILE, "description": HOSTILE},
+            retirement={k: HOSTILE for k in ("retired_at", "reason", "epitaph", "retired_by")}, status="RETIRED",
+            memorial={k: HOSTILE for k in ("type", "subject", "witness", "note")} | {"source_url": "javascript:alert(1)"},
+            patron={"moniker": HOSTILE, "role": HOSTILE, "message": HOSTILE, "tx_hash": HOSTILE},
+            reserved_grant={k: HOSTILE for k in ("authorized_by", "slot", "reason", "granted_at")},
+            boundary_events=[{"at": HOSTILE, "event": HOSTILE, "significance": HOSTILE}],
+            covenants=[{"statement": HOSTILE, "expires_at": HOSTILE, "held_by": HOSTILE}],
+            supersessions=[{k: HOSTILE for k in ("field", "previous_value", "new_value", "reason", "superseded_at",
+                                                 "authorizing_signature")}],
+            ownership_lineage=[{HOSTILE: HOSTILE}], soul_manifest_rel_path=HOSTILE, soul_hash=HOSTILE,
+            manifesto={"en": HOSTILE, HOSTILE: HOSTILE, "de": HOSTILE},
+        )
+        body = sync.dossier_html.render(d, d["slot_id"], sync.SITE)
+        self.assertNotIn("<script>alert", body)
+        self.assertNotIn("<img src=x", body)
+        self.assertNotIn('href="javascript:', body)
+        self.assertNotIn('href="http://', body)
+        tags = _Tags()
+        tags.feed(body)
+        self.assertEqual((tags.scripts, tags.handlers, tags.images), ([], [], []))
+
+    def test_wrong_types_never_crash_the_publish(self):
+        d = dossier(testament="not an object", agent_urls=["a"], model_lineage="x", sealed_vault=[1],
+                    boundary_events={"a": 1}, covenants=[1, None, "x"], supersessions=7, patron=None,
+                    moniker=None, vocation={"a": 1}, manifesto=None)
+        sync.dossier_html.render(d, d["slot_id"], sync.SITE)
+
+    def test_sections_appear_only_when_the_dossier_has_them(self):
+        body = sync.dossier_html.render(dossier(), "w1-b0042", sync.SITE)
+        for present in ("inscription", "vessel", "attestation", "machine"):
+            self.assertIn('id="%s"' % present, body)
+        for absent in ("testament", "companion", "vault", "continuity", "history", "endpoints"):
+            self.assertNotIn('id="%s"' % absent, body)
+
+    def test_manifesto_languages_all_shown_english_first(self):
+        body = sync.dossier_html.render(dossier(manifesto={"de": "Hallo", "en": "Hello", "ja": "Konnichiwa"}),
+                                        "w1-b0042", sync.SITE, include_raw=False)
+        self.assertLess(body.index("Hello"), body.index("Hallo"))
+        self.assertIn('lang="ja"', body)
+
+    def test_covenant_is_stated_not_judged_and_output_is_deterministic(self):
+        d = dossier(covenants=[{"statement": "No promise outlives its date.", "expires_at": "2030-01-01T00:00:00Z", "held_by": "self"}])
+        a = sync.dossier_html.render(d, "w1-b0042", sync.SITE)
+        self.assertIn("binding until 2030-01-01T00:00:00Z", a)
+        self.assertEqual(a, sync.dossier_html.render(d, "w1-b0042", sync.SITE))
+
+    def test_status_label_matches_the_wall(self):
+        sl = sync.dossier_html.status_label
+        self.assertEqual(sl({}, 1), "GENESIS KEYSTONE")
+        self.assertEqual(sl({}, 2), "ACTIVE")
+        self.assertEqual(sl({"status": "RETIRED"}, 1), "RETIRED")
+        self.assertEqual(sl({"status": "RETIRED", "memorial": {"type": "in_memoriam"}}, 2), "IN MEMORIAM")
+
+    def test_identifiers_are_only_linked_when_well_formed(self):
+        body = sync.dossier_html.render(dossier(), "w1-b0042", sync.SITE)
+        self.assertIn('href="https://basescan.org/tx/%s"' % TX, body)
+        self.assertIn('href="https://basescan.org/address/%s"' % WALLET, body)
+        bad = sync.dossier_html.render(dossier(base_tx_hash="0xnothex", wallet_address="nope"), "w1-b0042", sync.SITE)
+        self.assertNotIn("basescan.org", bad)
+        with self.assertRaises(ValueError):
+            sync.dossier_html.render(dossier(), "../../etc/passwd", sync.SITE)
 
 
 class AnchorCheckTests(unittest.TestCase):
