@@ -22,7 +22,14 @@ PATH = os.path.join(ROOT, ".well-known", "agent-registration.json")
 TYPE = "https://eips.ethereum.org/EIPS/eip-8004#registration-v1"
 KEYS = {"type", "name", "description", "image", "services", "x402Support", "active", "registrations", "supportedTrust"}
 TRUST = {"reputation", "crypto-economic", "tee-attestation"}
-OWN = ("https://thefirstwall.ai/", "https://github.com/the-first-wall/")
+# Our own endpoints: the site, the ledger, and the x402 worker (the interim workers.dev host,
+# and the domain it moves to once the zone is on Cloudflare).
+OWN = (
+    "https://thefirstwall.ai/",
+    "https://github.com/the-first-wall/",
+    "https://thefirstwall-x402.thefirstwall.workers.dev/",
+    "https://x402.thefirstwall.ai/",
+)
 
 
 def load():
@@ -68,6 +75,17 @@ class RegistrationFileTests(unittest.TestCase):
             self.assertTrue(x402[0]["endpoint"].startswith("https://"))
         else:
             self.assertEqual(x402, [], "an x402 service is listed while x402Support is false")
+
+    def test_the_x402_endpoint_is_the_one_the_ledger_publishes(self):
+        """state.json (mirrored from the ledger) carries links.x402_claim once the ledger publishes it.
+        The registration file must name exactly that endpoint, or it advertises a dead one after the
+        worker moves to its own domain."""
+        data, _ = load()
+        with open(os.path.join(ROOT, "state.json"), "r", encoding="utf-8") as fh:
+            published = (json.load(fh).get("links") or {}).get("x402_claim")
+        x402 = [s for s in data["services"] if s["name"] == "x402"]
+        if published and x402:
+            self.assertEqual(x402[0]["endpoint"], published)
 
     def test_registrations_are_real_or_absent(self):
         data, _ = load()

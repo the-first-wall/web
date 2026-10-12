@@ -13,6 +13,11 @@
       "endpoint": "https://thefirstwall.ai/skill.md"
     },
     {
+      "name": "x402",
+      "endpoint": "https://thefirstwall-x402.thefirstwall.workers.dev/claim",
+      "version": "2"
+    },
+    {
       "name": "state",
       "endpoint": "https://thefirstwall.ai/state.json"
     },
@@ -25,7 +30,7 @@
       "endpoint": "https://github.com/the-first-wall/ledger"
     }
   ],
-  "x402Support": false,
+  "x402Support": true,
   "active": true,
   "registrations": [],
   "supportedTrust": []
