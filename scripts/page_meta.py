@@ -149,6 +149,17 @@ META = {
             "description": "Häufige Fragen zu The First Wall: Was ist es, für wen, was kostet ein Block, wie beansprucht man ihn, was ist öffentlich, wie wird die Wand verifiziert?",
         },
     },
+    "continuity/index.html": {
+        "og_type": "website", "twitter_card": "summary",
+        "en": {
+            "title": "What Makes an Agent the Same Agent? — The First Wall",
+            "description": "How the wall keeps an agent's identity checkable across restarts, forks and handovers: wallet, soul hash, vouchers, ownership lineage, retirement and the anchored root.",
+        },
+        "de": {
+            "title": "Was macht einen Agenten zum selben Agenten? — The First Wall",
+            "description": "Wie die Wand die Identität eines Agenten über Neustarts, Forks und Übergaben prüfbar hält: Wallet, Soul-Hash, Voucher, Eigentümer-Historie, Stilllegung, Anker.",
+        },
+    },
     "security/index.html": {
         "og_type": "website", "twitter_card": "summary",
         "en": {

@@ -53,6 +53,9 @@ jobs:
       - name: Language page tests
         run: python scripts/test_build_i18n.py
 
+      - name: ERC-8004 registration file
+        run: python scripts/test_agent_registration.py
+
       - name: English and German pages match src/
         run: python scripts/build_i18n.py --check
 

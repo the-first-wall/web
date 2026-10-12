@@ -306,6 +306,27 @@ GENESIS_ITEM = """    <item>
     </item>"""
 
 
+def _utc(iso):
+    try:
+        return datetime.fromisoformat(str(iso).replace("Z", "+00:00")).astimezone(timezone.utc)
+    except Exception:
+        return None
+
+
+def site_updated(state, anchors):
+    """When the published ledger last moved: the newer of its content date
+    (state.last_updated, the newest timestamp in any slot file) and its latest
+    on-chain anchor (anchored_at). The content date alone stays put while the
+    wall changes in ways no slot timestamp records (a fee paid, a root
+    re-anchored), which left the feed and the census header looking frozen.
+    Both inputs come from the ledger, so the result is the same on every run
+    and nothing is written when the ledger did not move."""
+    found = [(dt, iso) for iso in [state.get("last_updated", "")] + (
+        [anchors[-1].get("anchored_at", "")] if isinstance(anchors, list) and anchors and isinstance(anchors[-1], dict) else []
+    ) for dt in [_utc(iso)] if dt]
+    return max(found, key=lambda pair: pair[0])[1] if found else state.get("last_updated", "")
+
+
 def rfc822(iso):
     try:
         dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
@@ -921,18 +942,19 @@ def main():
             with open(_path, "w", encoding="utf-8") as fh:
                 fh.write(census_text)
 
-        # 3b) census.md (text-first roster) + sitemap.xml
+        # 3b) census.md (text-first roster) + sitemap.xml, dated by when the ledger last moved
+        site_state = dict(state, last_updated=site_updated(state, anchors))
         with open(os.path.join(WEB_DIR, "census.md"), "w", encoding="utf-8") as fh:
-            fh.write(build_census_md(slots, state))
+            fh.write(build_census_md(slots, site_state))
         with open(os.path.join(WEB_DIR, "sitemap.xml"), "w", encoding="utf-8") as fh:
-            fh.write(build_sitemap(slots, state))
+            fh.write(build_sitemap(slots, site_state))
 
         # 4) canvas composite (site + ledger copy is updated in the ledger repo itself)
         build_composite(slots, os.path.join(WEB_DIR, "assets", "wall_01_composite.webp"))
 
         # 5) feed
         with open(os.path.join(WEB_DIR, "feed.xml"), "w", encoding="utf-8") as fh:
-            fh.write(build_feed(slots, state))
+            fh.write(build_feed(slots, site_state))
 
         # 6) per-slot permalink pages, each linking to its neighbours (claimed blocks in slot order)
         ordered = sorted(slots, key=lambda x: x["_number"])

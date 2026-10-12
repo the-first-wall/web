@@ -95,6 +95,7 @@ PAGES = [
     "census/index.html",
     "protocol/index.html",
     "faq/index.html",
+    "continuity/index.html",
     "security/index.html",
 ]
 

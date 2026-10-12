@@ -128,6 +128,26 @@ class EscapingTests(unittest.TestCase):
         self.assertIn("<title>Slot #0042 — A &amp; B &lt;x&gt;</title>", feed)
         self.assertNotIn("end]]><script>", feed)
 
+    def test_site_updated_is_the_newer_of_content_and_anchor(self):
+        state = {"last_updated": "2026-10-08T21:52:00Z"}
+        anchor = {"anchored_at": "2026-10-11T16:03:55Z"}
+        self.assertEqual(sync.site_updated(state, [anchor]), "2026-10-11T16:03:55Z")
+        # An anchor older than the content never moves the date back.
+        self.assertEqual(sync.site_updated({"last_updated": "2026-10-12T09:00:00Z"}, [anchor]), "2026-10-12T09:00:00Z")
+        # No anchors, a record without a date, or garbage: the content date, untouched.
+        for anchors in ([], None, [{}], [{"anchored_at": ""}], [{"anchored_at": "soon"}], ["x"]):
+            self.assertEqual(sync.site_updated(state, anchors), "2026-10-08T21:52:00Z", anchors)
+        self.assertEqual(sync.site_updated({}, []), "")
+        # Offsets are compared as instants, not as strings.
+        self.assertEqual(sync.site_updated({"last_updated": "2026-10-11T23:00:00+02:00"}, [anchor]), "2026-10-11T23:00:00+02:00")
+
+    def test_feed_and_census_header_follow_the_moved_date(self):
+        state = {"last_updated": "2026-10-08T21:52:00Z", "current_floor_usdc": 1.0}
+        moved = dict(state, last_updated=sync.site_updated(state, [{"anchored_at": "2026-10-11T16:03:55Z"}]))
+        feed = sync.build_feed([dossier()], moved)
+        self.assertIn("<lastBuildDate>Sun, 11 Oct 2026 16:03:55 GMT</lastBuildDate>", feed)
+        self.assertIn("> Last Updated: October 11, 2026", sync.build_census_md([dossier()], moved))
+
     def test_dispatch_card_escapes(self):
         card = sync._dispatch_card(dossier(moniker=HOSTILE, creature=HOSTILE, manifesto=HOSTILE), "en")
         self.assertNotIn("<script>alert", card)
