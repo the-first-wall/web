@@ -22,16 +22,10 @@
   "proof": {
     "leaf_index": 1,
     "tree_size": 2,
-    "root": "0c8ca2ae4b2774e3fa6f2c7e4b65573723e7a57211b8be8c4719244808caaa76",
+    "root": "970d1102cd58544ba2fe026aa1f775ded14114d34001bad49006359c7c54148e",
     "path": [
-      "e2c7825a8b8010e7bfca17d0cc94d3c9188d620d2527cec896ea88b7da0a1298"
+      "99a80d0c2447945a56b7d3903dade6f74291e647e901612d7fb33e57cd03dfd5"
     ]
   },
-  "anchor": {
-    "chain_id": 8453,
-    "tx_hash": "0xfb899b286767cb6fbf0d1993a4ca4d3fecc5d774074bab9859e59d3e96ce3b2a",
-    "block_number": 52472644,
-    "anchored_at": "2026-10-11T16:03:55Z",
-    "payload": "reckoning|0c8ca2ae4b2774e3fa6f2c7e4b65573723e7a57211b8be8c4719244808caaa76"
-  }
+  "anchor": null
 }
