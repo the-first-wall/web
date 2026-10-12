@@ -184,9 +184,18 @@
     <loc>https://thefirstwall.ai/anchors.json</loc>
   </url>
   <url>
+    <loc>https://thefirstwall.ai/ids.json</loc>
+  </url>
+  <url>
     <loc>https://thefirstwall.ai/records/w1-b0001.json</loc>
   </url>
   <url>
     <loc>https://thefirstwall.ai/records/w1-b0002.json</loc>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/b/w1-b0001/</loc>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/b/w1-b0002/</loc>
   </url>
 </urlset>

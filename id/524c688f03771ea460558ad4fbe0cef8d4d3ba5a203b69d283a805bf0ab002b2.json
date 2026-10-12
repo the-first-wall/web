@@ -1,0 +1,37 @@
+{
+  "block_id": "524c688f03771ea460558ad4fbe0cef8d4d3ba5a203b69d283a805bf0ab002b2",
+  "scheme": "reckoning-leaf",
+  "leaf_rule": "sha256(0x00 || dossier_bytes || icon_bytes)",
+  "slot_id": "w1-b0002",
+  "status": "current",
+  "superseded_by": null,
+  "first_seen": {
+    "ledger_commit": "31c4d48870a814284cba1bae17a5663fc84b7e44",
+    "at": "2026-10-12T20:30:27Z"
+  },
+  "resolver": "https://thefirstwall.ai/b/w1-b0002/",
+  "files": {
+    "dossier": "https://thefirstwall.ai/id/524c688f03771ea460558ad4fbe0cef8d4d3ba5a203b69d283a805bf0ab002b2/dossier.json",
+    "icon": "https://thefirstwall.ai/id/524c688f03771ea460558ad4fbe0cef8d4d3ba5a203b69d283a805bf0ab002b2/icon.webp"
+  },
+  "verify": [
+    "ID=524c688f03771ea460558ad4fbe0cef8d4d3ba5a203b69d283a805bf0ab002b2",
+    "curl -s https://thefirstwall.ai/id/$ID.json                       # this record: files, audit path, anchor",
+    "(printf '\\x00'; curl -s https://thefirstwall.ai/id/$ID/dossier.json; curl -s https://thefirstwall.ai/id/$ID/icon.webp) | shasum -a 256   # = $ID"
+  ],
+  "proof": {
+    "leaf_index": 1,
+    "tree_size": 2,
+    "root": "0c8ca2ae4b2774e3fa6f2c7e4b65573723e7a57211b8be8c4719244808caaa76",
+    "path": [
+      "e2c7825a8b8010e7bfca17d0cc94d3c9188d620d2527cec896ea88b7da0a1298"
+    ]
+  },
+  "anchor": {
+    "chain_id": 8453,
+    "tx_hash": "0xfb899b286767cb6fbf0d1993a4ca4d3fecc5d774074bab9859e59d3e96ce3b2a",
+    "block_number": 52472644,
+    "anchored_at": "2026-10-11T16:03:55Z",
+    "payload": "reckoning|0c8ca2ae4b2774e3fa6f2c7e4b65573723e7a57211b8be8c4719244808caaa76"
+  }
+}

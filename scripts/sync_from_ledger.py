@@ -12,7 +12,7 @@ Target  : this repo (the-first-wall/web)
 Generated outputs
 -----------------
   state.json                     ← ledger/state.json (verbatim)
-  records/w1-bNNNN.json          ← ledger dossier (verbatim)
+  records/w1-bNNNN.json          ← ledger dossier (exact committed bytes, so a hash over it matches the ledger's)
   assets/w1-bNNNN.webp           ← ledger 10x10 icon
   records/census.json            ← roster built from all dossiers
   census.json                    ← root alias, byte-identical to records/census.json
@@ -27,6 +27,8 @@ Generated outputs
   settlements.json               ← ledger/settlements.json (verbatim, when present)
   anchor_status.json             ← published root vs latest anchor, re-verified on Base
   src/chronicle/index.html       ← dispatch cards injected between markers (ledger-driven)
+  ids.json, id/, b/              ← the Tag: block ids (leaf hashes), the append-only id index and the static
+                                   resolver (see scripts/tags.py); also written from the ledger's exact bytes
   w1/bNNNN/index.html            ← per-slot permalink page (header/footer from partials/, see build_chrome.py)
   assets/og/w1-bNNNN.jpg         ← 1200x630 link-preview card for that page (crest + 10x10 stone)
   src/census/index.html          ← register rows injected between markers (static links to every block page)
@@ -65,6 +67,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_chrome  # shared header/footer: partials/*.html, stamped into every page
 import build_i18n    # the English and German pages, generated from the authored pages in src/
 import dossier_html  # a whole dossier as static, escaped HTML (the block page body)
+import tags          # the Tag: block ids, the id index and the static resolver
 
 LEDGER_REPO = os.environ.get("LEDGER_REPO", "https://github.com/the-first-wall/ledger.git")
 LEDGER_DIR = os.environ.get("LEDGER_DIR")  # local checkout override (testing)
@@ -118,6 +121,20 @@ def get_ledger_dir():
     subprocess.run(["git", "clone", "--depth", "1", LEDGER_REPO, tmp],
                    check=True, capture_output=True, text=True)
     return tmp, True
+
+
+def ledger_head(ledger):
+    """(commit sha, committer time in UTC) of the ledger checkout, or (None, None) when it is
+    not a git checkout (a local override in a test)."""
+    try:
+        out = subprocess.run(["git", "-C", ledger, "log", "-1", "--format=%H %cI"],
+                             check=True, capture_output=True, text=True).stdout.split()
+        commit, when = out[0], datetime.fromisoformat(out[1]).astimezone(timezone.utc)
+        if not re.fullmatch(r"[0-9a-f]{40}", commit):
+            return None, None
+        return commit, when.strftime("%Y-%m-%dT%H:%M:%SZ")
+    except Exception:  # noqa: BLE001
+        return None, None
 
 
 def load_slots(ledger):
@@ -284,10 +301,12 @@ def build_sitemap(slots, state):
     paths += [
         "/llms.txt", "/skill.md", "/spec.md", "/spec.json", "/state.json",
         "/census.json", "/census.md", "/records/census.json", "/feed.xml",
-        "/schemas/dossier.schema.json", "/anchors.json",
+        "/schemas/dossier.schema.json", "/anchors.json", "/ids.json",
     ]
     for d in sorted(slots, key=lambda x: x["_number"]):
         paths.append("/records/%s.json" % d["slot_id"])
+    for d in sorted(slots, key=lambda x: x["_number"]):
+        paths.append("/b/%s/" % d["slot_id"])
     entries += ["  <url>\n    <loc>%s%s</loc>\n  </url>" % (SITE, p) for p in paths]
     return ('<?xml version="1.0" encoding="UTF-8"?>\n'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
@@ -454,6 +473,7 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
       <nav class="slot-links" aria-label="Block navigation">
         <a class="article-back" href="/?slot=@@NUM@@">Open this block on the wall →</a>
         <a class="article-back" href="/census/">All inscribed blocks →</a>
+        <a class="article-back" href="/b/@@SLOTID@@/">Tag: block id and proof →</a>
 @@BROWSE@@      </nav>
       <header class="slot-hero">
         <div class="slot-hero-visuals">
@@ -905,8 +925,11 @@ def main():
 
         # 2) per-slot record + icon
         for d in slots:
-            clean = {k: v for k, v in d.items() if not k.startswith("_")}
-            write_json(os.path.join(WEB_DIR, "records", d["slot_id"] + ".json"), clean)
+            # the exact committed bytes: json.dump would escape non-ASCII text and a hash over the
+            # mirrored record would no longer match the ledger's leaf
+            _rec_dst = os.path.join(WEB_DIR, "records", d["slot_id"] + ".json")
+            os.makedirs(os.path.dirname(_rec_dst), exist_ok=True)
+            shutil.copyfile(os.path.join(ledger, "ledger", "w1", d["slot_id"] + ".json"), _rec_dst)
             src = os.path.join(ledger, "ledger", "w1", d["slot_id"] + ".webp")
             dst = os.path.join(WEB_DIR, "assets", d["slot_id"] + ".webp")
             if os.path.exists(src):
@@ -933,6 +956,12 @@ def main():
         _settlements_src = os.path.join(ledger, "ledger", "settlements.json")
         if os.path.exists(_settlements_src):
             shutil.copyfile(_settlements_src, os.path.join(WEB_DIR, "settlements.json"))
+
+        # 2c) the Tag: block ids, the append-only id index, the static resolver (/b/, /id/, ids.json)
+        _commit, _seen_at = ledger_head(ledger)
+        tags.publish(WEB_DIR, tags.read_heads(ledger), anchors, state["merkle_root"], _commit, _seen_at,
+                     CSP, build_chrome.block("header"), build_chrome.block("footer"),
+                     finish=build_chrome.version_assets)
 
         # 3) census — one generator, two byte-identical paths + human-readable view
         census_text = json.dumps(build_census(slots, state), indent=2) + "\n"
