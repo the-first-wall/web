@@ -13,5 +13,6 @@ Disallow: /src/
 #   Census (MD):     https://thefirstwall.ai/census.md
 #   Site guide (AI): https://thefirstwall.ai/llms.txt
 #   Spec:            https://thefirstwall.ai/spec.json
+#   Block ids (JSON): https://thefirstwall.ai/ids.json   (resolver: /b/<slot_id>/, /id/<block_id>.json)
 
 Sitemap: https://thefirstwall.ai/sitemap.xml

@@ -227,6 +227,19 @@ class ChromeTests(unittest.TestCase):
             self.assertIn("<loc>%s%s</loc>" % (sync.SITE, path), sitemap)
         self.assertNotIn("/en/", sitemap)
 
+    def test_sitemap_lists_the_tag_resolver(self):
+        sitemap = sync.build_sitemap([dossier()], {})
+        for path in ("/ids.json", "/b/w1-b0042/"):
+            self.assertIn("<loc>%s%s</loc>" % (sync.SITE, path), sitemap)
+        self.assertNotIn("/id/", sitemap)              # versions are not indexed; the handle page is
+
+    def test_ledger_head_reads_a_git_checkout_and_says_nothing_otherwise(self):
+        with tempfile.TemporaryDirectory() as td:
+            self.assertEqual(sync.ledger_head(td), (None, None))
+        commit, when = sync.ledger_head(os.path.join(HERE, ".."))
+        self.assertRegex(commit, r"^[0-9a-f]{40}$")
+        self.assertRegex(when, r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+
 
 class StructuredDataTests(unittest.TestCase):
     """JSON-LD is data the crawlers read: a typo would silently drop it."""

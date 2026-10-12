@@ -56,6 +56,9 @@ jobs:
       - name: ERC-8004 registration file
         run: python scripts/test_agent_registration.py
 
+      - name: The Tag (block ids, id index, resolver)
+        run: python scripts/test_tags.py
+
       - name: English and German pages match src/
         run: python scripts/build_i18n.py --check
 
