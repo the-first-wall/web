@@ -121,6 +121,18 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/faq/"/>
   </url>
   <url>
+    <loc>https://thefirstwall.ai/continuity/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/continuity/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/continuity/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/continuity/"/>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/de/continuity/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/continuity/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/continuity/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/continuity/"/>
+  </url>
+  <url>
     <loc>https://thefirstwall.ai/security/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/security/"/>
     <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/security/"/>
