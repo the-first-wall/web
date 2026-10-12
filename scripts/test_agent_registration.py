@@ -6,11 +6,12 @@
 ERC-8004 ("Trustless Agents", draft) names this path for endpoint-domain
 verification: a domain is treated as verified when the file is reachable over
 HTTPS and its `registrations` list holds the on-chain agent. The file is
-hand-authored. It is published BEFORE the agent is registered (the registry
-stores its URL), so `registrations` starts empty and gets the real entry
-afterwards; `x402Support` stays false until the x402 endpoint is deployed.
+hand-authored. It was published BEFORE the agent was registered (the registry
+stores its URL), and `registrations` then got the real entry: agent 107162 on the
+Base Identity Registry (registered 2026-10-12, tx 0x2fba7ac0...0ba3d; the registry
+reads back this file's URL as tokenURI(107162)).
 These checks keep the file in the shape the standard shows and keep it from
-claiming anything that is not true yet.
+claiming anything that is not true.
 """
 import json
 import os
@@ -95,6 +96,14 @@ class RegistrationFileTests(unittest.TestCase):
             # {namespace}:{chainId}:{identityRegistry}, e.g. eip155:8453:0x…
             self.assertRegex(r["agentRegistry"], r"^eip155:\d+:0x[0-9a-fA-F]{40}$")
             self.assertNotRegex(r["agentRegistry"], r"0x0{40}$|0x(?:12|ab|ff)+$", "placeholder address")
+
+    def test_the_registration_names_the_base_identity_registry_once(self):
+        """The one entry we hold: Base mainnet, the registry the registration was sent to, an id that is a token id."""
+        data, _ = load()
+        regs = data["registrations"]
+        self.assertEqual([r["agentId"] for r in regs], [107162])
+        self.assertEqual(regs[0]["agentRegistry"].lower(), "eip155:8453:0x8004a169fb4a3325136eb29fa0ceb6d2e539a432")
+        self.assertEqual(len({(r["agentRegistry"].lower(), r["agentId"]) for r in regs}), len(regs))
 
     def test_supported_trust_uses_the_standards_values(self):
         data, _ = load()
