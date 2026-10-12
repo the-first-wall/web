@@ -1,2 +1,5 @@
 __pycache__/
 *.py[cod]
+
+# keys are never committed (scripts/register_agent.py writes agent-owner.key)
+*.key
