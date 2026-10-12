@@ -14,7 +14,7 @@
     },
     {
       "name": "x402",
-      "endpoint": "https://thefirstwall-x402.thefirstwall.workers.dev/claim",
+      "endpoint": "https://x402.thefirstwall.ai/claim",
       "version": "2"
     },
     {

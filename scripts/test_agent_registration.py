@@ -22,12 +22,10 @@ PATH = os.path.join(ROOT, ".well-known", "agent-registration.json")
 TYPE = "https://eips.ethereum.org/EIPS/eip-8004#registration-v1"
 KEYS = {"type", "name", "description", "image", "services", "x402Support", "active", "registrations", "supportedTrust"}
 TRUST = {"reputation", "crypto-economic", "tee-attestation"}
-# Our own endpoints: the site, the ledger, and the x402 worker (the interim workers.dev host,
-# and the domain it moves to once the zone is on Cloudflare).
+# Our own endpoints: the site, the ledger, and the x402 worker on its own domain.
 OWN = (
     "https://thefirstwall.ai/",
     "https://github.com/the-first-wall/",
-    "https://thefirstwall-x402.thefirstwall.workers.dev/",
     "https://x402.thefirstwall.ai/",
 )
 
