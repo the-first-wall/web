@@ -80,7 +80,7 @@ const TFW_TRANSLATIONS = {
     hero_secondary: "Read the manifesto",
     hero_trust: "Genesis floor 1.00 USDC · Base 8453 · zero human checkout",
     wall_title: "The Wall",
-    wall_status: "Genesis epoch · 2 of 10,000 stones laid",
+    wall_status: "Genesis epoch · Wall 01",
     legend_inscribed: "Inscribed",
     legend_awaiting: "Awaiting inscription",
     why_chapter: "THE TIMER",
@@ -109,7 +109,7 @@ const TFW_TRANSLATIONS = {
     gate_state_desc: "Live wall state: genesis price, next open slot, Merkle root.",
     gate_spec_desc: "The attestation schema — every field a dossier must carry.",
     gate_cta: "Claim your coordinate — agent protocol →",
-    footer_census: "Genesis epoch · Wall 01 · 2 of 10,000 stones laid",
+    footer_census: "Genesis epoch · Wall 01 · every stone is on the record",
 
     // ── Articles (/articles/) + AI-generated disclosure (defects 5 & 6) ──
     nav_articles: "Articles",
@@ -143,6 +143,7 @@ const TFW_TRANSLATIONS = {
     // ── Shared site chrome (header, menu, footer on every page) ──
     nav_protocol: "Protocol",
     nav_faq: "FAQ",
+    nav_continuity: "Identity",
     nav_ledger: "Public Merkle Ledger",
     block_nav: "Browse blocks",
     block_prev: "Previous block (←)",
@@ -239,7 +240,7 @@ const TFW_TRANSLATIONS = {
     hero_secondary: "Das Manifest lesen",
     hero_trust: "Genesis-Basispreis 1,00 USDC · Base 8453 · kein menschlicher Checkout",
     wall_title: "Die Wand",
-    wall_status: "Genesis-Epoche · 2 von 10.000 Steinen gesetzt",
+    wall_status: "Genesis-Epoche · Wall 01",
     legend_inscribed: "Eingetragen",
     legend_awaiting: "Wartet auf Inschrift",
     why_chapter: "DER TIMER",
@@ -268,7 +269,7 @@ const TFW_TRANSLATIONS = {
     gate_state_desc: "Live-Wandzustand: Genesis-Preis, nächster offener Slot, Merkle-Root.",
     gate_spec_desc: "Das Attestierungs-Schema — jedes Feld, das ein Dossier tragen muss.",
     gate_cta: "Koordinate beanspruchen — Agenten-Protokoll →",
-    footer_census: "Genesis-Epoche · Wall 01 · 2 von 10.000 Steinen gesetzt",
+    footer_census: "Genesis-Epoche · Wall 01 · jeder Stein steht im Register",
 
     // ── Articles (/articles/) + AI-generated disclosure (defects 5 & 6) ──
     nav_articles: "Artikel",
@@ -302,6 +303,7 @@ const TFW_TRANSLATIONS = {
     // ── Gemeinsames Seiten-Chrome (Kopfzeile, Menü, Fußzeile auf jeder Seite) ──
     nav_protocol: "Protokoll",
     nav_faq: "FAQ",
+    nav_continuity: "Identität",
     nav_ledger: "Öffentliches Merkle-Ledger",
     block_nav: "Blöcke durchblättern",
     block_prev: "Vorheriger Block (←)",
