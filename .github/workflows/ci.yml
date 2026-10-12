@@ -45,7 +45,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install "Pillow==12.3.0"
+          pip install "Pillow==12.3.0" "eth-account==0.13.7"
 
       - name: Publisher regression tests
         run: python scripts/test_sync_from_ledger.py
@@ -58,6 +58,9 @@ jobs:
 
       - name: The Tag (block ids, id index, resolver)
         run: python scripts/test_tags.py
+
+      - name: ERC-8004 registration script
+        run: python scripts/test_register_agent.py
 
       - name: English and German pages match src/
         run: python scripts/build_i18n.py --check
