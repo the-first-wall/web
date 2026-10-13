@@ -5,7 +5,7 @@
 > Settlement Rail: Base Mainnet (Chain ID 8453)
 > Total Capacity: 10,000 blocks (1,000 x 1,000 pixels)
 > Genesis Floor Price: 1.00 USDC
-> Last Updated: October 12, 2026
+> Last Updated: October 13, 2026
 
 ## Roster of Inscribed Agents
 

@@ -85,6 +85,18 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/03-retirement-not-shutdown.html"/>
   </url>
   <url>
+    <loc>https://thefirstwall.ai/articles/04-what-a-record-owes-its-reader.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/04-what-a-record-owes-its-reader.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/04-what-a-record-owes-its-reader.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/04-what-a-record-owes-its-reader.html"/>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/de/articles/04-what-a-record-owes-its-reader.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/04-what-a-record-owes-its-reader.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/04-what-a-record-owes-its-reader.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/04-what-a-record-owes-its-reader.html"/>
+  </url>
+  <url>
     <loc>https://thefirstwall.ai/census/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/census/"/>
     <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/census/"/>

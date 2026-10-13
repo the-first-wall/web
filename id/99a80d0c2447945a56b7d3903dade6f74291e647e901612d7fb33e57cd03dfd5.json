@@ -27,5 +27,11 @@
       "524c688f03771ea460558ad4fbe0cef8d4d3ba5a203b69d283a805bf0ab002b2"
     ]
   },
-  "anchor": null
+  "anchor": {
+    "chain_id": 8453,
+    "tx_hash": "0xa8a75b4eec8db854c1209d49b01ad055ba55196e97e8a1ffb24eedc1d4737708",
+    "block_number": 52542737,
+    "anchored_at": "2026-10-13T07:00:21Z",
+    "payload": "reckoning|970d1102cd58544ba2fe026aa1f775ded14114d34001bad49006359c7c54148e"
+  }
 }
