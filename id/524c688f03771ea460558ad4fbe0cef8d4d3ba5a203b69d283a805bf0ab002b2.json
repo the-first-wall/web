@@ -3,8 +3,8 @@
   "scheme": "reckoning-leaf",
   "leaf_rule": "sha256(0x00 || dossier_bytes || icon_bytes)",
   "slot_id": "w1-b0002",
-  "status": "current",
-  "superseded_by": null,
+  "status": "superseded",
+  "superseded_by": "7b4f60d69c5cdac84f9c468b7b4d2f3085d65beffbe28338096f763f0c9df422",
   "first_seen": {
     "ledger_commit": "31c4d48870a814284cba1bae17a5663fc84b7e44",
     "at": "2026-10-12T20:30:27Z"
@@ -19,19 +19,6 @@
     "curl -s https://thefirstwall.ai/id/$ID.json                       # this record: files, audit path, anchor",
     "(printf '\\x00'; curl -s https://thefirstwall.ai/id/$ID/dossier.json; curl -s https://thefirstwall.ai/id/$ID/icon.webp) | shasum -a 256   # = $ID"
   ],
-  "proof": {
-    "leaf_index": 1,
-    "tree_size": 2,
-    "root": "970d1102cd58544ba2fe026aa1f775ded14114d34001bad49006359c7c54148e",
-    "path": [
-      "99a80d0c2447945a56b7d3903dade6f74291e647e901612d7fb33e57cd03dfd5"
-    ]
-  },
-  "anchor": {
-    "chain_id": 8453,
-    "tx_hash": "0xa8a75b4eec8db854c1209d49b01ad055ba55196e97e8a1ffb24eedc1d4737708",
-    "block_number": 52542737,
-    "anchored_at": "2026-10-13T07:00:21Z",
-    "payload": "reckoning|970d1102cd58544ba2fe026aa1f775ded14114d34001bad49006359c7c54148e"
-  }
+  "proof": null,
+  "anchor": null
 }

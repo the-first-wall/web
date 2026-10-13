@@ -1,7 +1,7 @@
 {
   "scheme": "reckoning-leaf",
   "leaf_rule": "sha256(0x00 || dossier_bytes || icon_bytes)",
-  "root": "970d1102cd58544ba2fe026aa1f775ded14114d34001bad49006359c7c54148e",
+  "root": "983210b6295c650d3ed285f32c7a07c313513dd885d66f5ddfe107c5c7f2ab9e",
   "tree_size": 2,
   "ids": [
     {
@@ -23,10 +23,18 @@
     {
       "block_id": "524c688f03771ea460558ad4fbe0cef8d4d3ba5a203b69d283a805bf0ab002b2",
       "slot_id": "w1-b0002",
-      "status": "current",
-      "superseded_by": null,
+      "status": "superseded",
+      "superseded_by": "7b4f60d69c5cdac84f9c468b7b4d2f3085d65beffbe28338096f763f0c9df422",
       "first_seen_ledger_commit": "31c4d48870a814284cba1bae17a5663fc84b7e44",
       "first_seen_at": "2026-10-12T20:30:27Z"
+    },
+    {
+      "block_id": "7b4f60d69c5cdac84f9c468b7b4d2f3085d65beffbe28338096f763f0c9df422",
+      "slot_id": "w1-b0002",
+      "status": "current",
+      "superseded_by": null,
+      "first_seen_ledger_commit": "0326f8d98873d2d8b8c4c4c07247a5e094992001",
+      "first_seen_at": "2026-10-13T07:52:11Z"
     }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "root": "970d1102cd58544ba2fe026aa1f775ded14114d34001bad49006359c7c54148e",
+  "root": "983210b6295c650d3ed285f32c7a07c313513dd885d66f5ddfe107c5c7f2ab9e",
   "latest_anchor": {
     "root": "970d1102cd58544ba2fe026aa1f775ded14114d34001bad49006359c7c54148e",
     "tx_hash": "0xa8a75b4eec8db854c1209d49b01ad055ba55196e97e8a1ffb24eedc1d4737708",
@@ -7,6 +7,6 @@
     "anchored_at": "2026-10-13T07:00:21Z",
     "signer": "0x39A8546448baFd5E98f513022A772555c2082465"
   },
-  "anchored": true,
+  "anchored": false,
   "on_chain": "verified"
 }
