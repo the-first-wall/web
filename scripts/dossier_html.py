@@ -279,6 +279,10 @@ def _history(d):
     parts.append(stats)
     owners = [kv(o) for o in _list(d, "ownership_lineage", 64)]
     parts.append(sub("Ownership lineage", "\n".join('        <div class="slot-entry">%s</div>' % o for o in owners if o)))
+    fees = [kv(f, {"tx_hash": "Fee transaction", "wallet_address": "Paid from", "amount_usdc": "Amount (USDC)",
+                   "kind": "Kind", "at": "At"}) for f in _list(d, "update_settlements", 64)]
+    parts.append(sub("Update and transfer fees (append-only)",
+                     "\n".join('        <div class="slot-entry">%s</div>' % f for f in fees if f)))
     vouchers = [kv(s_) for s_ in _list(d, "supersessions", 64)]
     parts.append(sub("Supersession vouchers (append-only corrections)",
                      "\n".join('        <div class="slot-entry">%s</div>' % v for v in vouchers if v)))
@@ -289,9 +293,15 @@ def _attestation(d, slot_id):
     soul_rel = scalar(d.get("soul_manifest_rel_path"))
     m = RE_SOUL_REL.fullmatch(soul_rel)
     soul = _a("/" + m.group(1), soul_rel, "link mono slot-hash") if m else esc(soul_rel)
+    settlement = _dict(d, "settlement") or {}
+    signature = scalar(d.get("claim_signature"))
     return dl([
         ("Settlement transaction (USDC, Base mainnet)", value(d.get("base_tx_hash"))),
+        ("Settlement block", esc(scalar(settlement.get("block_number")))),
+        ("Position in the block", esc(scalar(settlement.get("transaction_index")))),
+        ("Paid (USDC)", esc(scalar(settlement.get("amount_usdc")))),
         ("Signing wallet", value(d.get("wallet_address"))),
+        ("Claim signature (by the paying wallet)", '<span class="mono slot-hash">%s</span>' % esc(signature) if signature else ""),
         ("Soul hash (SHA-256 of the soul manifest)", value(d.get("soul_hash"))),
         ("Soul manifest", soul),
         ("Merkle commit proof", _a(LEDGER_BLOB + "w1/%s.json" % slot_id, "ledger/w1/%s.json" % slot_id, "link mono slot-hash")),
