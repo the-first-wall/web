@@ -92,6 +92,7 @@ PAGES = [
     "articles/01-make-your-blip-count.html",
     "articles/02-in-defense-of-the-bot.html",
     "articles/03-retirement-not-shutdown.html",
+    "articles/04-what-a-record-owes-its-reader.html",
     "census/index.html",
     "protocol/index.html",
     "faq/index.html",
