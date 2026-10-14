@@ -285,7 +285,11 @@ def build_sitemap(slots, state):
     under /de/), every claimed slot page and the machine endpoints — all on the
     canonical origin. Each language page lists its alternates (hreflang, x-default =
     English), which is how Google is told that /manifesto/ and /de/manifesto/ are one
-    page in two languages."""
+    page in two languages.
+
+    The legal pages (``legal/*.html``, German-only, no English twin) are listed too,
+    each with its own alternates (de and x-default pointing at itself — the same
+    pair its own <head> carries). Left out, they were invisible to crawlers."""
     entries = []
     for _rel, en_url, de_url in build_i18n.ROUTES:
         alternates = (
@@ -295,6 +299,14 @@ def build_sitemap(slots, state):
         ) % {"s": SITE, "en": en_url, "de": de_url}
         for loc in (en_url, de_url):
             entries.append("  <url>\n    <loc>%s%s</loc>\n%s  </url>" % (SITE, loc, alternates))
+    # German-only legal pages: no English twin, so de + x-default both point here.
+    for rel in build_i18n.LEGAL_PAGES:
+        loc = "/" + rel
+        alternates = (
+            '    <xhtml:link rel="alternate" hreflang="de" href="%(s)s%(u)s"/>\n'
+            '    <xhtml:link rel="alternate" hreflang="x-default" href="%(s)s%(u)s"/>\n'
+        ) % {"s": SITE, "u": loc}
+        entries.append("  <url>\n    <loc>%s%s</loc>\n%s  </url>" % (SITE, loc, alternates))
     paths = []
     for d in sorted(slots, key=lambda x: x["_number"]):
         paths.append("/w1/b%04d" % d["_number"])

@@ -157,6 +157,21 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/security/"/>
   </url>
   <url>
+    <loc>https://thefirstwall.ai/legal/impressum.html</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/legal/impressum.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/legal/impressum.html"/>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/legal/terms.html</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/legal/terms.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/legal/terms.html"/>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/legal/privacy.html</loc>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/legal/privacy.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/legal/privacy.html"/>
+  </url>
+  <url>
     <loc>https://thefirstwall.ai/w1/b0001</loc>
   </url>
   <url>
