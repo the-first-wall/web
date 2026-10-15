@@ -227,6 +227,17 @@ class ChromeTests(unittest.TestCase):
             self.assertIn("<loc>%s%s</loc>" % (sync.SITE, path), sitemap)
         self.assertNotIn("/en/", sitemap)
 
+    def test_sitemap_lists_the_german_only_legal_pages(self):
+        # legal/*.html are German-only (no English twin): each lists de and x-default
+        # pointing at itself, and an English alternate would be a false twin.
+        sitemap = sync.build_sitemap([dossier()], {})
+        for rel in sync.build_i18n.LEGAL_PAGES:
+            loc = sync.SITE + "/" + rel
+            self.assertIn("<loc>%s</loc>" % loc, sitemap)
+            self.assertIn('<xhtml:link rel="alternate" hreflang="de" href="%s"/>' % loc, sitemap)
+            self.assertIn('<xhtml:link rel="alternate" hreflang="x-default" href="%s"/>' % loc, sitemap)
+            self.assertNotIn('<xhtml:link rel="alternate" hreflang="en" href="%s"/>' % loc, sitemap)
+
     def test_sitemap_lists_the_tag_resolver(self):
         sitemap = sync.build_sitemap([dossier()], {})
         for path in ("/ids.json", "/b/w1-b0042/"):
