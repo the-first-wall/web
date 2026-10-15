@@ -92,12 +92,23 @@ def is_generated(path):
         return GENERATED_MARK in fh.read(600)
 
 
+def is_redirect_stub(path):
+    """A tiny redirect page (meta refresh) carries no site chrome, so it is skipped
+    here: it only keeps an old URL working, while the content lives at its canonical
+    route. build_i18n._orphans leaves it alone too (it is not a generated language page)."""
+    with open(path, encoding="utf-8") as fh:
+        return 'http-equiv="refresh"' in fh.read(1500)
+
+
 def pages():
     for dirpath, dirnames, filenames in os.walk(ROOT):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
         for f in sorted(filenames):
-            if f.endswith(".html") and not is_generated(os.path.join(dirpath, f)):
-                yield os.path.join(dirpath, f)
+            if not f.endswith(".html"):
+                continue
+            p = os.path.join(dirpath, f)
+            if not is_generated(p) and not is_redirect_stub(p):
+                yield p
 
 
 def stamp(html):

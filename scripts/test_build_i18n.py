@@ -156,15 +156,28 @@ class Metadata(unittest.TestCase):
         self.assertIn('"url": "https://thefirstwall.ai/census/"', en_home)
         self.assertIn("https://thefirstwall.ai/assets/the-first-wall-avatar-500.png", de_home)   # not a page: untouched
 
-    def test_legal_pages_stay_put_and_are_german_only(self):
+    def test_legal_pages_are_german_only_at_clean_routes(self):
         for rel in bi.LEGAL_PAGES:
             page = read(rel)
-            self.assertNotIn('http-equiv="refresh"', page)
+            self.assertNotIn('http-equiv="refresh"', page)     # the canonical page does not redirect
             self.assertIn('<html lang="de">', page)
             self.assertIn('hreflang="x-default"', page)
-            self.assertNotIn('hreflang="en"', page)       # no false English twin
+            self.assertNotIn('hreflang="en"', page)            # no false English twin
+            self.assertIn('rel="canonical" href="https://thefirstwall.ai%s">' % bi.en_url(rel), page)
 
-    def test_nothing_redirects(self):
+    def test_old_legal_urls_redirect_to_the_clean_route(self):
+        # /legal/<name>.html (and the extensionless /legal/<name>) keep working, and
+        # /de/legal/<name>/ resolves, all through a tiny redirect stub -> the canonical route.
+        for name in ("impressum", "terms", "privacy"):
+            for rel in ("legal/%s.html" % name, "de/legal/%s/index.html" % name):
+                stub = read(rel)
+                self.assertIn('http-equiv="refresh"', stub)
+                self.assertIn('content="0; url=/legal/%s/"' % name, stub)
+                self.assertNotIn("SITE:HEADER", stub)           # a redirect carries no site chrome
+
+    def test_generated_pages_do_not_redirect(self):
+        # Only the tiny legacy-URL stubs redirect (tested above); every generated language
+        # page is real content that serves its own URL.
         for path in bi.expected():
             page = open(path, encoding="utf-8").read()
             self.assertNotIn('http-equiv="refresh"', page, path)
@@ -182,7 +195,7 @@ class Links(unittest.TestCase):
         self.assertIn('href="/de/articles/01-make-your-blip-count.html"', de)
         self.assertIn('href="/de/manifesto/"', de)
         self.assertIn('href="/de/census/"', de)
-        self.assertIn('href="/legal/impressum.html"', de)        # German-only: the same page from both
+        self.assertIn('href="/legal/impressum/"', de)        # German-only: the same page from both
         self.assertIn('href="/skill.md"', de)                    # machine endpoints are not localized
         self.assertNotIn('href="/de/skill.md"', de)
 

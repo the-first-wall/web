@@ -228,6 +228,7 @@ class ChromeTests(unittest.TestCase):
         self.assertNotIn("/en/", sitemap)
 
     def test_sitemap_lists_the_german_only_legal_pages(self):
+<<<<<<< Updated upstream
         # legal/*.html are German-only (no English twin): each lists de and x-default
         # pointing at itself, and an English alternate would be a false twin.
         sitemap = sync.build_sitemap([dossier()], {})
@@ -237,6 +238,18 @@ class ChromeTests(unittest.TestCase):
             self.assertIn('<xhtml:link rel="alternate" hreflang="de" href="%s"/>' % loc, sitemap)
             self.assertIn('<xhtml:link rel="alternate" hreflang="x-default" href="%s"/>' % loc, sitemap)
             self.assertNotIn('<xhtml:link rel="alternate" hreflang="en" href="%s"/>' % loc, sitemap)
+=======
+        # legal/<name>/ are German-only (no English twin): each is listed at its
+        # canonical clean route with de and x-default pointing at itself — never an
+        # English alternate. The redirect stubs that keep the old URLs alive are not listed.
+        sitemap = sync.build_sitemap([dossier()], {})
+        for _rel, loc in sync.build_i18n.LEGAL_ROUTES:
+            self.assertIn("<loc>%s%s</loc>" % (sync.SITE, loc), sitemap)
+            self.assertIn('<xhtml:link rel="alternate" hreflang="de" href="%s%s"/>' % (sync.SITE, loc), sitemap)
+            self.assertIn('<xhtml:link rel="alternate" hreflang="x-default" href="%s%s"/>' % (sync.SITE, loc), sitemap)
+            self.assertNotIn('<xhtml:link rel="alternate" hreflang="en" href="%s%s"/>' % (sync.SITE, loc), sitemap)
+        self.assertNotIn("legal/impressum.html", sitemap)      # the stub is not indexed
+>>>>>>> Stashed changes
 
     def test_sitemap_lists_the_tag_resolver(self):
         sitemap = sync.build_sitemap([dossier()], {})
