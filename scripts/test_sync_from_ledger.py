@@ -227,16 +227,24 @@ class ChromeTests(unittest.TestCase):
             self.assertIn("<loc>%s%s</loc>" % (sync.SITE, path), sitemap)
         self.assertNotIn("/en/", sitemap)
 
-    def test_sitemap_lists_the_german_only_legal_pages(self):
-        # legal/*.html are German-only (no English twin): each lists de and x-default
-        # pointing at itself, and an English alternate would be a false twin.
+    def test_sitemap_lists_the_bilingual_legal_pages_and_not_the_redirect_stubs(self):
+        # the legal pages are ordinary bilingual routes (en, de, x-default -> English);
+        # their old German-only URLs are redirect stubs and must not be listed.
         sitemap = sync.build_sitemap([dossier()], {})
-        for rel in sync.build_i18n.LEGAL_PAGES:
-            loc = sync.SITE + "/" + rel
-            self.assertIn("<loc>%s</loc>" % loc, sitemap)
-            self.assertIn('<xhtml:link rel="alternate" hreflang="de" href="%s"/>' % loc, sitemap)
-            self.assertIn('<xhtml:link rel="alternate" hreflang="x-default" href="%s"/>' % loc, sitemap)
-            self.assertNotIn('<xhtml:link rel="alternate" hreflang="en" href="%s"/>' % loc, sitemap)
+        for name in ("impressum", "terms", "privacy"):
+            en, de = sync.SITE + "/legal/%s/" % name, sync.SITE + "/de/legal/%s/" % name
+            for loc in (en, de):
+                block = re.search(r"<url>\s*<loc>%s</loc>(.*?)</url>" % re.escape(loc), sitemap, re.S).group(1)
+                self.assertEqual(re.findall(r'hreflang="([\w-]+)" href="([^"]*)"', block),
+                                 [("en", en), ("de", de), ("x-default", en)])
+        for rel in sync.build_i18n.LEGACY_REDIRECTS:
+            self.assertNotIn("/" + rel, sitemap)
+
+    def test_committed_sitemap_does_not_list_the_redirect_stubs(self):
+        with open(os.path.join(HERE, "..", "sitemap.xml"), encoding="utf-8") as fh:
+            committed = fh.read()
+        for rel in sync.build_i18n.LEGACY_REDIRECTS:
+            self.assertNotIn("/" + rel, committed)
 
     def test_sitemap_lists_the_tag_resolver(self):
         sitemap = sync.build_sitemap([dossier()], {})

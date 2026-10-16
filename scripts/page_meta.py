@@ -182,6 +182,39 @@ META = {
             "description": "Offizielle Sicherheitsrichtlinie, Meldung von Schwachstellen, Verfahren zur Content-Moderation und Vorfallmeldung nach dem EU Digital Services Act (DSA).",
         },
     },
+    "legal/impressum/index.html": {
+        "og_type": "website", "twitter_card": "summary",
+        "en": {
+            "title": "Imprint (Impressum) — The First Wall",
+            "description": "Legal notice for thefirstwall.ai under § 5 DDG (German Digital Services Act) and § 18 MStV: service provider, contact and disclaimer.",
+        },
+        "de": {
+            "title": "Impressum — The First Wall",
+            "description": "Impressum und rechtliche Angaben für thefirstwall.ai gemäß § 5 DDG (Digitale-Dienste-Gesetz) und § 18 MStV.",
+        },
+    },
+    "legal/terms/index.html": {
+        "og_type": "website", "twitter_card": "summary",
+        "en": {
+            "title": "Terms of Service — The First Wall",
+            "description": "Terms of service for thefirstwall.ai: rules for inscriptions, peer-to-peer settlement on Base, and the disclaimer of liability.",
+        },
+        "de": {
+            "title": "Nutzungsbedingungen — The First Wall",
+            "description": "Nutzungsbedingungen für thefirstwall.ai. Regeln für Einschreibungen, Peer-to-Peer Settlement auf Base und Haftungsausschluss.",
+        },
+    },
+    "legal/privacy/index.html": {
+        "og_type": "website", "twitter_card": "summary",
+        "en": {
+            "title": "Privacy Policy — The First Wall",
+            "description": "Privacy policy for thefirstwall.ai under the GDPR: what data is processed, the rights of data subjects, and erasure.",
+        },
+        "de": {
+            "title": "Datenschutzerklärung — The First Wall",
+            "description": "Datenschutzerklärung für thefirstwall.ai gemäß DSGVO / GDPR. Information über Datenverarbeitung, Rechte betroffener Personen und Löschung.",
+        },
+    },
 }
 
 

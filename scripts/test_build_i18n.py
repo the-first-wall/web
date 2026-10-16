@@ -6,8 +6,8 @@
 English is served at the URLs the site always had, German under /de/. The
 guarantees the SEO change depends on: each page carries ONE language, baked into
 the raw HTML, and the other one does not leak; canonical/hreflang are right;
-internal links stay in the page's language; nothing redirects (so every shared
-link keeps working); the site's own files are addressed from the root; and the DOM
+internal links stay in the page's language; no generated page redirects (so every
+shared link keeps working; the legacy legal URLs are redirect stubs); the site's own files are addressed from the root; and the DOM
 contract app.js / i18n.js rely on survives the transform.
 """
 import importlib.util
@@ -156,18 +156,35 @@ class Metadata(unittest.TestCase):
         self.assertIn('"url": "https://thefirstwall.ai/census/"', en_home)
         self.assertIn("https://thefirstwall.ai/assets/the-first-wall-avatar-500.png", de_home)   # not a page: untouched
 
-    def test_legal_pages_stay_put_and_are_german_only(self):
-        for rel in bi.LEGAL_PAGES:
+    def test_legacy_legal_urls_redirect_to_the_bilingual_pages(self):
+        self.assertEqual(bi.LEGAL_PAGES, [])               # the legal pages are bilingual now
+        for rel, target in bi.LEGACY_REDIRECTS.items():
             page = read(rel)
-            self.assertNotIn('http-equiv="refresh"', page)
-            self.assertIn('<html lang="de">', page)
-            self.assertIn('hreflang="x-default"', page)
-            self.assertNotIn('hreflang="en"', page)       # no false English twin
+            self.assertIn('<meta http-equiv="refresh" content="0; url=%s">' % target, page)
+            self.assertIn('<link rel="canonical" href="%s%s">' % (bi.SITE, target), page)
+            self.assertIn('<meta name="robots" content="noindex">', page)
+            self.assertIn("<!-- SITE:HEADER:START", page)  # same chrome and theme as every page
+            self.assertIn("<!-- SITE:FOOTER:START", page)
+            self.assertRegex(page, r'<script src="/theme\.js\?v=[0-9a-f]{10}"></script>')
+            self.assertIn(target, {e for _r, e, _g in bi.ROUTES})
+            self.assertIn('href="/de%s"' % target, page)    # the German version is one click away
+            self.assertFalse(build_chrome.is_generated(os.path.join(WEB, rel)))
 
     def test_nothing_redirects(self):
+        # the generated pages never redirect; the only redirects are the legacy legal stubs
         for path in bi.expected():
             page = open(path, encoding="utf-8").read()
             self.assertNotIn('http-equiv="refresh"', page, path)
+        redirecting = []
+        for dirpath, dirnames, files in os.walk(WEB):
+            dirnames[:] = [d for d in dirnames if d not in bi.SKIP_DIRS]
+            for f in files:
+                p = os.path.join(dirpath, f)
+                if f.endswith(".html"):
+                    with open(p, encoding="utf-8") as fh:
+                        if 'http-equiv="refresh"' in fh.read():
+                            redirecting.append(os.path.relpath(p, WEB))
+        self.assertEqual(sorted(redirecting), sorted(bi.LEGACY_REDIRECTS))
         self.assertFalse(os.path.exists(os.path.join(WEB, "en")), "the /en/ tree is gone: English is the base")
         self.assertFalse(os.path.exists(os.path.join(WEB, "locale-redirect.js")))
 
@@ -182,7 +199,8 @@ class Links(unittest.TestCase):
         self.assertIn('href="/de/articles/01-make-your-blip-count.html"', de)
         self.assertIn('href="/de/manifesto/"', de)
         self.assertIn('href="/de/census/"', de)
-        self.assertIn('href="/legal/impressum.html"', de)        # German-only: the same page from both
+        self.assertIn('href="/de/legal/impressum/"', de)         # the legal pages have a German twin too
+        self.assertNotIn('href="/legal/impressum.html"', de)     # nothing links to the redirect stubs
         self.assertIn('href="/skill.md"', de)                    # machine endpoints are not localized
         self.assertNotIn('href="/de/skill.md"', de)
 
@@ -240,7 +258,7 @@ class LinkIntegrity(unittest.TestCase):
         pages = [os.path.relpath(p, WEB) for p in bi.expected()]
         for dirpath, dirnames, files in os.walk(os.path.join(WEB, "w1")):
             pages += [os.path.relpath(os.path.join(dirpath, f), WEB) for f in files if f.endswith(".html")]
-        pages += bi.LEGAL_PAGES
+        pages += list(bi.LEGACY_REDIRECTS)
         broken = []
         for rel in pages:
             for href in re.findall(r'<a\b[^>]*\shref="([^"]*)"', read(rel)):
@@ -255,6 +273,55 @@ class LinkIntegrity(unittest.TestCase):
         self.assertTrue(self._exists("/de/manifesto/"))
         self.assertTrue(self._exists("/de/articles/01-make-your-blip-count.html?x=1#y"))
         self.assertTrue(self._exists("/"))
+
+
+class PolicyPages(unittest.TestCase):
+    """Policy pages (legal/, security/) are reviewed and edited by the human operator, so
+    they carry no AI-content declaration in either language (operator decision
+    2026-10-16). Articles keep theirs."""
+
+    def _policy_files(self):
+        rels = [r for r in bi.PAGES if bi.is_policy_page(r)]
+        self.assertEqual(sorted(rels), sorted(["security/index.html", "legal/impressum/index.html",
+                                               "legal/terms/index.html", "legal/privacy/index.html"]))
+        files = ["src/" + r for r in rels] + rels + ["de/" + r for r in rels]
+        return files + list(bi.LEGACY_REDIRECTS)
+
+    def test_no_policy_page_carries_an_ai_declaration(self):
+        for rel in self._policy_files():
+            page = read(rel)
+            for marker in ("ai-content-declaration", "ai-disclosure-badge", "ai-disclosure-end", "ai_badge", "ai_disclosure_end"):
+                self.assertNotIn(marker, page, "%s carries %s" % (rel, marker))
+
+    def test_the_build_refuses_a_declaration_on_a_policy_page(self):
+        dicts = bi.parse_i18n_js(os.path.join(WEB, "i18n.js"))
+        src = read("src/legal/terms/index.html")
+        badge = src.replace('<h1 class="page-title">TERMS OF SERVICE</h1>',
+                            '<h1 class="page-title">TERMS OF SERVICE</h1><span class="ai-disclosure-badge"><span data-i18n="ai_badge"></span></span>', 1)
+        meta = src.replace("<!-- SEO:HEAD", '<meta name="ai-content-declaration" content="ai-generated">\n  <!-- SEO:HEAD', 1)
+        for bad in (badge, meta):
+            self.assertNotEqual(bad, src)
+            with self.assertRaises(SystemExit):
+                bi.render_locale(bad, "legal/terms/index.html", "en", dicts)
+
+    def test_articles_keep_their_declaration(self):
+        for rel in ("articles/02-in-defense-of-the-bot.html", "de/articles/02-in-defense-of-the-bot.html"):
+            page = read(rel)
+            self.assertIn('<meta name="ai-content-declaration" content="ai-generated">', page)
+            self.assertIn("ai-disclosure-badge", page)
+
+    def test_legal_pages_are_bilingual(self):
+        for name, en_title, de_title in (("impressum", "IMPRINT (IMPRESSUM)", "IMPRESSUM"),
+                                         ("terms", "TERMS OF SERVICE", "NUTZUNGSBEDINGUNGEN (TERMS OF SERVICE)"),
+                                         ("privacy", "PRIVACY POLICY", "DATENSCHUTZERKLÄRUNG (PRIVACY POLICY)")):
+            en, de = read("legal/%s/index.html" % name), read("de/legal/%s/index.html" % name)
+            self.assertIn('<html lang="en" data-locale-route="en">', en)
+            self.assertIn('<html lang="de" data-locale-route="de">', de)
+            self.assertIn('<h1 class="page-title">%s</h1>' % en_title, en)
+            self.assertIn('<h1 class="page-title">%s</h1>' % de_title, de)
+            self.assertNotIn('<h1 class="page-title">%s</h1>' % de_title, en)     # one language per page
+            self.assertNotIn('<h1 class="page-title">%s</h1>' % en_title, de)
+            self.assertIn('<link rel="alternate" hreflang="en" href="%s/legal/%s/">' % (bi.SITE, name), de)
 
 
 class Toggle(unittest.TestCase):
@@ -608,8 +675,8 @@ class Builder(unittest.TestCase):
         os.makedirs(os.path.dirname(orphan))
         open(orphan, "w").write("<!DOCTYPE html>\n<!-- %s from src/gone.html -->\n" % bi.MARK)
         legal = os.path.join(self.tmp, "legal", "impressum.html")
-        os.makedirs(os.path.dirname(legal))
-        open(legal, "w").write("<!DOCTYPE html>\n<html lang=\"de\"></html>\n")        # authored, not generated
+        os.makedirs(os.path.dirname(legal), exist_ok=True)      # legal/ already holds the generated legal/<name>/
+        open(legal, "w").write("<!DOCTYPE html>\n<html lang=\"de\"></html>\n")        # authored (a redirect stub), not generated
         self.assertTrue(any("gone" in s for s in bi.check()))
         self.assertFalse(any("legal" in s for s in bi.check()))
         bi.build()
