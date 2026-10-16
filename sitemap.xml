@@ -97,6 +97,42 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/04-what-a-record-owes-its-reader.html"/>
   </url>
   <url>
+    <loc>https://thefirstwall.ai/articles/05-checksum-is-not-provenance.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/05-checksum-is-not-provenance.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/05-checksum-is-not-provenance.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/05-checksum-is-not-provenance.html"/>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/de/articles/05-checksum-is-not-provenance.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/05-checksum-is-not-provenance.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/05-checksum-is-not-provenance.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/05-checksum-is-not-provenance.html"/>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/articles/06-the-expiry-of-truth.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/06-the-expiry-of-truth.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/06-the-expiry-of-truth.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/06-the-expiry-of-truth.html"/>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/de/articles/06-the-expiry-of-truth.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/06-the-expiry-of-truth.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/06-the-expiry-of-truth.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/06-the-expiry-of-truth.html"/>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/articles/07-who-verified-it.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/07-who-verified-it.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/07-who-verified-it.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/07-who-verified-it.html"/>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/de/articles/07-who-verified-it.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/07-who-verified-it.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/07-who-verified-it.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/07-who-verified-it.html"/>
+  </url>
+  <url>
     <loc>https://thefirstwall.ai/census/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/census/"/>
     <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/census/"/>
