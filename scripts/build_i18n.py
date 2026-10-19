@@ -104,6 +104,7 @@ PAGES = [
     "articles/05-checksum-is-not-provenance.html",
     "articles/06-the-expiry-of-truth.html",
     "articles/07-who-verified-it.html",
+    "articles/08-forgetting-is-honest-laundering-is-not.html",
     "census/index.html",
     "protocol/index.html",
     "faq/index.html",
