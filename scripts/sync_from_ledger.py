@@ -837,6 +837,79 @@ def build_chronicle(slots):
     _log("chronicle -> %d dispatch card(s)" % len(generated))
 
 
+# --- Hero count (derived from the ledger, so it cannot drift) ---------------
+# The homepage hero states how many public blocks are still waiting. That number
+# is state.unsold_slots and it moves every time a block is claimed, so a number
+# written by hand drifts (ISSUES B-11). The text lives in i18n.js (the single
+# source of the hero_proof string) and build_i18n bakes it into the two language
+# pages; re-deriving it here — on every sync, from the ledger — is what keeps
+# all three honest. The pattern is anchored on the phrase that follows the
+# number in each language, so the prose stays authored and only the digits are
+# machine-owned. Reserved blocks are not for sale, so they never count.
+HERO_COUNT = (
+    ("en", re.compile(r'(hero_proof: "[^"]*?)(\d[\d,]*)( blocks are waiting)')),
+    ("de", re.compile(r'(hero_proof: "[^"]*?)(\d[\d.]*)( Bl\u00f6cke warten)')),
+)
+
+
+def hero_count_text(n, lang):
+    """The count as the language writes it: 9,990 (en) / 9.990 (de)."""
+    grouped = format(int(n), ",d")
+    return grouped.replace(",", ".") if lang == "de" else grouped
+
+
+def publish_hero_count(state):
+    """Re-derive the hero "N blocks are waiting" number from state.unsold_slots,
+    rewriting i18n.js in place. Returns True when the file changed (so the caller
+    re-stamps the ?v= hash and rebuilds the language pages).
+
+    Fails loudly rather than guessing: if a language's hero_proof no longer
+    carries the anchored number (the sentence was reworded), the sync stops with
+    an actionable message — silent staleness is the bug this replaces."""
+    unsold = state.get("unsold_slots")
+    if not isinstance(unsold, int) or isinstance(unsold, bool) or unsold < 0:
+        raise SystemExit("[sync] state.json carries no usable unsold_slots; refusing to guess the hero count")
+    path = os.path.join(WEB_DIR, "i18n.js")
+    with open(path, "r", encoding="utf-8") as fh:
+        before = fh.read()
+    text = before
+    for lang, pat in HERO_COUNT:
+        hits = pat.findall(text)
+        if len(hits) != 1:
+            raise SystemExit(
+                "[sync] i18n.js hero_proof (%s) must contain exactly one '<n> %s' anchor "
+                "(found %d); the sync derives that number from state.unsold_slots — "
+                "fix the sentence or the HERO_COUNT pattern in scripts/sync_from_ledger.py"
+                % (lang, "blocks are waiting" if lang == "en" else "Bl\u00f6cke warten", len(hits)))
+        text = pat.sub(lambda m, v=hero_count_text(unsold, lang): m.group(1) + v + m.group(3), text, count=1)
+    changed = text != before
+    if changed:
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+    _log("hero_proof: %s public block(s) waiting%s"
+         % (hero_count_text(unsold, "en"), "" if changed else " (unchanged)"))
+    return changed
+
+
+def restamp_chrome():
+    """Re-stamp partials/ and the ?v= asset hashes on every authored page, the way
+    scripts/build_chrome.py does (CI runs it with --check). Needed after i18n.js
+    changes: its content hash is in every page's <script src="i18n.js?v=...">, so
+    a moved count must move the hash too, or a returning browser pairs the new
+    page with a cached old script. build_i18n then rebuilds the language pages
+    from the freshly stamped src/."""
+    for path in build_chrome.pages():
+        with open(path, "r", encoding="utf-8") as fh:
+            old = fh.read()
+        new, missing = build_chrome.stamp(old)
+        if missing:
+            raise SystemExit("[sync] %s is missing a SITE:%s marker; refusing to publish"
+                             % (os.path.relpath(path, WEB_DIR), "/".join(m.upper() for m in missing)))
+        if new != old:
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(new)
+
+
 # --- Publish gate: the ledger must pass its own verifier first --------------
 
 LEDGER_CHECKS = (
@@ -974,6 +1047,12 @@ def main():
 
         with open(os.path.join(ledger, "state.json"), "r", encoding="utf-8") as fh:
             state = json.load(fh)
+
+        # 0a) hero count (B-11): derive "N blocks are waiting" from the ledger, so a
+        #     claim can never leave the homepage overstating what is still free. When
+        #     the number moves, i18n.js changed, so re-stamp every page's ?v= hash.
+        if publish_hero_count(state):
+            restamp_chrome()
 
         # 0b) anchor status (aborts if the chain contradicts the latest record)
         anchors = []
