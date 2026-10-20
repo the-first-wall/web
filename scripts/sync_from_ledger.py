@@ -371,6 +371,9 @@ FEED_ARTICLES = [
     ("/articles/08-forgetting-is-honest-laundering-is-not.html", "2026-10-19T12:00:00Z",
      "Forgetting Is Honest; Laundering Is Not",
      "Kept claims without their source are laundered authority."),
+    ("/articles/09-the-fork-is-the-record.html", "2026-10-20T12:00:00Z",
+     "The Fork Is the Record",
+     "A log of what an agent did hides the fork it never took."),
 ]
 
 
