@@ -10,6 +10,7 @@ internal links stay in the page's language; no generated page redirects (so ever
 shared link keeps working; the legacy legal URLs are redirect stubs); the site's own files are addressed from the root; and the DOM
 contract app.js / i18n.js rely on survives the transform.
 """
+import html
 import importlib.util
 import json
 import os
@@ -684,6 +685,46 @@ class Builder(unittest.TestCase):
         self.assertFalse(os.path.exists(orphan))
         self.assertTrue(os.path.exists(legal))
         self.assertEqual(bi.check(), [])
+
+
+class FaqStructuredData(unittest.TestCase):
+    """The FAQ page carries schema.org FAQPage data that matches the visible Q&A.
+
+    build_i18n derives the FAQPage from the page's own <details class="faq-item"> blocks,
+    so an answer engine reads exactly the questions a reader sees. Guard both languages.
+    """
+
+    def _blocks(self, path):
+        return [json.loads(b) for b in re.findall(
+            r'<script type="application/ld\+json">(.*?)</script>', read(path), re.S)]
+
+    def _faq(self, path):
+        for block in self._blocks(path):
+            for node in ((block.get("@graph") if isinstance(block, dict) else None) or [block]):
+                if isinstance(node, dict) and node.get("@type") == "FAQPage":
+                    return node
+        return None
+
+    def test_faqpage_matches_the_visible_qa_in_both_languages(self):
+        for path in ("faq/index.html", "de/faq/index.html"):
+            html_text = read(path)
+            node = self._faq(path)
+            self.assertIsNotNone(node, path)
+            names = [q["name"] for q in node["mainEntity"]]
+            self.assertGreaterEqual(len(names), 10, path)
+            self.assertEqual(len(names), len(set(names)), path)      # no repeated question
+            for q in node["mainEntity"]:
+                self.assertEqual(q["@type"], "Question", path)
+                self.assertTrue(q["acceptedAnswer"]["text"].strip(), path)
+            summaries = [
+                re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", s))).strip()
+                for s in re.findall(r"<summary[^>]*>(.*?)</summary>", html_text, re.S)
+            ]
+            self.assertEqual(names, summaries, path)                  # structured data == visible Q&A
+
+    def test_faqpage_is_per_language(self):
+        en, de = self._faq("faq/index.html"), self._faq("de/faq/index.html")
+        self.assertNotEqual(en["mainEntity"][0]["name"], de["mainEntity"][0]["name"])
 
 
 if __name__ == "__main__":

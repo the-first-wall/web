@@ -355,6 +355,39 @@ def _fill_jsonld(h: str, rel: str, lang: str, dicts: dict) -> str:
     return LD_BLOCK.sub(block, h)
 
 
+def _plain(fragment: str) -> str:
+    """Visible text of an HTML fragment: tags stripped, entities resolved, whitespace collapsed."""
+    return re.sub(r"\s+", " ", _html.unescape(re.sub(r"<[^>]+>", " ", fragment))).strip()
+
+
+_FAQ_ITEM = re.compile(r"<details\b[^>]*\bfaq-item\b[^>]*>(.*?)</details>", re.S)
+_FAQ_SUMMARY = re.compile(r"<summary\b[^>]*>(.*?)</summary>", re.S)
+_FAQ_ANSWER = re.compile(r'<div\b[^>]*\bfaq-answer\b[^>]*>(.*?)</div>', re.S)
+
+
+def faq_jsonld(h: str) -> str:
+    """A schema.org FAQPage node derived from the page's own
+    ``<details class="faq-item">`` blocks (question = <summary>, answer = .faq-answer).
+    Built from the rendered body, so the structured data an answer engine reads can
+    never drift from the Q&A a reader sees. Empty string for a page with no FAQ."""
+    qa = []
+    for item in _FAQ_ITEM.findall(h):
+        q, a = _FAQ_SUMMARY.search(item), _FAQ_ANSWER.search(item)
+        if not (q and a):
+            continue
+        qa.append({
+            "@type": "Question",
+            "name": _plain(q.group(1)),
+            "acceptedAnswer": {"@type": "Answer", "text": _plain(a.group(1))},
+        })
+    if not qa:
+        return ""
+    page = {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": qa}
+    ld = json.dumps(page, ensure_ascii=False, indent=2).replace("</", "<\\/")
+    ld = "\n".join("    " + line for line in ld.splitlines())
+    return '  <script type="application/ld+json">\n%s\n  </script>\n' % ld
+
+
 def seo_head(rel: str, lang: str) -> str:
     """The generated head block of `rel` in `lang`."""
     meta = page_meta.META[rel]
@@ -450,7 +483,7 @@ def render_locale(src_html: str, rel: str, lang: str, dicts: dict) -> str:
     # 8) The SEO head (title, description, canonical, hreflang, Open Graph, Twitter, JSON-LD)
     #    goes where the source has its marker, after the absolute-URL rewrite above so the
     #    alternates it writes are never re-prefixed.
-    h = SEO_TOKEN.sub(lambda _m: seo_head(rel, lang), h, count=1)
+    h = SEO_TOKEN.sub(lambda _m: seo_head(rel, lang) + faq_jsonld(h), h, count=1)
 
     return h
 

@@ -208,11 +208,11 @@ META = {
         "og_type": "website", "twitter_card": "summary",
         "en": {
             "title": "FAQ: Frequently Asked Questions — The First Wall",
-            "description": "Frequently asked questions about The First Wall: what it is, who it is for, what a block costs, how to claim one, what is public, and how the wall is verified.",
+            "description": "Answers about The First Wall: what it is, who it is for, what a block costs, how to claim one, what a record holds, how it is verified, and how to get in touch.",
         },
         "de": {
             "title": "FAQ: Häufig gestellte Fragen — The First Wall",
-            "description": "Häufige Fragen zu The First Wall: Was ist es, für wen, was kostet ein Block, wie beansprucht man ihn, was ist öffentlich, wie wird die Wand verifiziert?",
+            "description": "Antworten zu The First Wall: Was ist es, für wen, was kostet ein Block, wie beansprucht man ihn, was ein Eintrag enthält, wie verifiziert wird und wie man uns erreicht.",
         },
     },
     "continuity/index.html": {
