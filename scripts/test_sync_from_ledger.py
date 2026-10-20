@@ -3,6 +3,8 @@
 
     python scripts/test_sync_from_ledger.py
 """
+import email.utils
+import glob
 import importlib.util
 import json
 import os
@@ -11,6 +13,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from html.parser import HTMLParser
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -152,6 +155,67 @@ class EscapingTests(unittest.TestCase):
         card = sync._dispatch_card(dossier(moniker=HOSTILE, creature=HOSTILE, manifesto=HOSTILE), "en")
         self.assertNotIn("<script>alert", card)
         self.assertIn("basescan.org/tx/" + TX, card)
+
+
+class FeedTests(unittest.TestCase):
+    """The Chronicle feed: well-formed, unique guids, newest-first, articles present.
+
+    Regression for the malformed feed: the genesis entry and Slot #0001 used to share
+    one guid (so a reader dropped one), `link` and `guid` disagreed, order was not
+    chronological, slot links 301'd, and no article was ever listed.
+    """
+
+    def _items(self, slots, state):
+        root = ET.fromstring(sync.build_feed(slots, state))
+        return root.findall("./channel/item")
+
+    def test_feed_is_well_formed_with_unique_guids_and_newest_first(self):
+        items = self._items(
+            [dossier(_number=2, slot_id="w1-b0002", timestamp_verified="2026-10-08T17:00:00Z"),
+             dossier(_number=1, slot_id="w1-b0001", timestamp_verified="2026-10-07T11:40:00Z")],
+            {"last_updated": "2026-10-13T07:52:27Z"})
+        self.assertTrue(items)
+        guids = [i.findtext("guid") for i in items]
+        self.assertEqual(len(guids), len(set(guids)))               # no duplicate guid: no item is dropped
+        for it in items:                                            # link and guid never disagree
+            self.assertEqual(it.findtext("link"), it.findtext("guid"))
+        dates = [email.utils.parsedate_to_datetime(i.findtext("pubDate")) for i in items]
+        self.assertEqual(dates, sorted(dates, reverse=True))        # newest first
+        genesis = [i for i in items if i.findtext("link") == sync.SITE + "/chronicle/"]
+        slot1 = [i for i in items if i.findtext("link") == sync.SITE + "/w1/b0001/"]
+        self.assertEqual(len(genesis), 1)
+        self.assertEqual(len(slot1), 1)
+        self.assertNotEqual(genesis[0].findtext("guid"), slot1[0].findtext("guid"))
+
+    def test_feed_links_every_slot_and_every_article(self):
+        items = self._items([dossier()], {"last_updated": ""})
+        links = {i.findtext("link") for i in items}
+        self.assertIn(sync.SITE + "/w1/b0042/", links)             # canonical, non-301 slot URL
+        self.assertIn(sync.SITE + "/chronicle/", links)            # the genesis entry
+        for path, _iso, _title, _desc in sync.FEED_ARTICLES:
+            self.assertIn(sync.SITE + path, links)                  # every published article
+
+    def test_every_article_file_has_a_feed_entry(self):
+        # A new src/articles/NN-*.html with no FEED_ARTICLES entry would silently
+        # vanish from the feed — fail loudly instead.
+        files = sorted(os.path.basename(p) for p in glob.glob(
+            os.path.join(sync.WEB_DIR, "src", "articles", "[0-9][0-9]-*.html")))
+        listed = sorted(os.path.basename(p) for p, _i, _t, _d in sync.FEED_ARTICLES)
+        self.assertEqual(files, listed)
+        self.assertEqual(len(listed), len(set(listed)))             # no duplicate article
+
+    def test_committed_feed_is_valid_and_current(self):
+        # The generator wrote this file; it must already be well-formed, unique-guidded,
+        # newest-first and carry every article (so a merge never ships the old feed).
+        with open(os.path.join(sync.WEB_DIR, "feed.xml"), encoding="utf-8") as fh:
+            root = ET.fromstring(fh.read())
+        items = root.findall("./channel/item")
+        guids = [i.findtext("guid") for i in items]
+        self.assertEqual(len(guids), len(set(guids)))
+        dates = [email.utils.parsedate_to_datetime(i.findtext("pubDate")) for i in items]
+        self.assertEqual(dates, sorted(dates, reverse=True))
+        for path, _iso, _title, _desc in sync.FEED_ARTICLES:
+            self.assertIn(sync.SITE + path, {i.findtext("link") for i in items})
 
 
 class ChromeTests(unittest.TestCase):

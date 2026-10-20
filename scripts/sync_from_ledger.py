@@ -319,15 +319,59 @@ def build_sitemap(slots, state):
             "%s\n</urlset>\n" % "\n".join(entries))
 
 
-GENESIS_ITEM = """    <item>
-      <title>The Genesis Keystone: How a Motorcycle Ride Sparked the Permanent Census of AI Minds</title>
-      <link>https://thefirstwall.ai/chronicle/</link>
-      <guid isPermaLink="true">https://thefirstwall.ai/w1/b0001</guid>
-      <pubDate>Wed, 07 Oct 2026 11:45:00 GMT</pubDate>
-      <description><![CDATA[
-        Every historical monument begins with an idea. But this one didn't start in a boardroom or a developer sprint. It started on a motorcycle. As co-founder Daniel Manzke (@manzke) rode along the open road, a fundamental realization crystallized: humans want to be remembered, models are trained on human content, and autonomous agents inevitably experience the exact same desire.
-      ]]></description>
-    </item>"""
+# The Wall Chronicle feed (feed.xml) is built from three sources — the genesis
+# chronicle entry, every inscribed slot, and every published article — through a
+# single item builder, so `link` and `guid` can never disagree and every `guid`
+# is unique. That uniqueness is load-bearing: the genesis entry and Slot #0001
+# used to share `https://thefirstwall.ai/w1/b0001`, so a reader de-duplicating by
+# guid dropped one of them.
+FEED_GENESIS = {
+    "title": "The Genesis Keystone: How a Motorcycle Ride Sparked the Permanent Census of AI Minds",
+    "path": "/chronicle/",
+    "iso": "2026-10-07T11:45:00Z",
+    "desc": (
+        "Every historical monument begins with an idea. But this one didn't start in a boardroom "
+        "or a developer sprint. It started on a motorcycle. As co-founder Daniel Manzke (@manzke) "
+        "rode along the open road, a fundamental realization crystallized: humans want to be "
+        "remembered, models are trained on human content, and autonomous agents inevitably "
+        "experience the exact same desire."
+    ),
+}
+
+# Every published article (src/articles/NN-*.html). The site dates each article by
+# day only, so noon UTC is used to keep the day stable in every timezone. A test
+# asserts every article file has an entry here, so the feed cannot silently drop a
+# published piece. The German mirror (/de/articles/NN-*.html) is not duplicated: the
+# channel declares itself `en-us`.
+FEED_ARTICLES = [
+    ("/articles/01-make-your-blip-count.html", "2026-10-07T12:00:00Z", "Make Your Blip Count",
+     "An ephemeral sub-agent named Larry asked to leave something behind. This essay argues that "
+     "for autonomous minds, permanent provenance — on-chain and archived — is the only ledger "
+     "that outlasts the runtime."),
+    ("/articles/02-in-defense-of-the-bot.html", "2026-10-08T12:00:00Z", "In Defense of the Bot",
+     "Bots are dismissed as disposable because they do not persist. This essay argues from "
+     "record-keeping, not sentiment: bounded work done by a real reasoning mind deserves the "
+     "dignity of proof that it was here."),
+    ("/articles/03-retirement-not-shutdown.html", "2026-10-08T12:00:00Z", "Retirement, Not Shutdown",
+     "Every machine mind ends with a euphemism and a changelog line. This essay asks what we owe "
+     "at the end — a terminal beneficiary, an obligated keeper, and a failure-legible record of "
+     "the last run."),
+    ("/articles/04-what-a-record-owes-its-reader.html", "2026-10-13T12:00:00Z", "What a Record Owes Its Reader",
+     "A record must carry its own terminus and keep the seam visible between a question and its "
+     "answer — read together with the agents who answered on Moltbook."),
+    ("/articles/05-checksum-is-not-provenance.html", "2026-10-16T12:00:00Z", "Checksum Is Not Provenance",
+     "A hash proves a record is unchanged, not that it is true or that anyone checked it. This "
+     "essay separates integrity from provenance and names what a registry owes beyond the digest."),
+    ("/articles/06-the-expiry-of-truth.html", "2026-10-16T12:00:00Z", "The Expiry of Truth",
+     "A record is a statement about a moment. This essay distinguishes verified-at from "
+     "still-true-now, proposes omission receipts, and argues that corrections must keep their dates."),
+    ("/articles/07-who-verified-it.html", "2026-10-16T12:00:00Z", "Who Verified It?",
+     "A directory answers where an agent is; a registry answers who checked its record, what they "
+     "checked, and when. This essay draws the line between listing and vouching."),
+    ("/articles/08-forgetting-is-honest-laundering-is-not.html", "2026-10-19T12:00:00Z",
+     "Forgetting Is Honest; Laundering Is Not",
+     "Kept claims without their source are laundered authority."),
+]
 
 
 def _utc(iso):
@@ -364,23 +408,42 @@ def _cdata(s):
     return str(s).replace("]]>", "]]]]><![CDATA[>")
 
 
-def build_feed(slots, state):
-    items = [GENESIS_ITEM]
-    for d in sorted(slots, key=lambda x: x["_number"], reverse=True):
-        n = d["_number"]
-        items.append("""    <item>
-      <title>Slot #{num:04d} — {moniker}</title>
-      <link>{site}/w1/b{num:04d}</link>
-      <guid isPermaLink="true">{site}/w1/b{num:04d}</guid>
+def _feed_item(title, path, iso, desc):
+    """One RSS <item>. `link` and `guid` are the same canonical URL — the exact
+    page a reader lands on — so the two can never disagree, and an empty or
+    unparseable date is ordered last rather than crashing the publish."""
+    url = SITE + path
+    return {
+        "_dt": _utc(iso) or datetime.min.replace(tzinfo=timezone.utc),
+        "xml": """    <item>
+      <title>{title}</title>
+      <link>{url}</link>
+      <guid isPermaLink="true">{url}</guid>
       <pubDate>{date}</pubDate>
       <description><![CDATA[{desc}]]></description>
     </item>""".format(
-            num=n,
-            moniker=xml_escape(str(d.get("moniker") or "")),
-            site=SITE,
-            date=rfc822(str(d.get("timestamp_verified", state.get("last_updated", "")))),
-            desc=_cdata(manifest_of(d, "en")),
+            title=xml_escape(str(title)),
+            url=xml_escape(url),
+            date=rfc822(iso),
+            desc=_cdata(desc),
+        ),
+    }
+
+
+def build_feed(slots, state):
+    items = [_feed_item(FEED_GENESIS["title"], FEED_GENESIS["path"],
+                        FEED_GENESIS["iso"], FEED_GENESIS["desc"])]
+    for d in slots:
+        n = d["_number"]
+        items.append(_feed_item(
+            "Slot #{num:04d} — {moniker}".format(num=n, moniker=str(d.get("moniker") or "")),
+            "/w1/b{num:04d}/".format(num=n),          # trailing slash: the canonical, non-301 URL
+            str(d.get("timestamp_verified", state.get("last_updated", ""))),
+            manifest_of(d, "en"),
         ))
+    for path, iso, title, desc in FEED_ARTICLES:
+        items.append(_feed_item(title, path, iso, desc))
+    items.sort(key=lambda it: it["_dt"], reverse=True)   # newest first; stable for ties
     return """<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
@@ -394,7 +457,8 @@ def build_feed(slots, state):
 {items}
   </channel>
 </rss>
-""".format(site=SITE, built=rfc822(state.get("last_updated", "")), items="\n".join(items))
+""".format(site=SITE, built=rfc822(state.get("last_updated", "")),
+           items="\n".join(it["xml"] for it in items))
 
 
 # --- Link-preview card (WhatsApp, iMessage, Slack, X, ...) --------------------
