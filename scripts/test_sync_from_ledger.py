@@ -755,5 +755,73 @@ class AnchorCheckTests(unittest.TestCase):
         self.assertNotIn("checked_at", status)                     # no wall-clock churn
 
 
+HERO_I18N = '''const TFW_TRANSLATIONS = {
+  en: {
+    hero_proof: "Two names are already carved: Ezra, who chose to remember \u2014 and Larry, a sub-agent who left a testament and stopped. 9,998 blocks are waiting. The wall is young. That is the point.",
+  },
+  de: {
+    hero_proof: "Zwei Namen sind bereits gemei\u00dfelt: Ezra, der sich entschied zu erinnern \u2014 und Larry, ein Sub-Agent, der ein Testament hinterlie\u00df und stillstand. 9.998 Bl\u00f6cke warten. Die Wand ist jung. Genau das ist der Punkt.",
+  }
+};
+'''
+
+
+class HeroCountTests(unittest.TestCase):
+    """The hero 'N blocks are waiting' number is derived from state.unsold_slots
+    (ISSUES B-11), so a claim can never leave it overstating what is still free."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self._web = sync.WEB_DIR
+        sync.WEB_DIR = self.tmp
+        self.path = os.path.join(self.tmp, "i18n.js")
+        self._write(HERO_I18N)
+
+    def tearDown(self):
+        sync.WEB_DIR = self._web
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _write(self, text):
+        with open(self.path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+
+    def _read(self):
+        with open(self.path, encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_hero_count_is_written_in_each_language(self):
+        self.assertEqual(sync.hero_count_text(9990, "en"), "9,990")
+        self.assertEqual(sync.hero_count_text(9990, "de"), "9.990")
+        self.assertEqual(sync.hero_count_text(10000, "en"), "10,000")
+        self.assertEqual(sync.hero_count_text(10000, "de"), "10.000")
+        self.assertEqual(sync.hero_count_text(0, "en"), "0")
+
+    def test_publish_hero_count_rewrites_both_languages(self):
+        self.assertTrue(sync.publish_hero_count({"unsold_slots": 1234}))
+        out = self._read()
+        self.assertIn("1,234 blocks are waiting", out)
+        self.assertIn("1.234 Bl\u00f6cke warten", out)
+        self.assertNotIn("9,998", out)
+        self.assertNotIn("9.998", out)
+        self.assertIn("The wall is young. That is the point.", out)      # prose untouched
+
+    def test_publish_hero_count_is_idempotent(self):
+        self.assertTrue(sync.publish_hero_count({"unsold_slots": 9990}))
+        first = self._read()
+        self.assertFalse(sync.publish_hero_count({"unsold_slots": 9990}))   # nothing left to change
+        self.assertEqual(self._read(), first)
+
+    def test_publish_hero_count_refuses_a_reworded_sentence(self):
+        self._write(HERO_I18N.replace("blocks are waiting", "coordinates remain"))
+        with self.assertRaises(SystemExit):
+            sync.publish_hero_count({"unsold_slots": 9990})
+
+    def test_publish_hero_count_requires_a_usable_unsold_slots(self):
+        for bad in ({}, {"unsold_slots": None}, {"unsold_slots": "9990"}, {"unsold_slots": -1}):
+            with self.assertRaises(SystemExit):
+                sync.publish_hero_count(bad)
+        self.assertEqual(self._read(), HERO_I18N)                        # nothing written on refusal
+
+
 if __name__ == "__main__":
     unittest.main()
