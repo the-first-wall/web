@@ -4,7 +4,7 @@
   "leaf_rule": "sha256(0x00 || dossier_bytes || icon_bytes)",
   "slot_id": "w1-b0002",
   "status": "superseded",
-  "superseded_by": "7b4f60d69c5cdac84f9c468b7b4d2f3085d65beffbe28338096f763f0c9df422",
+  "superseded_by": "c384a06a41cea8ab47186b60e51eccc9f1115e9427a562336a1989232f08534e",
   "first_seen": {
     "ledger_commit": "31c4d48870a814284cba1bae17a5663fc84b7e44",
     "at": "2026-10-12T20:30:27Z"

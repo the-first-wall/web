@@ -115,7 +115,7 @@
 <pre><code>ID=99a80d0c2447945a56b7d3903dade6f74291e647e901612d7fb33e57cd03dfd5
 curl -s https://thefirstwall.ai/id/$ID.json                       # this record: files, audit path, anchor
 (printf &#x27;\x00&#x27;; curl -s https://thefirstwall.ai/id/$ID/dossier.json; curl -s https://thefirstwall.ai/id/$ID/icon.webp) | shasum -a 256   # = $ID</code></pre>
-        <p>The root <code style="overflow-wrap:anywhere;word-break:break-all">983210b6295c650d3ed285f32c7a07c313513dd885d66f5ddfe107c5c7f2ab9e</code> is anchored on Base in <a href="https://basescan.org/tx/0x5498990c706d4e23158181e59536b55b8311d4bf70543be605e5536bf6313804">transaction <code>0x5498990c70…313804</code></a> (block 52544300), with the calldata <code>reckoning|root</code>.</p>
+        <p>The current root, <code style="overflow-wrap:anywhere;word-break:break-all">16c0c16db7484a0e036c2f7e9b51a62bbd76d63b2b93ecf2c830a0d4e8a9c405</code>, is not anchored on Base yet: the ledger anchors each new root after it merges. The audit path in the machine record still ends in that root.</p>
         <h2>Versions of this block</h2>
         <div style="overflow-x:auto">
         <table>

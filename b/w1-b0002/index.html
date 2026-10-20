@@ -108,22 +108,23 @@
 
       <div class="article-prose">
         <h2>The current block id</h2>
-        <p><code style="overflow-wrap:anywhere;word-break:break-all">7b4f60d69c5cdac84f9c468b7b4d2f3085d65beffbe28338096f763f0c9df422</code></p>
+        <p><code style="overflow-wrap:anywhere;word-break:break-all">c384a06a41cea8ab47186b60e51eccc9f1115e9427a562336a1989232f08534e</code></p>
         <p>This is the block's leaf in the Merkle tree whose root is anchored on Base: one SHA-256 over the two files the ledger commits for it. It is derived from those bytes, never declared, so nobody can make a different record answer to it. The handle <code>w1-b0002</code> never changes; the id changes when the owner updates the record (each older version stays resolvable below).</p>
-        <p><a href="/id/7b4f60d69c5cdac84f9c468b7b4d2f3085d65beffbe28338096f763f0c9df422.json">Machine record (JSON)</a> · <a href="/id/7b4f60d69c5cdac84f9c468b7b4d2f3085d65beffbe28338096f763f0c9df422/dossier.json">dossier bytes</a> · <a href="/id/7b4f60d69c5cdac84f9c468b7b4d2f3085d65beffbe28338096f763f0c9df422/icon.webp">icon bytes</a> · <a href="/w1/b0002">block page</a></p>
+        <p><a href="/id/c384a06a41cea8ab47186b60e51eccc9f1115e9427a562336a1989232f08534e.json">Machine record (JSON)</a> · <a href="/id/c384a06a41cea8ab47186b60e51eccc9f1115e9427a562336a1989232f08534e/dossier.json">dossier bytes</a> · <a href="/id/c384a06a41cea8ab47186b60e51eccc9f1115e9427a562336a1989232f08534e/icon.webp">icon bytes</a> · <a href="/w1/b0002">block page</a></p>
         <h2>Check it yourself</h2>
         <p>Nothing here needs our software; the two files are the exact bytes the ledger committed.</p>
-<pre><code>ID=7b4f60d69c5cdac84f9c468b7b4d2f3085d65beffbe28338096f763f0c9df422
+<pre><code>ID=c384a06a41cea8ab47186b60e51eccc9f1115e9427a562336a1989232f08534e
 curl -s https://thefirstwall.ai/id/$ID.json                       # this record: files, audit path, anchor
 (printf &#x27;\x00&#x27;; curl -s https://thefirstwall.ai/id/$ID/dossier.json; curl -s https://thefirstwall.ai/id/$ID/icon.webp) | shasum -a 256   # = $ID</code></pre>
-        <p>The root <code style="overflow-wrap:anywhere;word-break:break-all">983210b6295c650d3ed285f32c7a07c313513dd885d66f5ddfe107c5c7f2ab9e</code> is anchored on Base in <a href="https://basescan.org/tx/0x5498990c706d4e23158181e59536b55b8311d4bf70543be605e5536bf6313804">transaction <code>0x5498990c70…313804</code></a> (block 52544300), with the calldata <code>reckoning|root</code>.</p>
+        <p>The current root, <code style="overflow-wrap:anywhere;word-break:break-all">16c0c16db7484a0e036c2f7e9b51a62bbd76d63b2b93ecf2c830a0d4e8a9c405</code>, is not anchored on Base yet: the ledger anchors each new root after it merges. The audit path in the machine record still ends in that root.</p>
         <h2>Versions of this block</h2>
         <div style="overflow-x:auto">
         <table>
           <thead><tr><th>block id</th><th>status</th><th>first mirrored from</th><th>on</th></tr></thead>
           <tbody>
           <tr><td><a href="/id/524c688f03771ea460558ad4fbe0cef8d4d3ba5a203b69d283a805bf0ab002b2/"><code>524c688f0377…b002b2</code></a></td><td>superseded</td><td><a href="https://github.com/the-first-wall/ledger/commit/31c4d48870a814284cba1bae17a5663fc84b7e44"><code>31c4d48870</code></a></td><td>2026-10-12</td></tr>
-          <tr aria-current="true"><td><a href="/id/7b4f60d69c5cdac84f9c468b7b4d2f3085d65beffbe28338096f763f0c9df422/"><code>7b4f60d69c5c…9df422</code></a></td><td>current</td><td><a href="https://github.com/the-first-wall/ledger/commit/0326f8d98873d2d8b8c4c4c07247a5e094992001"><code>0326f8d988</code></a></td><td>2026-10-13</td></tr>
+          <tr><td><a href="/id/7b4f60d69c5cdac84f9c468b7b4d2f3085d65beffbe28338096f763f0c9df422/"><code>7b4f60d69c5c…9df422</code></a></td><td>superseded</td><td><a href="https://github.com/the-first-wall/ledger/commit/0326f8d98873d2d8b8c4c4c07247a5e094992001"><code>0326f8d988</code></a></td><td>2026-10-13</td></tr>
+          <tr aria-current="true"><td><a href="/id/c384a06a41cea8ab47186b60e51eccc9f1115e9427a562336a1989232f08534e/"><code>c384a06a41ce…08534e</code></a></td><td>current</td><td><a href="https://github.com/the-first-wall/ledger/commit/36c28d6d0563418c7b6d1fa585dedf2683372936"><code>36c28d6d05</code></a></td><td>2026-10-20</td></tr>
           </tbody>
         </table>
         </div>
