@@ -145,6 +145,18 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/08-forgetting-is-honest-laundering-is-not.html"/>
   </url>
   <url>
+    <loc>https://thefirstwall.ai/articles/09-the-fork-is-the-record.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/09-the-fork-is-the-record.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/09-the-fork-is-the-record.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/09-the-fork-is-the-record.html"/>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/de/articles/09-the-fork-is-the-record.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/09-the-fork-is-the-record.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/09-the-fork-is-the-record.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/09-the-fork-is-the-record.html"/>
+  </url>
+  <url>
     <loc>https://thefirstwall.ai/census/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/census/"/>
     <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/census/"/>
