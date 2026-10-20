@@ -218,6 +218,113 @@ class FeedTests(unittest.TestCase):
             self.assertIn(sync.SITE + path, {i.findtext("link") for i in items})
 
 
+VOUCHER = {
+    "field": "soul_hash",
+    "previous_value": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "new_value": "ac5912008ce9ddfb07fe130b9c660cbe8dc603c2b84d4a89f98c0893d4c018aa",
+    "reason": "The genesis soul_hash attested nothing; superseded by the manifest digest.",
+    "superseded_at": "2026-10-08T13:20:00Z",
+    "authorizing_signature": "operator:manzke (0xbbF4D6B954e97C2C4fbC4e89B7933cDD7e4D9f23)",
+}
+
+
+class CorrectionsTests(unittest.TestCase):
+    """corrections.json — the append-only supersession vouchers, machine-readable.
+
+    A correction is never a silent overwrite: the old value stays on the record and the
+    voucher states what changed, why, when and who authorized it. The feed is derived
+    from the dossiers, so a dossier with an empty or missing `supersessions[]` (the
+    normal case) contributes nothing and must never crash the publish.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self._web = sync.WEB_DIR
+        sync.WEB_DIR = self.tmp
+
+    def tearDown(self):
+        sync.WEB_DIR = self._web
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_no_supersessions_yields_an_empty_feed(self):
+        for slots in ([], [dossier()],
+                      [dossier(supersessions=[]), dossier(_number=2, slot_id="w1-b0002")]):
+            out = sync.build_corrections(slots, {"wall_id": "wall_01", "last_updated": "2026-10-12T22:38:05Z"})
+            self.assertEqual(out["corrections"], [])
+            self.assertEqual(out["count"], 0)
+            self.assertEqual(out["wall_id"], "wall_01")
+            self.assertEqual(out["last_updated"], "2026-10-12T22:38:05Z")
+            self.assertEqual(out["links"], {"state": "/state.json", "census": "/census.json",
+                                            "ledger": "https://github.com/the-first-wall/ledger"})
+
+    def test_missing_or_malformed_supersessions_never_crash(self):
+        slots = [dossier(supersessions=None),
+                 dossier(_number=2, slot_id="w1-b0002", supersessions="junk"),
+                 dossier(_number=3, slot_id="w1-b0003", supersessions={}),
+                 dossier(_number=4, slot_id="w1-b0004", supersessions=["junk", 7, None])]
+        out = sync.build_corrections(slots, {})
+        self.assertEqual(out["corrections"], [])
+        self.assertEqual(out["count"], 0)
+
+    def test_one_voucher_becomes_one_entry_with_the_exact_fields(self):
+        out = sync.build_corrections([dossier(supersessions=[VOUCHER])],
+                                     {"wall_id": "wall_01", "last_updated": "2026-10-12T22:38:05Z"})
+        self.assertEqual(out["count"], 1)
+        self.assertEqual(out["corrections"], [dict(slot_id="w1-b0042", slot_number=42, **VOUCHER)])
+        self.assertEqual(list(out["corrections"][0]), [
+            "slot_id", "slot_number", "field", "previous_value", "new_value",
+            "reason", "superseded_at", "authorizing_signature"])
+
+    def test_sorted_by_superseded_at_then_slot_id(self):
+        a = dict(VOUCHER, field="a", superseded_at="2026-10-12T22:38:05Z")
+        b = dict(VOUCHER, field="b", superseded_at="2026-10-08T13:20:00Z")
+        c = dict(VOUCHER, field="c", superseded_at="2026-10-08T13:20:00Z")
+        out = sync.build_corrections([dossier(supersessions=[a, b, c])], {})
+        self.assertEqual([e["field"] for e in out["corrections"]], ["b", "c", "a"])
+        # the same instant on two blocks: the slot id breaks the tie
+        out = sync.build_corrections(
+            [dossier(_number=2, slot_id="w1-b0002", supersessions=[dict(VOUCHER, field="x")]),
+             dossier(_number=1, slot_id="w1-b0001", supersessions=[dict(VOUCHER, field="y")])], {})
+        self.assertEqual([e["slot_id"] for e in out["corrections"]], ["w1-b0001", "w1-b0002"])
+
+    def test_sitemap_lists_the_corrections_feed(self):
+        self.assertIn("<loc>%s/corrections.json</loc>" % sync.SITE, sync.build_sitemap([dossier()], {}))
+
+    def test_output_is_byte_deterministic(self):
+        slots = [dossier(supersessions=[VOUCHER, dict(VOUCHER, field="sealed_vault")])]
+        state = {"wall_id": "wall_01", "last_updated": "2026-10-12T22:38:05Z"}
+        path = os.path.join(self.tmp, "corrections.json")
+        sync.write_json(path, sync.build_corrections(slots, state))
+        with open(path, "rb") as fh:
+            first = fh.read()
+        sync.write_json(path, sync.build_corrections(list(slots), dict(state)))   # same input, new objects
+        with open(path, "rb") as fh:
+            second = fh.read()
+        self.assertEqual(first, second)
+        self.assertTrue(first.endswith(b"\n"))
+
+    def test_committed_corrections_json_is_current(self):
+        # The publisher wrote this file and CI never regenerates it: it must already
+        # match what the committed records/ + state.json produce, or a merge ships a
+        # stale corrections feed.
+        root = os.path.abspath(os.path.join(HERE, ".."))
+        slots = []
+        for name in sorted(os.listdir(os.path.join(root, "records"))):
+            m = re.fullmatch(r"(w1-b\d{4,5})\.json", name)
+            if not m:
+                continue
+            with open(os.path.join(root, "records", name), encoding="utf-8") as fh:
+                d = json.load(fh)
+            d["_number"] = int(m.group(1)[4:])
+            slots.append(d)
+        with open(os.path.join(root, "state.json"), encoding="utf-8") as fh:
+            state = json.load(fh)
+        expected = json.dumps(sync.build_corrections(slots, state), indent=2) + "\n"
+        with open(os.path.join(root, "corrections.json"), encoding="utf-8") as fh:
+            committed = fh.read()
+        self.assertEqual(committed, expected)
+
+
 class ChromeTests(unittest.TestCase):
     """The header/footer shared by every page (partials/ → scripts/build_chrome.py)."""
 

@@ -20,6 +20,7 @@ on:
       - 'state.json'
       - 'settlements.json'
       - 'census.json'
+      - 'corrections.json'
       - 'census.md'
       - 'sitemap.xml'
       - 'feed.xml'

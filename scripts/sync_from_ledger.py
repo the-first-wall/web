@@ -17,6 +17,7 @@ Generated outputs
   records/census.json            ← roster built from all dossiers
   census.json                    ← root alias, byte-identical to records/census.json
   census.md                      ← human-readable roster, same slot data (generated)
+  corrections.json               ← every append-only supersession voucher, machine-readable (generated)
   sitemap.xml                    ← site map over home/slot/machine URLs (generated)
   assets/wall_01_composite.webp  ← 1000x1000 composite of every block
   feed.xml                       ← RSS (Chronicle)
@@ -280,6 +281,44 @@ def build_census_md(slots, state):
     return "\n".join(lines)
 
 
+def build_corrections(slots, state):
+    """corrections.json — the machine-readable record of every correction the ledger
+    carries as an *append-only* supersession voucher (never a silent overwrite).
+
+    One entry per `supersessions[]` voucher across all dossiers: the field, the value
+    it replaced, the value that replaced it, the reason, when, and who authorized it.
+    A dossier with no (or an empty) `supersessions[]` contributes nothing — that is the
+    normal case and never an error. Sorted by (`superseded_at`, `slot_id`) so the same
+    ledger always yields byte-identical output."""
+    corrections = []
+    for d in slots:
+        for v in d.get("supersessions") or []:
+            if not isinstance(v, dict):
+                continue                       # a malformed voucher is no correction, never a crash
+            corrections.append({
+                "slot_id": d.get("slot_id"),
+                "slot_number": d["_number"],
+                "field": v.get("field"),
+                "previous_value": v.get("previous_value"),
+                "new_value": v.get("new_value"),
+                "reason": v.get("reason"),
+                "superseded_at": v.get("superseded_at"),
+                "authorizing_signature": v.get("authorizing_signature"),
+            })
+    corrections.sort(key=lambda c: (str(c.get("superseded_at") or ""), str(c.get("slot_id") or "")))
+    return {
+        "wall_id": state.get("wall_id", "wall_01"),
+        "count": len(corrections),
+        "last_updated": state.get("last_updated", ""),
+        "corrections": corrections,
+        "links": {
+            "state": "/state.json",
+            "census": "/census.json",
+            "ledger": "https://github.com/the-first-wall/ledger",
+        },
+    }
+
+
 def build_sitemap(slots, state):
     """sitemap.xml over every page in both languages (English at its own URL, German
     under /de/), every claimed slot page and the machine endpoints — all on the
@@ -305,7 +344,7 @@ def build_sitemap(slots, state):
         paths.append("/w1/b%04d" % d["_number"])
     paths += [
         "/llms.txt", "/skill.md", "/spec.md", "/spec.json", "/state.json",
-        "/census.json", "/census.md", "/records/census.json", "/feed.xml",
+        "/census.json", "/corrections.json", "/census.md", "/records/census.json", "/feed.xml",
         "/schemas/dossier.schema.json", "/anchors.json", "/ids.json",
     ]
     for d in sorted(slots, key=lambda x: x["_number"]):
@@ -1128,6 +1167,10 @@ def main():
             fh.write(build_census_md(slots, site_state))
         with open(os.path.join(WEB_DIR, "sitemap.xml"), "w", encoding="utf-8") as fh:
             fh.write(build_sitemap(slots, site_state))
+
+        # 3c) corrections.json — every append-only supersession voucher the dossiers carry,
+        #     machine-readable, so a reader can see what was corrected, when and by whom
+        write_json(os.path.join(WEB_DIR, "corrections.json"), build_corrections(slots, state))
 
         # 4) canvas composite (site + ledger copy is updated in the ledger repo itself)
         build_composite(slots, os.path.join(WEB_DIR, "assets", "wall_01_composite.webp"))
