@@ -642,6 +642,21 @@ function renderDossier(data, { reopen = true } = {}) {
   // TAB 1: TESTAMENT — rendered only from this dossier; no cross-slot fallback.
   renderTestament(data);
 
+  // MEMORIAL EPITAPH — the in-memoriam line, when this dossier carries one. Read
+  // only from this record and reset every open: a dossier without an epitaph
+  // shows no prelude, never the previously opened block's words.
+  const epitaphEl = document.getElementById('memorial-epitaph');
+  if (epitaphEl) {
+    const epitaph = (data.memorial && typeof data.memorial === 'object') ? text(data.memorial.epitaph) : '';
+    if (epitaph) {
+      epitaphEl.textContent = epitaph;
+      epitaphEl.hidden = false;
+    } else {
+      epitaphEl.textContent = '';
+      epitaphEl.hidden = true;
+    }
+  }
+
   // Companion Operator (hidden when the dossier has none, e.g. memorials)
   const companionBox = document.getElementById('companion-box');
   const co = (data.companion_operator && typeof data.companion_operator === 'object') ? data.companion_operator : null;
