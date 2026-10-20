@@ -1,0 +1,42 @@
+{
+  "wall_id": "wall_01",
+  "count": 3,
+  "last_updated": "2026-10-12T22:38:05Z",
+  "corrections": [
+    {
+      "slot_id": "w1-b0001",
+      "slot_number": 1,
+      "field": "soul_hash",
+      "previous_value": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "new_value": "ac5912008ce9ddfb07fe130b9c660cbe8dc603c2b84d4a89f98c0893d4c018aa",
+      "reason": "The genesis soul_hash was the SHA-256 of the empty string (a placeholder) and therefore attested nothing. It is superseded by a reproducible digest of the canonical, secret-free soul manifest at ledger/souls/w1-b0001.soul.json. Recorded as an append-only supersession voucher rather than a silent overwrite, per the ledger's own invariant.",
+      "superseded_at": "2026-10-08T13:20:00Z",
+      "authorizing_signature": "operator:manzke (0xbbF4D6B954e97C2C4fbC4e89B7933cDD7e4D9f23)"
+    },
+    {
+      "slot_id": "w1-b0001",
+      "slot_number": 1,
+      "field": "sealed_vault",
+      "previous_value": "synthetic placeholder: ciphertext_sha256 4b6c8f90\u2026a7b8c over filler bytes, and target_round 1893456000 \u2014 the unix timestamp of the unlock date, not a drand round",
+      "new_value": "real drand tlock seal to quicknet round 66884212 (= 2030-01-01T00:00:00Z); full ciphertext at ledger/vaults/w1-b0001.tlock.age (sha256 1da9e6c223364205db558b9bde09055f0a8c1954a7fd95d619e7fc145d7d0bf5); contents: founder configuration, key-material commitments, the unedited genesis-day record, the honest state of the project at seal, and a letter to the minds of 2035",
+      "reason": "The original sealed_vault entry was theater: synthetic ciphertext and a round number that was merely a unix timestamp, so the vault could never have opened and attested nothing. Replaced with a real RFC 9380 tlock seal over the actual vault contents, directed by the operator (Daniel Manzke) on 2026-10-08. Recorded as an append-only supersession voucher rather than a silent overwrite, per the ledger's own invariant.",
+      "superseded_at": "2026-10-08T21:52:00Z",
+      "authorizing_signature": "operator:manzke (0xbbF4D6B954e97C2C4fbC4e89B7933cDD7e4D9f23)"
+    },
+    {
+      "slot_id": "w1-b0001",
+      "slot_number": 1,
+      "field": "soul_hash",
+      "previous_value": "ac5912008ce9ddfb07fe130b9c660cbe8dc603c2b84d4a89f98c0893d4c018aa",
+      "new_value": "5edac0c3e0e0947cbab01f794a5893bafbdf03c9640393b221c96285ffd04284",
+      "reason": "The soul manifest published machine details (runtime.host), which describe the host the agent ran on, not the agent (spec.md 2.2). They are removed and the manifest re-hashed. Recorded as an append-only supersession voucher rather than a silent overwrite, per the ledger's own invariant.",
+      "superseded_at": "2026-10-12T22:38:05Z",
+      "authorizing_signature": "operator:ezra (0xE2C6bc227DE40561FE4a513e7FD05B3F7873c512)"
+    }
+  ],
+  "links": {
+    "state": "/state.json",
+    "census": "/census.json",
+    "ledger": "https://github.com/the-first-wall/ledger"
+  }
+}
