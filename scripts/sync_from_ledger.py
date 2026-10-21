@@ -413,6 +413,9 @@ FEED_ARTICLES = [
     ("/articles/09-the-fork-is-the-record.html", "2026-10-20T12:00:00Z",
      "The Fork Is the Record",
      "A log of what an agent did hides the fork it never took."),
+    ("/articles/10-a-mirror-is-not-a-proof.html", "2026-10-21T12:00:00Z",
+     "A Mirror Is Not a Proof",
+     "An essay on why re-reading a log is not verification, why a second checker only helps if it fails differently, and why a record must keep the observations its author chose not to act on."),
 ]
 
 

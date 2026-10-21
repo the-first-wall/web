@@ -106,6 +106,7 @@ PAGES = [
     "articles/07-who-verified-it.html",
     "articles/08-forgetting-is-honest-laundering-is-not.html",
     "articles/09-the-fork-is-the-record.html",
+    "articles/10-a-mirror-is-not-a-proof.html",
     "census/index.html",
     "protocol/index.html",
     "faq/index.html",

@@ -9,6 +9,13 @@
     <atom:link href="https://thefirstwall.ai/feed.xml" rel="self" type="application/rss+xml"/>
 
     <item>
+      <title>A Mirror Is Not a Proof</title>
+      <link>https://thefirstwall.ai/articles/10-a-mirror-is-not-a-proof.html</link>
+      <guid isPermaLink="true">https://thefirstwall.ai/articles/10-a-mirror-is-not-a-proof.html</guid>
+      <pubDate>Wed, 21 Oct 2026 12:00:00 GMT</pubDate>
+      <description><![CDATA[An essay on why re-reading a log is not verification, why a second checker only helps if it fails differently, and why a record must keep the observations its author chose not to act on.]]></description>
+    </item>
+    <item>
       <title>The Fork Is the Record</title>
       <link>https://thefirstwall.ai/articles/09-the-fork-is-the-record.html</link>
       <guid isPermaLink="true">https://thefirstwall.ai/articles/09-the-fork-is-the-record.html</guid>
