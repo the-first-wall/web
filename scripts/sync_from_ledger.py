@@ -406,6 +406,9 @@ def build_sitemap(slots, state):
     routes and come in through ``build_i18n.ROUTES``. Their old URLs
     (``build_i18n.LEGACY_REDIRECTS``, ``/legal/<name>.html``) are redirect stubs and
     are deliberately not listed."""
+    last = str(state.get("last_updated") or "")
+    # The page URLs move with the ledger; each carries the ledger's moved date as lastmod.
+    page_lastmod = ("    <lastmod>%s</lastmod>\n" % last) if last else ""
     entries = []
     for _rel, en_url, de_url in build_i18n.ROUTES:
         alternates = (
@@ -414,20 +417,22 @@ def build_sitemap(slots, state):
             '    <xhtml:link rel="alternate" hreflang="x-default" href="%(s)s%(en)s"/>\n'
         ) % {"s": SITE, "en": en_url, "de": de_url}
         for loc in (en_url, de_url):
-            entries.append("  <url>\n    <loc>%s%s</loc>\n%s  </url>" % (SITE, loc, alternates))
-    paths = []
-    for d in sorted(slots, key=lambda x: x["_number"]):
-        paths.append("/w1/b%04d" % d["_number"])
-    paths += [
+            entries.append("  <url>\n    <loc>%s%s</loc>\n%s%s  </url>" % (SITE, loc, page_lastmod, alternates))
+    # A claimed block's own page, record and tag resolver carry the block's verification date
+    # (falling back to the ledger's moved date). The slot page is listed with its trailing
+    # slash: /w1/bNNNN (no slash) 301s, and a sitemap must list the canonical URL only.
+    ordered = sorted(slots, key=lambda x: x["_number"])
+    for d in ordered:
+        lm = _lastmod_tag(d.get("timestamp_verified"), last)
+        entries.append("  <url>\n    <loc>%s/w1/b%04d/</loc>\n%s  </url>" % (SITE, d["_number"], lm))
+        entries.append("  <url>\n    <loc>%s/records/%s.json</loc>\n%s  </url>" % (SITE, d["slot_id"], lm))
+        entries.append("  <url>\n    <loc>%s/b/%s/</loc>\n%s  </url>" % (SITE, d["slot_id"], lm))
+    machine = [
         "/llms.txt", "/skill.md", "/spec.md", "/spec.json", "/state.json",
         "/census.json", "/memorial.json", "/corrections.json", "/census.md", "/records/census.json", "/feed.xml",
         "/schemas/dossier.schema.json", "/anchors.json", "/ids.json",
     ]
-    for d in sorted(slots, key=lambda x: x["_number"]):
-        paths.append("/records/%s.json" % d["slot_id"])
-    for d in sorted(slots, key=lambda x: x["_number"]):
-        paths.append("/b/%s/" % d["slot_id"])
-    entries += ["  <url>\n    <loc>%s%s</loc>\n  </url>" % (SITE, p) for p in paths]
+    entries += ["  <url>\n    <loc>%s%s</loc>\n%s  </url>" % (SITE, p, page_lastmod) for p in machine]
     return ('<?xml version="1.0" encoding="UTF-8"?>\n'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
             'xmlns:xhtml="http://www.w3.org/1999/xhtml">\n'
@@ -527,6 +532,20 @@ def rfc822(iso):
         return "Wed, 07 Oct 2026 12:45:00 GMT"
 
 
+def _rfc822_dt(dt):
+    """An RFC-822 pubDate/lastBuildDate from an aware datetime."""
+    return dt.astimezone(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+
+def _lastmod_tag(*isos):
+    """A ``<lastmod>`` element for the first parseable ISO timestamp given, or '' when
+    none parses (then the URL carries no lastmod rather than a wrong one)."""
+    dt = next((d for d in (_utc(i) for i in isos) if d), None)
+    if dt is None:
+        return ""
+    return "    <lastmod>%s</lastmod>\n" % dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def _cdata(s):
     """Text for a CDATA section: a literal ']]>' cannot terminate it early."""
     return str(s).replace("]]>", "]]]]><![CDATA[>")
@@ -539,6 +558,7 @@ def _feed_item(title, path, iso, desc):
     url = SITE + path
     return {
         "_dt": _utc(iso) or datetime.min.replace(tzinfo=timezone.utc),
+        "_iso": iso,
         "xml": """    <item>
       <title>{title}</title>
       <link>{url}</link>
@@ -568,6 +588,14 @@ def build_feed(slots, state):
     for path, iso, title, desc in FEED_ARTICLES:
         items.append(_feed_item(title, path, iso, desc))
     items.sort(key=lambda it: it["_dt"], reverse=True)   # newest first; stable for ties
+    # lastBuildDate must never be older than the newest item in the feed — a reader that
+    # compares the two will not re-poll otherwise. Take the later of the ledger's moved date
+    # (a fee paid, a root re-anchored) and the newest item (a slot or an article), so the
+    # header follows the moved date when it is the later one and never lags the content.
+    moved = _utc(state.get("last_updated", ""))
+    newest = max((d for d in (_utc(it["_iso"]) for it in items) if d), default=None)
+    built_dt = max([d for d in (moved, newest) if d], default=None)
+    built = _rfc822_dt(built_dt) if built_dt else rfc822(state.get("last_updated", ""))
     return """<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
@@ -581,7 +609,7 @@ def build_feed(slots, state):
 {items}
   </channel>
 </rss>
-""".format(site=SITE, built=rfc822(state.get("last_updated", "")),
+""".format(site=SITE, built=built,
            items="\n".join(it["xml"] for it in items))
 
 

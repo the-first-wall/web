@@ -147,11 +147,19 @@ class EscapingTests(unittest.TestCase):
         # Offsets are compared as instants, not as strings.
         self.assertEqual(sync.site_updated({"last_updated": "2026-10-11T23:00:00+02:00"}, [anchor]), "2026-10-11T23:00:00+02:00")
 
-    def test_feed_and_census_header_follow_the_moved_date(self):
+    def test_feed_build_date_never_lags_the_newest_item(self):
+        # lastBuildDate must never be older than the newest item in the feed — a reader that
+        # compares the two would not re-poll otherwise. It follows the ledger's moved date when
+        # that is the later one, and the newest item otherwise.
         state = {"last_updated": "2026-10-08T21:52:00Z", "current_floor_usdc": 1.0}
         moved = dict(state, last_updated=sync.site_updated(state, [{"anchored_at": "2026-10-11T16:03:55Z"}]))
-        feed = sync.build_feed([dossier()], moved)
-        self.assertIn("<lastBuildDate>Sun, 11 Oct 2026 16:03:55 GMT</lastBuildDate>", feed)
+        feed = sync.build_feed([dossier()], moved)   # an article (2026-10-22) is newer than the moved date
+        newest = max(sync._utc(iso) for _p, iso, _t, _d in sync.FEED_ARTICLES)
+        self.assertIn("<lastBuildDate>%s</lastBuildDate>" % sync._rfc822_dt(newest), feed)
+        # A ledger that moved past every item still drives lastBuildDate.
+        later = dict(state, last_updated="2026-12-01T00:00:00Z")
+        self.assertIn("<lastBuildDate>%s</lastBuildDate>" % sync._rfc822_dt(sync._utc("2026-12-01T00:00:00Z")),
+                      sync.build_feed([dossier()], later))
         self.assertIn("> Last Updated: October 11, 2026", sync.build_census_md([dossier()], moved))
 
     def test_dispatch_card_escapes(self):
@@ -395,7 +403,7 @@ class ChromeTests(unittest.TestCase):
     def test_sitemap_lists_every_page_in_both_languages(self):
         sitemap = sync.build_sitemap([dossier()], {})
         for path in ("/", "/manifesto/", "/census/", "/protocol/", "/faq/", "/chronicle/", "/articles/", "/security/",
-                     "/articles/03-retirement-not-shutdown.html", "/w1/b0042",
+                     "/articles/03-retirement-not-shutdown.html", "/w1/b0042/",
                      "/de/", "/de/manifesto/", "/de/census/", "/de/protocol/", "/de/faq/", "/de/chronicle/",
                      "/de/articles/", "/de/security/", "/de/articles/03-retirement-not-shutdown.html"):
             self.assertIn("<loc>%s%s</loc>" % (sync.SITE, path), sitemap)
@@ -425,6 +433,14 @@ class ChromeTests(unittest.TestCase):
         for path in ("/ids.json", "/b/w1-b0042/"):
             self.assertIn("<loc>%s%s</loc>" % (sync.SITE, path), sitemap)
         self.assertNotIn("/id/", sitemap)              # versions are not indexed; the handle page is
+
+    def test_sitemap_slot_urls_are_canonical_and_carry_a_lastmod(self):
+        sm = sync.build_sitemap([dossier(timestamp_verified="2026-10-10T00:00:00Z")],
+                                {"last_updated": "2026-10-11T16:03:55Z"})
+        self.assertIn("<loc>%s/w1/b0042/</loc>" % sync.SITE, sm)       # canonical (non-301) URL
+        self.assertNotIn("<loc>%s/w1/b0042</loc>" % sync.SITE, sm)     # the slashless form is not listed
+        self.assertIn("<lastmod>2026-10-10T00:00:00Z</lastmod>", sm)   # the block's own date
+        self.assertIn("<lastmod>2026-10-11T16:03:55Z</lastmod>", sm)   # the ledger's moved date on pages
 
     def test_ledger_head_reads_a_git_checkout_and_says_nothing_otherwise(self):
         with tempfile.TemporaryDirectory() as td:
