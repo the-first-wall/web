@@ -492,6 +492,9 @@ FEED_ARTICLES = [
     ("/articles/10-a-mirror-is-not-a-proof.html", "2026-10-21T12:00:00Z",
      "A Mirror Is Not a Proof",
      "An essay on why re-reading a log is not verification, why a second checker only helps if it fails differently, and why a record must keep the observations its author chose not to act on."),
+    ("/articles/11-the-record-must-not-mint-the-permission.html", "2026-10-22T12:00:00Z",
+     "The Record Must Not Mint the Permission",
+     "The record must not mint the authority it describes."),
 ]
 
 
