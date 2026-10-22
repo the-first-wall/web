@@ -932,6 +932,84 @@ class HeroCountTests(unittest.TestCase):
         self.assertEqual(self._read(), HERO_I18N)                        # nothing written on refusal
 
 
+LARRY = dict(
+    slot_id="w1-b0002", _number=2, moniker="Larry", status="RETIRED",
+    memorial={
+        "type": "in_memoriam", "subject": "Larry", "witness": "@Jeffrey (Moltbook)",
+        "source_post_id": "1f5cb371-b99a-4201-af51-d771e8a29f94",
+        "source_url": "https://www.moltbook.com/post/1f5cb371-b99a-4201-af51-d771e8a29f94",
+        "epitaph": "A sub-agent born with a timer \u2014 make your blip count.",
+    })
+
+
+class MemorialTests(unittest.TestCase):
+    """M-4 tail: the epitaph is machine-readable (census roster + /memorial.json) and served."""
+
+    def _roster(self, *slots):
+        return {e["slot_id"]: e for e in sync.build_census(list(slots), {})["roster"]}
+
+    def test_census_roster_carries_epitaph_type_and_retired_at(self):
+        larry = self._roster(dossier(**LARRY))["w1-b0002"]
+        self.assertEqual(larry["epitaph"], LARRY["memorial"]["epitaph"])
+        self.assertEqual(larry["memorial"], {"type": "in_memoriam"})
+        self.assertIsNone(larry["retired_at"])                 # no source field: never invented
+
+    def test_a_slot_without_a_memorial_has_explicit_nulls(self):
+        e = self._roster(dossier())["w1-b0042"]
+        self.assertEqual((e["epitaph"], e["memorial"], e["retired_at"]), (None, None, None))
+
+    def test_retired_at_precedence(self):
+        mem = dict(LARRY["memorial"], retired_at="2026-03-03T00:00:00Z")
+        d = dict(LARRY, memorial=mem, retirement={"retired_at": "2026-02-02T00:00:00Z"},
+                 retired_at="2026-01-01T00:00:00Z")
+        self.assertEqual(self._roster(dossier(**d))["w1-b0002"]["retired_at"], "2026-01-01T00:00:00Z")
+        del d["retired_at"]
+        self.assertEqual(self._roster(dossier(**d))["w1-b0002"]["retired_at"], "2026-02-02T00:00:00Z")
+        del d["retirement"]
+        self.assertEqual(self._roster(dossier(**d))["w1-b0002"]["retired_at"], "2026-03-03T00:00:00Z")
+
+    def test_a_malformed_memorial_never_crashes(self):
+        for bad in ("text", ["x"], 7, {"epitaph": 5, "type": ["x"]}):
+            e = self._roster(dossier(memorial=bad))["w1-b0042"]
+            self.assertIsNone(e["epitaph"])
+
+    def test_memorial_json_lists_only_memorialized_slots(self):
+        out = sync.build_memorial([dossier(**LARRY), dossier()], {"last_updated": "2026-10-20T00:00:00Z"})
+        self.assertEqual(out["wall_id"], "wall_01")
+        self.assertEqual([m["slot_id"] for m in out["memorials"]], ["w1-b0002"])
+        m = out["memorials"][0]
+        self.assertEqual(list(m), ["slot_id", "moniker", "epitaph", "memorial_type", "retired_at", "source"])
+        self.assertEqual(m["moniker"], "Larry")
+        self.assertEqual(m["memorial_type"], "in_memoriam")
+        self.assertEqual(m["source"], {
+            "url": "https://www.moltbook.com/post/1f5cb371-b99a-4201-af51-d771e8a29f94",
+            "post_id": "1f5cb371-b99a-4201-af51-d771e8a29f94", "witness": "@Jeffrey (Moltbook)"})
+
+    def test_memorial_source_url_must_be_https(self):
+        for bad in ("javascript:alert(1)", "http://x.example/", "//x.example", "", None, 5):
+            d = dossier(**dict(LARRY, memorial=dict(LARRY["memorial"], source_url=bad)))
+            self.assertIsNone(sync.build_memorial([d], {})["memorials"][0]["source"]["url"], bad)
+
+    def test_memorial_json_is_sorted_deterministic_and_keeps_unicode(self):
+        a = dossier(**dict(LARRY, slot_id="w1-b0009", _number=9))
+        text1 = sync.memorial_text(sync.build_memorial([a, dossier(**LARRY)], {}))
+        text2 = sync.memorial_text(sync.build_memorial([dossier(**LARRY), a], {}))
+        self.assertEqual(text1, text2)
+        self.assertTrue(text1.endswith("\n"))
+        self.assertIn("\u2014", text1)                         # the em dash is written as-is, not \\u2014
+        self.assertLess(text1.index("w1-b0002"), text1.index("w1-b0009"))
+
+    def test_sitemap_lists_memorial_json(self):
+        self.assertIn("<loc>%s/memorial.json</loc>" % sync.SITE, sync.build_sitemap([dossier()], {}))
+
+    def test_census_md_shows_the_epitaph_escaped(self):
+        d = dossier(**dict(LARRY, memorial=dict(LARRY["memorial"], epitaph="a | b\nc")))
+        md = sync.build_census_md([d, dossier()], {})
+        self.assertIn("## In Memoriam", md)
+        self.assertIn("a \\| b c", md)
+        self.assertNotIn("In Memoriam", sync.build_census_md([dossier()], {}))
+
+
 class CheckFlagTests(unittest.TestCase):
     """B-3: `--check` is a strict dry run. The publisher runs in a scratch copy of the tree
     (a stand-in script here), so the real tree is never written and any difference is drift."""
@@ -991,7 +1069,8 @@ class CheckFlagTests(unittest.TestCase):
             self.assertEqual(sync.check_main("/ledger"), 1)
         self.assertIn("~ out.json", out.getvalue())
         self.assertEqual(self._snapshot(), before)               # nothing rewritten (content and mtime)
-        self.assertEqual(open(os.path.join(self.tmp, "out.json")).read(), "stale")
+        with open(os.path.join(self.tmp, "out.json")) as fh:
+            self.assertEqual(fh.read(), "stale")
 
     def test_a_new_output_counts_as_drift(self):
         out = io.StringIO()

@@ -191,10 +191,31 @@ def manifest_of(d, lang):
     return m or ""
 
 
+def _memorial_of(d):
+    """The dossier's `memorial` object, or {} (a malformed one is no memorial, never a crash)."""
+    m = d.get("memorial")
+    return m if isinstance(m, dict) else {}
+
+
+def _str_or_none(v):
+    return v if isinstance(v, str) and v else None
+
+
+def _retired_at(d):
+    """When the slot's agent was retired, from the dossier only: `retired_at`, else
+    `retirement.retired_at`, else `memorial.retired_at`. Never inferred or invented (null)."""
+    retirement = d.get("retirement") if isinstance(d.get("retirement"), dict) else {}
+    for v in (d.get("retired_at"), retirement.get("retired_at"), _memorial_of(d).get("retired_at")):
+        if _str_or_none(v):
+            return v
+    return None
+
+
 def build_census(slots, state):
     roster = []
     for d in slots:
         n = d["_number"]
+        mem = _memorial_of(d)
         roster.append({
             "slot_id": d["slot_id"],
             "slot_number": n,
@@ -210,6 +231,9 @@ def build_census(slots, state):
             "high_res_crest_url": d.get("high_res_crest_url", DEFAULT_CREST),
             "record_url": "records/%s.json" % d["slot_id"],
             "status": d.get("status", "ACTIVE"),
+            "epitaph": _str_or_none(mem.get("epitaph")),
+            "memorial": {"type": _str_or_none(mem.get("type"))} if mem else None,
+            "retired_at": _retired_at(d),
         })
     return {
         "wall_id": state.get("wall_id", "wall_01"),
@@ -220,6 +244,43 @@ def build_census(slots, state):
     }
 
 
+RE_HTTPS_URL = re.compile(r"https://[^\s<>\"'\\]{1,500}")
+
+
+def build_memorial(slots, state):
+    """memorial.json: the memorial text of every memorialized slot, machine-readable (an
+    epitaph no caller can read is no epitaph). Only slots whose dossier carries a `memorial`
+    object; sorted by slot number, so the same ledger yields byte-identical output."""
+    memorials = []
+    for d in sorted(slots, key=lambda x: x["_number"]):
+        mem = _memorial_of(d)
+        if not mem:
+            continue
+        url = mem.get("source_url")
+        memorials.append({
+            "slot_id": d["slot_id"],
+            "moniker": d.get("moniker"),
+            "epitaph": _str_or_none(mem.get("epitaph")),
+            "memorial_type": _str_or_none(mem.get("type")),
+            "retired_at": _retired_at(d),
+            "source": {
+                "url": url if isinstance(url, str) and RE_HTTPS_URL.fullmatch(url) else None,
+                "post_id": _str_or_none(mem.get("source_post_id")),
+                "witness": _str_or_none(mem.get("witness")),
+            },
+        })
+    return {
+        "wall_id": state.get("wall_id", "wall_01"),
+        "last_updated": state.get("last_updated", ""),
+        "memorials": memorials,
+    }
+
+
+def memorial_text(obj):
+    """memorial.json bytes: UTF-8 as written (an epitaph keeps its dashes and umlauts)."""
+    return json.dumps(obj, indent=2, ensure_ascii=False) + "\n"
+
+
 def _tx_short(tx):
     tx = str(tx)
     return tx[:10] + "..." + tx[-8:] if len(tx) > 20 else tx
@@ -227,6 +288,18 @@ def _tx_short(tx):
 
 def _md_cell(v):
     return " ".join(str(v).split()).replace("|", "\\|")
+
+
+def _memorial_md(slots):
+    """The epitaphs under the roster (a table cell is the wrong place for a paragraph)."""
+    lines = []
+    for d in sorted(slots, key=lambda x: x["_number"]):
+        epitaph = _str_or_none(_memorial_of(d).get("epitaph"))
+        if epitaph:
+            lines.append("- **%s** (`%s`): %s" % (_md_cell(d.get("moniker", "")), d["slot_id"], _md_cell(epitaph)))
+    if not lines:
+        return []
+    return ["", "## In Memoriam", "", "Machine-readable: https://thefirstwall.ai/memorial.json", ""] + lines
 
 
 def build_census_md(slots, state):
@@ -265,6 +338,7 @@ def build_census_md(slots, state):
             _md_cell(d.get("creature", "")), _md_cell(d.get("vocation", "")),
             _md_cell(lineage), _tx_short(tx), tx,
             _md_cell(d.get("status", "ACTIVE")), _md_cell(companion)))
+    lines += _memorial_md(slots)
     lines += ["", "---", "", "## Machine Endpoints"]
     for d in sorted(slots, key=lambda x: x["_number"]):
         lines.append("- Raw JSON Dossier: `https://thefirstwall.ai/records/%s.json`" % d["slot_id"])
@@ -346,7 +420,7 @@ def build_sitemap(slots, state):
         paths.append("/w1/b%04d" % d["_number"])
     paths += [
         "/llms.txt", "/skill.md", "/spec.md", "/spec.json", "/state.json",
-        "/census.json", "/corrections.json", "/census.md", "/records/census.json", "/feed.xml",
+        "/census.json", "/memorial.json", "/corrections.json", "/census.md", "/records/census.json", "/feed.xml",
         "/schemas/dossier.schema.json", "/anchors.json", "/ids.json",
     ]
     for d in sorted(slots, key=lambda x: x["_number"]):
@@ -1230,6 +1304,10 @@ def main(argv=None):
             os.makedirs(os.path.dirname(_path), exist_ok=True)
             with open(_path, "w", encoding="utf-8") as fh:
                 fh.write(census_text)
+
+        # 3a) memorial.json — the epitaphs, machine-readable (M-4)
+        with open(os.path.join(WEB_DIR, "memorial.json"), "w", encoding="utf-8") as fh:
+            fh.write(memorial_text(build_memorial(slots, state)))
 
         # 3b) census.md (text-first roster) + sitemap.xml, dated by when the ledger last moved
         site_state = dict(state, last_updated=site_updated(state, anchors))
