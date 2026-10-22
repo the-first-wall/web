@@ -6,6 +6,7 @@
 import contextlib
 import email.utils
 import glob
+import hashlib
 import importlib.util
 import io
 import json
@@ -1008,6 +1009,59 @@ class MemorialTests(unittest.TestCase):
         self.assertIn("## In Memoriam", md)
         self.assertIn("a \\| b c", md)
         self.assertNotIn("In Memoriam", sync.build_census_md([dossier()], {}))
+
+
+class AgentRegistrationMirrorTests(unittest.TestCase):
+    """I-10/B-17: .well-known/agent-registration.json is the ledger's canonical file, byte for byte."""
+    BODY = '{"type": "x", "name": "caf\u00e9"}\n'.encode("utf-8")
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.ledger = os.path.join(self.tmp, "ledger")
+        self.web = os.path.join(self.tmp, "web")
+        os.makedirs(self.ledger)
+        os.makedirs(os.path.join(self.web, ".well-known"))
+        self.dst = os.path.join(self.web, ".well-known", "agent-registration.json")
+        self._web, sync.WEB_DIR = sync.WEB_DIR, self.web
+
+    def tearDown(self):
+        sync.WEB_DIR = self._web
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _publish(self, data):
+        os.makedirs(os.path.join(self.ledger, "discovery"), exist_ok=True)
+        with open(os.path.join(self.ledger, "discovery", "agent-registration.json"), "wb") as fh:
+            fh.write(data)
+
+    def _dst(self):
+        with open(self.dst, "rb") as fh:
+            return fh.read()
+
+    def test_mirrors_byte_exact_and_verifies_the_state_hash(self):
+        self._publish(self.BODY)
+        want = hashlib.sha256(self.BODY).hexdigest()
+        msg = sync.mirror_agent_registration(self.ledger, {"discovery": {"agent_registration_sha256": want}})
+        self.assertEqual(self._dst(), self.BODY)
+        self.assertIn("matches", msg)
+
+    def test_a_missing_ledger_file_skips_with_a_message_and_touches_nothing(self):
+        with open(self.dst, "wb") as fh:
+            fh.write(b"committed")
+        msg = sync.mirror_agent_registration(self.ledger, {})
+        self.assertIn("skipped", msg)
+        self.assertEqual(self._dst(), b"committed")
+
+    def test_no_state_hash_yet_still_mirrors(self):
+        self._publish(self.BODY)
+        msg = sync.mirror_agent_registration(self.ledger, {"discovery": {}})
+        self.assertEqual(self._dst(), self.BODY)
+        self.assertIn("hash not checked", msg)
+
+    def test_a_hash_mismatch_is_surfaced(self):
+        self._publish(self.BODY)
+        msg = sync.mirror_agent_registration(self.ledger, {"discovery": {"agent_registration_sha256": "0" * 64}})
+        self.assertIn("differs", msg)
+        self.assertEqual(self._dst(), self.BODY)
 
 
 class CheckFlagTests(unittest.TestCase):

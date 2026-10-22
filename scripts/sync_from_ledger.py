@@ -1154,6 +1154,42 @@ def build_anchor_status(state, anchors, previous=None, rpc=None):
     }
 
 
+AGENT_REGISTRATION_SRC = ("discovery", "agent-registration.json")
+AGENT_REGISTRATION_DST = (".well-known", "agent-registration.json")
+
+
+def mirror_agent_registration(ledger, state):
+    """Mirror the ledger's canonical discovery/agent-registration.json to
+    /.well-known/agent-registration.json, byte for byte (I-10/B-17: one source of truth, the
+    served copy can never drift from it). Returns a short status string.
+
+    The ledger may not publish the file yet: then nothing is touched and the reason is logged.
+    When state.json carries discovery.agent_registration_sha256, the ledger's file is checked
+    against it and a mismatch is logged loudly (the ledger's own gate is the one that fails)."""
+    src = os.path.join(ledger, *AGENT_REGISTRATION_SRC)
+    if not os.path.isfile(src):
+        msg = "skipped: the ledger has no discovery/agent-registration.json yet; the committed copy is untouched"
+        _log("agent-registration " + msg)
+        return msg
+    with open(src, "rb") as fh:
+        data = fh.read()
+    digest = hashlib.sha256(data).hexdigest()
+    discovery = state.get("discovery") if isinstance(state.get("discovery"), dict) else {}
+    want = discovery.get("agent_registration_sha256")
+    dst = os.path.join(WEB_DIR, *AGENT_REGISTRATION_DST)
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    with open(dst, "wb") as fh:
+        fh.write(data)
+    if want is None:
+        msg = "mirrored (state.json has no discovery.agent_registration_sha256 yet; hash not checked)"
+    elif want == digest:
+        msg = "mirrored (sha256 matches state.json)"
+    else:
+        msg = "mirrored, but sha256 %s differs from state.json discovery.agent_registration_sha256 %s" % (digest, want)
+    _log("agent-registration " + msg)
+    return msg
+
+
 def parse_args(argv=None):
     p = argparse.ArgumentParser(
         prog="sync_from_ledger.py",
@@ -1290,6 +1326,9 @@ def main(argv=None):
         _settlements_src = os.path.join(ledger, "ledger", "settlements.json")
         if os.path.exists(_settlements_src):
             shutil.copyfile(_settlements_src, os.path.join(WEB_DIR, "settlements.json"))
+
+        # 2b') ERC-8004 registration: the ledger's canonical copy, mirrored verbatim (I-10/B-17)
+        mirror_agent_registration(ledger, state)
 
         # 2c) the Tag: block ids, the append-only id index, the static resolver (/b/, /id/, ids.json)
         _commit, _seen_at = ledger_head(ledger)
