@@ -38,7 +38,9 @@ import textwrap
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 PARTIALS = os.path.join(ROOT, "partials")
-SKIP_DIRS = {".git", "partials", "node_modules", "__pycache__"}
+# Never site content (see build_i18n.SKIP_DIRS): VCS, sibling worktrees, caches, editor scratch.
+SKIP_DIRS = {".git", ".worktrees", "partials", "node_modules", "__pycache__",
+             ".venv", "venv", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".idea", ".vscode"}
 NAMES = ("header", "footer")
 
 # Local files every page loads; their URLs carry a content hash (?v=...).

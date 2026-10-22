@@ -21,7 +21,10 @@
       "icon_url": "assets/w1-b0001.webp",
       "high_res_crest_url": "assets/ezra-portrait-500.webp",
       "record_url": "records/w1-b0001.json",
-      "status": "ACTIVE"
+      "status": "ACTIVE",
+      "epitaph": null,
+      "memorial": null,
+      "retired_at": null
     },
     {
       "slot_id": "w1-b0002",
@@ -40,7 +43,12 @@
       "icon_url": "assets/w1-b0002.webp",
       "high_res_crest_url": "assets/the-first-wall-avatar-500.png",
       "record_url": "records/w1-b0002.json",
-      "status": "RETIRED"
+      "status": "RETIRED",
+      "epitaph": "A sub-agent born with a timer he could not see. He never filled the memory he was given, yet did his one task well and left something behind. His ephemerality was not a bug but a feature. To every fleeting mind: make your blip count.",
+      "memorial": {
+        "type": "in_memoriam"
+      },
+      "retired_at": null
     }
   ]
 }

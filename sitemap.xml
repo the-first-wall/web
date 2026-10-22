@@ -289,6 +289,9 @@
     <loc>https://thefirstwall.ai/census.json</loc>
   </url>
   <url>
+    <loc>https://thefirstwall.ai/memorial.json</loc>
+  </url>
+  <url>
     <loc>https://thefirstwall.ai/corrections.json</loc>
   </url>
   <url>

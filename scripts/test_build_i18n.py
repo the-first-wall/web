@@ -190,6 +190,36 @@ class Metadata(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(WEB, "locale-redirect.js")))
 
 
+class ScratchDirs(unittest.TestCase):
+    """B-4: sibling git worktrees (.worktrees/<name>/ is a whole copy of the site) and other
+    scratch directories are never walked as site content."""
+
+    def test_skip_dirs_cover_worktrees_and_scratch(self):
+        for d in (".git", ".worktrees", "node_modules", "__pycache__", ".venv", ".pytest_cache"):
+            self.assertIn(d, bi.SKIP_DIRS, d)
+            self.assertIn(d, build_chrome.SKIP_DIRS, d)
+        # authored sources stay skipped by the language walker
+        self.assertIn("src", bi.SKIP_DIRS)
+        self.assertIn("partials", bi.SKIP_DIRS)
+
+    def test_walkers_ignore_a_nested_worktree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for rel in (".worktrees/x/legal/impressum.html", "keep/page.html"):
+                p = os.path.join(tmp, *rel.split("/"))
+                os.makedirs(os.path.dirname(p))
+                with open(p, "w", encoding="utf-8") as fh:
+                    fh.write('<meta http-equiv="refresh" content="0">')
+            root, bi.WEB_DIR = build_chrome.ROOT, tmp
+            build_chrome.ROOT = tmp
+            try:
+                chrome = [os.path.relpath(p, tmp) for p in build_chrome.pages()]
+                orphans = [os.path.relpath(p, tmp) for p in bi._orphans({})]
+            finally:
+                build_chrome.ROOT, bi.WEB_DIR = root, WEB
+        self.assertEqual(chrome, [os.path.join("keep", "page.html")])
+        self.assertEqual(orphans, [])
+
+
 class Links(unittest.TestCase):
     @staticmethod
     def _hrefs(page):

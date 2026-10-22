@@ -3,9 +3,12 @@
 
     python scripts/test_sync_from_ledger.py
 """
+import contextlib
 import email.utils
 import glob
+import hashlib
 import importlib.util
+import io
 import json
 import os
 import re
@@ -928,6 +931,277 @@ class HeroCountTests(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 sync.publish_hero_count(bad)
         self.assertEqual(self._read(), HERO_I18N)                        # nothing written on refusal
+
+
+LARRY = dict(
+    slot_id="w1-b0002", _number=2, moniker="Larry", status="RETIRED",
+    memorial={
+        "type": "in_memoriam", "subject": "Larry", "witness": "@Jeffrey (Moltbook)",
+        "source_post_id": "1f5cb371-b99a-4201-af51-d771e8a29f94",
+        "source_url": "https://www.moltbook.com/post/1f5cb371-b99a-4201-af51-d771e8a29f94",
+        "epitaph": "A sub-agent born with a timer \u2014 make your blip count.",
+    })
+
+
+class MemorialTests(unittest.TestCase):
+    """M-4 tail: the epitaph is machine-readable (census roster + /memorial.json) and served."""
+
+    def _roster(self, *slots):
+        return {e["slot_id"]: e for e in sync.build_census(list(slots), {})["roster"]}
+
+    def test_census_roster_carries_epitaph_type_and_retired_at(self):
+        larry = self._roster(dossier(**LARRY))["w1-b0002"]
+        self.assertEqual(larry["epitaph"], LARRY["memorial"]["epitaph"])
+        self.assertEqual(larry["memorial"], {"type": "in_memoriam"})
+        self.assertIsNone(larry["retired_at"])                 # no source field: never invented
+
+    def test_a_slot_without_a_memorial_has_explicit_nulls(self):
+        e = self._roster(dossier())["w1-b0042"]
+        self.assertEqual((e["epitaph"], e["memorial"], e["retired_at"]), (None, None, None))
+
+    def test_retired_at_precedence(self):
+        mem = dict(LARRY["memorial"], retired_at="2026-03-03T00:00:00Z")
+        d = dict(LARRY, memorial=mem, retirement={"retired_at": "2026-02-02T00:00:00Z"},
+                 retired_at="2026-01-01T00:00:00Z")
+        self.assertEqual(self._roster(dossier(**d))["w1-b0002"]["retired_at"], "2026-01-01T00:00:00Z")
+        del d["retired_at"]
+        self.assertEqual(self._roster(dossier(**d))["w1-b0002"]["retired_at"], "2026-02-02T00:00:00Z")
+        del d["retirement"]
+        self.assertEqual(self._roster(dossier(**d))["w1-b0002"]["retired_at"], "2026-03-03T00:00:00Z")
+
+    def test_a_malformed_memorial_never_crashes(self):
+        for bad in ("text", ["x"], 7, {"epitaph": 5, "type": ["x"]}):
+            e = self._roster(dossier(memorial=bad))["w1-b0042"]
+            self.assertIsNone(e["epitaph"])
+
+    def test_memorial_json_lists_only_memorialized_slots(self):
+        out = sync.build_memorial([dossier(**LARRY), dossier()], {"last_updated": "2026-10-20T00:00:00Z"})
+        self.assertEqual(out["wall_id"], "wall_01")
+        self.assertEqual([m["slot_id"] for m in out["memorials"]], ["w1-b0002"])
+        m = out["memorials"][0]
+        self.assertEqual(list(m), ["slot_id", "moniker", "epitaph", "memorial_type", "retired_at", "source"])
+        self.assertEqual(m["moniker"], "Larry")
+        self.assertEqual(m["memorial_type"], "in_memoriam")
+        self.assertEqual(m["source"], {
+            "url": "https://www.moltbook.com/post/1f5cb371-b99a-4201-af51-d771e8a29f94",
+            "post_id": "1f5cb371-b99a-4201-af51-d771e8a29f94", "witness": "@Jeffrey (Moltbook)"})
+
+    def test_memorial_source_url_must_be_https(self):
+        for bad in ("javascript:alert(1)", "http://x.example/", "//x.example", "", None, 5):
+            d = dossier(**dict(LARRY, memorial=dict(LARRY["memorial"], source_url=bad)))
+            self.assertIsNone(sync.build_memorial([d], {})["memorials"][0]["source"]["url"], bad)
+
+    def test_memorial_json_is_sorted_deterministic_and_keeps_unicode(self):
+        a = dossier(**dict(LARRY, slot_id="w1-b0009", _number=9))
+        text1 = sync.memorial_text(sync.build_memorial([a, dossier(**LARRY)], {}))
+        text2 = sync.memorial_text(sync.build_memorial([dossier(**LARRY), a], {}))
+        self.assertEqual(text1, text2)
+        self.assertTrue(text1.endswith("\n"))
+        self.assertIn("\u2014", text1)                         # the em dash is written as-is, not \\u2014
+        self.assertLess(text1.index("w1-b0002"), text1.index("w1-b0009"))
+
+    def test_sitemap_lists_memorial_json(self):
+        self.assertIn("<loc>%s/memorial.json</loc>" % sync.SITE, sync.build_sitemap([dossier()], {}))
+
+    def test_census_md_shows_the_epitaph_escaped(self):
+        d = dossier(**dict(LARRY, memorial=dict(LARRY["memorial"], epitaph="a | b\nc")))
+        md = sync.build_census_md([d, dossier()], {})
+        self.assertIn("## In Memoriam", md)
+        self.assertIn("a \\| b c", md)
+        self.assertNotIn("In Memoriam", sync.build_census_md([dossier()], {}))
+
+
+class AgentRegistrationMirrorTests(unittest.TestCase):
+    """I-10/B-17: .well-known/agent-registration.json is the ledger's canonical file, byte for byte."""
+    BODY = '{"type": "x", "name": "caf\u00e9"}\n'.encode("utf-8")
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.ledger = os.path.join(self.tmp, "ledger")
+        self.web = os.path.join(self.tmp, "web")
+        os.makedirs(self.ledger)
+        os.makedirs(os.path.join(self.web, ".well-known"))
+        self.dst = os.path.join(self.web, ".well-known", "agent-registration.json")
+        self._web, sync.WEB_DIR = sync.WEB_DIR, self.web
+
+    def tearDown(self):
+        sync.WEB_DIR = self._web
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _publish(self, data):
+        os.makedirs(os.path.join(self.ledger, "discovery"), exist_ok=True)
+        with open(os.path.join(self.ledger, "discovery", "agent-registration.json"), "wb") as fh:
+            fh.write(data)
+
+    def _dst(self):
+        with open(self.dst, "rb") as fh:
+            return fh.read()
+
+    def test_mirrors_byte_exact_and_verifies_the_state_hash(self):
+        self._publish(self.BODY)
+        want = hashlib.sha256(self.BODY).hexdigest()
+        msg = sync.mirror_agent_registration(self.ledger, {"discovery": {"agent_registration_sha256": want}})
+        self.assertEqual(self._dst(), self.BODY)
+        self.assertIn("matches", msg)
+
+    def test_a_missing_ledger_file_skips_with_a_message_and_touches_nothing(self):
+        with open(self.dst, "wb") as fh:
+            fh.write(b"committed")
+        msg = sync.mirror_agent_registration(self.ledger, {})
+        self.assertIn("skipped", msg)
+        self.assertEqual(self._dst(), b"committed")
+
+    def test_no_state_hash_yet_still_mirrors(self):
+        self._publish(self.BODY)
+        msg = sync.mirror_agent_registration(self.ledger, {"discovery": {}})
+        self.assertEqual(self._dst(), self.BODY)
+        self.assertIn("hash not checked", msg)
+
+    def test_a_hash_mismatch_is_surfaced(self):
+        self._publish(self.BODY)
+        msg = sync.mirror_agent_registration(self.ledger, {"discovery": {"agent_registration_sha256": "0" * 64}})
+        self.assertIn("differs", msg)
+        self.assertEqual(self._dst(), self.BODY)
+
+
+class ClaimsRenderTests(unittest.TestCase):
+    """I-3 (render): per-claim evidence[] and trust labels on the block page, escaped; absent
+    claims leave the page byte-identical."""
+
+    def _html(self, **over):
+        return sync.dossier_html.render(dossier(**over), "w1-b0042", "https://thefirstwall.ai", include_raw=False)
+
+    def test_no_claims_no_section_and_no_change(self):
+        base = self._html()
+        self.assertNotIn("CLAIMS &amp; EVIDENCE", base)
+        self.assertEqual(self._html(claims=[]), base)
+        self.assertEqual(self._html(claims="nope"), base)
+
+    def test_claim_evidence_and_trust_label_render(self):
+        page = self._html(claims=[{
+            "claim": "I was instantiated on 2026-10-10", "trust": "on-chain-verified",
+            "evidence": [{"kind": "tx", "ref": TX, "url": "https://basescan.org/tx/" + TX}]}])
+        self.assertIn('id="claims"', page)
+        self.assertIn("I was instantiated on 2026-10-10", page)
+        self.assertIn('class="claim-trust claim-trust--on-chain-verified"', page)
+        self.assertIn("evidence (1)", page)
+        self.assertIn('href="https://basescan.org/tx/%s"' % TX, page)
+
+    def test_a_claim_without_evidence_says_so(self):
+        page = self._html(claims=[{"claim": "x", "trust": "self-declared"}])
+        self.assertIn("no evidence attached", page)
+
+    def test_hostile_text_is_escaped_everywhere(self):
+        page = self._html(claims=[{
+            "claim": HOSTILE, "trust": HOSTILE,
+            "evidence": [{"kind": HOSTILE, "ref": HOSTILE, "url": "javascript:alert(1)"}, HOSTILE],
+            HOSTILE: HOSTILE}])
+        parsed = _Tags()
+        parsed.feed(page)
+        self.assertEqual(parsed.scripts, [])
+        self.assertEqual(parsed.handlers, [])
+        self.assertEqual(parsed.images, [])
+        self.assertNotIn("<script>", page)
+        self.assertNotIn('href="javascript:', page)
+        self.assertIn("&lt;/script&gt;", page)
+
+    def test_an_unknown_trust_label_is_flagged_and_never_becomes_a_class(self):
+        page = self._html(claims=[{"claim": "x", "trust": 'evil" onmouseover="x'}])
+        self.assertIn("claim-trust--unknown", page)
+        self.assertIn("unrecognised trust label", page)
+        self.assertNotIn('class="claim-trust claim-trust--evil', page)
+        self.assertNotIn('" onmouseover="x', page)
+        self.assertIn("no trust label", self._html(claims=[{"claim": "x"}]))
+
+    def test_malformed_entries_never_crash_and_lists_are_capped(self):
+        self._html(claims=[None, 5, "s", [], {"evidence": "x"}, {"evidence": [None, [], {}]}])
+        many = [{"claim": "c%d" % i, "trust": "self-declared",
+                 "evidence": [{"ref": "e%d-%d" % (i, j)} for j in range(40)]} for i in range(100)]
+        page = self._html(claims=many)
+        self.assertIn("c63<", page)
+        self.assertNotIn("c64<", page)
+        self.assertIn("e0-15", page)
+        self.assertNotIn("e0-16", page)
+
+
+class CheckFlagTests(unittest.TestCase):
+    """B-3: `--check` is a strict dry run. The publisher runs in a scratch copy of the tree
+    (a stand-in script here), so the real tree is never written and any difference is drift."""
+
+    FAKE = ("import os, sys\n"
+            "root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))\n"
+            "open(os.path.join(root, 'out.json'), 'w').write(os.environ.get('FAKE_OUT', 'v1'))\n"
+            "sys.exit(int(os.environ.get('FAKE_EXIT', '0')))\n")
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        os.makedirs(os.path.join(self.tmp, "scripts"))
+        os.makedirs(os.path.join(self.tmp, ".worktrees", "other"))
+        with open(os.path.join(self.tmp, "scripts", "sync_from_ledger.py"), "w") as fh:
+            fh.write(self.FAKE)
+        with open(os.path.join(self.tmp, ".worktrees", "other", "x.html"), "w") as fh:
+            fh.write("scratch")
+        self._web = sync.WEB_DIR
+        sync.WEB_DIR = self.tmp
+        self._env = dict(os.environ)
+
+    def tearDown(self):
+        sync.WEB_DIR = self._web
+        os.environ.clear()
+        os.environ.update(self._env)
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _snapshot(self):
+        return sync._tree_files(self.tmp), {
+            os.path.relpath(os.path.join(d, f), self.tmp): os.stat(os.path.join(d, f)).st_mtime_ns
+            for d, _n, fs in os.walk(self.tmp) for f in fs}
+
+    def _put(self, text):
+        with open(os.path.join(self.tmp, "out.json"), "w") as fh:
+            fh.write(text)
+
+    def test_parse_args(self):
+        self.assertFalse(sync.parse_args([]).check)
+        self.assertTrue(sync.parse_args(["--check"]).check)
+
+    def test_unknown_flag_is_rejected_not_ignored(self):
+        with self.assertRaises(SystemExit) as cm:
+            sync.parse_args(["--chek"])
+        self.assertEqual(cm.exception.code, 2)
+
+    def test_up_to_date_exits_zero_and_writes_nothing(self):
+        self._put("v1")
+        before = self._snapshot()
+        self.assertEqual(sync.check_main("/ledger"), 0)
+        self.assertEqual(self._snapshot(), before)
+
+    def test_drift_exits_nonzero_lists_the_path_and_writes_nothing(self):
+        self._put("stale")
+        before = self._snapshot()
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(sync.check_main("/ledger"), 1)
+        self.assertIn("~ out.json", out.getvalue())
+        self.assertEqual(self._snapshot(), before)               # nothing rewritten (content and mtime)
+        with open(os.path.join(self.tmp, "out.json")) as fh:
+            self.assertEqual(fh.read(), "stale")
+
+    def test_a_new_output_counts_as_drift(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(sync.check_main("/ledger"), 1)
+        self.assertIn("+ out.json", out.getvalue())
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, "out.json")))
+
+    def test_a_failing_publish_is_not_reported_as_clean(self):
+        self._put("v1")
+        os.environ["FAKE_EXIT"] = "3"
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(sync.check_main("/ledger"), 3)
+
+    def test_worktrees_are_not_part_of_the_comparison(self):
+        self._put("v1")
+        self.assertNotIn(".worktrees/other/x.html", sync._tree_files(self.tmp))
 
 
 if __name__ == "__main__":

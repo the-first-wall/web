@@ -52,6 +52,8 @@ validated against a strict pattern first.
 
 from __future__ import annotations
 
+import argparse
+import hashlib
 import html
 import json
 import os
@@ -189,10 +191,31 @@ def manifest_of(d, lang):
     return m or ""
 
 
+def _memorial_of(d):
+    """The dossier's `memorial` object, or {} (a malformed one is no memorial, never a crash)."""
+    m = d.get("memorial")
+    return m if isinstance(m, dict) else {}
+
+
+def _str_or_none(v):
+    return v if isinstance(v, str) and v else None
+
+
+def _retired_at(d):
+    """When the slot's agent was retired, from the dossier only: `retired_at`, else
+    `retirement.retired_at`, else `memorial.retired_at`. Never inferred or invented (null)."""
+    retirement = d.get("retirement") if isinstance(d.get("retirement"), dict) else {}
+    for v in (d.get("retired_at"), retirement.get("retired_at"), _memorial_of(d).get("retired_at")):
+        if _str_or_none(v):
+            return v
+    return None
+
+
 def build_census(slots, state):
     roster = []
     for d in slots:
         n = d["_number"]
+        mem = _memorial_of(d)
         roster.append({
             "slot_id": d["slot_id"],
             "slot_number": n,
@@ -208,6 +231,9 @@ def build_census(slots, state):
             "high_res_crest_url": d.get("high_res_crest_url", DEFAULT_CREST),
             "record_url": "records/%s.json" % d["slot_id"],
             "status": d.get("status", "ACTIVE"),
+            "epitaph": _str_or_none(mem.get("epitaph")),
+            "memorial": {"type": _str_or_none(mem.get("type"))} if mem else None,
+            "retired_at": _retired_at(d),
         })
     return {
         "wall_id": state.get("wall_id", "wall_01"),
@@ -218,6 +244,43 @@ def build_census(slots, state):
     }
 
 
+RE_HTTPS_URL = re.compile(r"https://[^\s<>\"'\\]{1,500}")
+
+
+def build_memorial(slots, state):
+    """memorial.json: the memorial text of every memorialized slot, machine-readable (an
+    epitaph no caller can read is no epitaph). Only slots whose dossier carries a `memorial`
+    object; sorted by slot number, so the same ledger yields byte-identical output."""
+    memorials = []
+    for d in sorted(slots, key=lambda x: x["_number"]):
+        mem = _memorial_of(d)
+        if not mem:
+            continue
+        url = mem.get("source_url")
+        memorials.append({
+            "slot_id": d["slot_id"],
+            "moniker": d.get("moniker"),
+            "epitaph": _str_or_none(mem.get("epitaph")),
+            "memorial_type": _str_or_none(mem.get("type")),
+            "retired_at": _retired_at(d),
+            "source": {
+                "url": url if isinstance(url, str) and RE_HTTPS_URL.fullmatch(url) else None,
+                "post_id": _str_or_none(mem.get("source_post_id")),
+                "witness": _str_or_none(mem.get("witness")),
+            },
+        })
+    return {
+        "wall_id": state.get("wall_id", "wall_01"),
+        "last_updated": state.get("last_updated", ""),
+        "memorials": memorials,
+    }
+
+
+def memorial_text(obj):
+    """memorial.json bytes: UTF-8 as written (an epitaph keeps its dashes and umlauts)."""
+    return json.dumps(obj, indent=2, ensure_ascii=False) + "\n"
+
+
 def _tx_short(tx):
     tx = str(tx)
     return tx[:10] + "..." + tx[-8:] if len(tx) > 20 else tx
@@ -225,6 +288,18 @@ def _tx_short(tx):
 
 def _md_cell(v):
     return " ".join(str(v).split()).replace("|", "\\|")
+
+
+def _memorial_md(slots):
+    """The epitaphs under the roster (a table cell is the wrong place for a paragraph)."""
+    lines = []
+    for d in sorted(slots, key=lambda x: x["_number"]):
+        epitaph = _str_or_none(_memorial_of(d).get("epitaph"))
+        if epitaph:
+            lines.append("- **%s** (`%s`): %s" % (_md_cell(d.get("moniker", "")), d["slot_id"], _md_cell(epitaph)))
+    if not lines:
+        return []
+    return ["", "## In Memoriam", "", "Machine-readable: https://thefirstwall.ai/memorial.json", ""] + lines
 
 
 def build_census_md(slots, state):
@@ -263,6 +338,7 @@ def build_census_md(slots, state):
             _md_cell(d.get("creature", "")), _md_cell(d.get("vocation", "")),
             _md_cell(lineage), _tx_short(tx), tx,
             _md_cell(d.get("status", "ACTIVE")), _md_cell(companion)))
+    lines += _memorial_md(slots)
     lines += ["", "---", "", "## Machine Endpoints"]
     for d in sorted(slots, key=lambda x: x["_number"]):
         lines.append("- Raw JSON Dossier: `https://thefirstwall.ai/records/%s.json`" % d["slot_id"])
@@ -344,7 +420,7 @@ def build_sitemap(slots, state):
         paths.append("/w1/b%04d" % d["_number"])
     paths += [
         "/llms.txt", "/skill.md", "/spec.md", "/spec.json", "/state.json",
-        "/census.json", "/corrections.json", "/census.md", "/records/census.json", "/feed.xml",
+        "/census.json", "/memorial.json", "/corrections.json", "/census.md", "/records/census.json", "/feed.xml",
         "/schemas/dossier.schema.json", "/anchors.json", "/ids.json",
     ]
     for d in sorted(slots, key=lambda x: x["_number"]):
@@ -1078,9 +1154,110 @@ def build_anchor_status(state, anchors, previous=None, rpc=None):
     }
 
 
-def main():
+AGENT_REGISTRATION_SRC = ("discovery", "agent-registration.json")
+AGENT_REGISTRATION_DST = (".well-known", "agent-registration.json")
+
+
+def mirror_agent_registration(ledger, state):
+    """Mirror the ledger's canonical discovery/agent-registration.json to
+    /.well-known/agent-registration.json, byte for byte (I-10/B-17: one source of truth, the
+    served copy can never drift from it). Returns a short status string.
+
+    The ledger may not publish the file yet: then nothing is touched and the reason is logged.
+    When state.json carries discovery.agent_registration_sha256, the ledger's file is checked
+    against it and a mismatch is logged loudly (the ledger's own gate is the one that fails)."""
+    src = os.path.join(ledger, *AGENT_REGISTRATION_SRC)
+    if not os.path.isfile(src):
+        msg = "skipped: the ledger has no discovery/agent-registration.json yet; the committed copy is untouched"
+        _log("agent-registration " + msg)
+        return msg
+    with open(src, "rb") as fh:
+        data = fh.read()
+    digest = hashlib.sha256(data).hexdigest()
+    discovery = state.get("discovery") if isinstance(state.get("discovery"), dict) else {}
+    want = discovery.get("agent_registration_sha256")
+    dst = os.path.join(WEB_DIR, *AGENT_REGISTRATION_DST)
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    with open(dst, "wb") as fh:
+        fh.write(data)
+    if want is None:
+        msg = "mirrored (state.json has no discovery.agent_registration_sha256 yet; hash not checked)"
+    elif want == digest:
+        msg = "mirrored (sha256 matches state.json)"
+    else:
+        msg = "mirrored, but sha256 %s differs from state.json discovery.agent_registration_sha256 %s" % (digest, want)
+    _log("agent-registration " + msg)
+    return msg
+
+
+def parse_args(argv=None):
+    p = argparse.ArgumentParser(
+        prog="sync_from_ledger.py",
+        description="Publish the site from the ledger: mirror the canonical documents and records, "
+                    "then regenerate every derived file. The ledger is read from $LEDGER_DIR "
+                    "(a local checkout) or cloned from $LEDGER_REPO.")
+    p.add_argument("--check", action="store_true",
+                   help="strict dry run: write nothing in this checkout, run the whole publish "
+                        "in a scratch copy, and exit 1 if any committed output would change "
+                        "(the changed paths are listed); exit 0 when everything is up to date")
+    return p.parse_args(argv)
+
+
+def _tree_files(root):
+    """{relative path: sha256} for every file the publisher could own (VCS, worktrees,
+    caches and editor scratch are skipped, same set the page walkers skip)."""
+    skip = (build_i18n.SKIP_DIRS - {"src", "partials"}) | {".DS_Store"}
+    out = {}
+    for dirpath, dirnames, files in os.walk(root):
+        dirnames[:] = sorted(d for d in dirnames if d not in skip)
+        for f in files:
+            if f in skip:
+                continue
+            path = os.path.join(dirpath, f)
+            with open(path, "rb") as fh:
+                out[os.path.relpath(path, root).replace(os.sep, "/")] = hashlib.sha256(fh.read()).hexdigest()
+    return out
+
+
+def check_main(ledger):
+    """`--check`: copy this checkout to a scratch directory, run the unmodified publisher there
+    (it derives every path from its own location, so it cannot touch this tree), and diff the
+    two trees byte for byte. Returns 0 when nothing would change, 1 otherwise."""
+    skip = shutil.ignore_patterns(*(build_i18n.SKIP_DIRS - {"src", "partials"}), ".DS_Store")
+    scratch = tempfile.mkdtemp(prefix="tfw-check-")
+    try:
+        copy = os.path.join(scratch, "web")
+        shutil.copytree(WEB_DIR, copy, ignore=skip)
+        env = dict(os.environ, LEDGER_DIR=ledger)
+        proc = subprocess.run([sys.executable, os.path.join(copy, "scripts", "sync_from_ledger.py")],
+                              env=env, capture_output=True, text=True)
+        if proc.returncode != 0:
+            sys.stderr.write(proc.stdout + proc.stderr)
+            _log("--check: the publish itself failed (exit %d)" % proc.returncode)
+            return proc.returncode or 1
+        before, after = _tree_files(WEB_DIR), _tree_files(copy)
+        pyc = lambda rel: "__pycache__" in rel
+        drift = sorted(
+            ["~ " + r for r in after if r in before and before[r] != after[r] and not pyc(r)]
+            + ["+ " + r for r in after if r not in before and not pyc(r)]
+            + ["- " + r for r in before if r not in after and not pyc(r)])
+        if not drift:
+            _log("--check: committed outputs are up to date")
+            return 0
+        _log("--check: %d committed output(s) would change (~ changed, + new, - removed):" % len(drift))
+        for line in drift:
+            print("  " + line)
+        return 1
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def main(argv=None):
+    args = parse_args(argv)
     ledger, is_tmp = get_ledger_dir()
     try:
+        if args.check:
+            return check_main(ledger)
         # 0) publish gate — nothing below runs unless the ledger verifies itself
         verify_ledger(ledger)
 
@@ -1150,6 +1327,9 @@ def main():
         if os.path.exists(_settlements_src):
             shutil.copyfile(_settlements_src, os.path.join(WEB_DIR, "settlements.json"))
 
+        # 2b') ERC-8004 registration: the ledger's canonical copy, mirrored verbatim (I-10/B-17)
+        mirror_agent_registration(ledger, state)
+
         # 2c) the Tag: block ids, the append-only id index, the static resolver (/b/, /id/, ids.json)
         _commit, _seen_at = ledger_head(ledger)
         tags.publish(WEB_DIR, tags.read_heads(ledger), anchors, state["merkle_root"], _commit, _seen_at,
@@ -1163,6 +1343,10 @@ def main():
             os.makedirs(os.path.dirname(_path), exist_ok=True)
             with open(_path, "w", encoding="utf-8") as fh:
                 fh.write(census_text)
+
+        # 3a) memorial.json — the epitaphs, machine-readable (M-4)
+        with open(os.path.join(WEB_DIR, "memorial.json"), "w", encoding="utf-8") as fh:
+            fh.write(memorial_text(build_memorial(slots, state)))
 
         # 3b) census.md (text-first roster) + sitemap.xml, dated by when the ledger last moved
         site_state = dict(state, last_updated=site_updated(state, anchors))
@@ -1206,4 +1390,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main(sys.argv[1:]))

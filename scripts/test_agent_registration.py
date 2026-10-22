@@ -13,6 +13,7 @@ reads back this file's URL as tokenURI(107162)).
 These checks keep the file in the shape the standard shows and keep it from
 claiming anything that is not true.
 """
+import hashlib
 import json
 import os
 import re
@@ -35,6 +36,24 @@ def load():
     with open(PATH, "r", encoding="utf-8") as fh:
         text = fh.read()
     return json.loads(text), text
+
+
+class RegistrationDriftTests(unittest.TestCase):
+    """I-10/B-17: the served file is the ledger's canonical one. The ledger commits its sha256 in
+    state.json (discovery.agent_registration_sha256); the mirror must hash to exactly that."""
+
+    def test_served_file_matches_the_hash_in_state_json(self):
+        with open(os.path.join(ROOT, "state.json"), "r", encoding="utf-8") as fh:
+            state = json.load(fh)
+        discovery = state.get("discovery")
+        want = discovery.get("agent_registration_sha256") if isinstance(discovery, dict) else None
+        if want is None:
+            self.skipTest("state.json has no discovery.agent_registration_sha256 yet "
+                          "(the ledger publishes it; this guard activates when it does)")
+        with open(PATH, "rb") as fh:
+            got = hashlib.sha256(fh.read()).hexdigest()
+        self.assertEqual(got, want, "the served .well-known/agent-registration.json drifted from the "
+                                    "ledger's canonical file (run scripts/sync_from_ledger.py)")
 
 
 class RegistrationFileTests(unittest.TestCase):
