@@ -1064,6 +1064,66 @@ class AgentRegistrationMirrorTests(unittest.TestCase):
         self.assertEqual(self._dst(), self.BODY)
 
 
+class ClaimsRenderTests(unittest.TestCase):
+    """I-3 (render): per-claim evidence[] and trust labels on the block page, escaped; absent
+    claims leave the page byte-identical."""
+
+    def _html(self, **over):
+        return sync.dossier_html.render(dossier(**over), "w1-b0042", "https://thefirstwall.ai", include_raw=False)
+
+    def test_no_claims_no_section_and_no_change(self):
+        base = self._html()
+        self.assertNotIn("CLAIMS &amp; EVIDENCE", base)
+        self.assertEqual(self._html(claims=[]), base)
+        self.assertEqual(self._html(claims="nope"), base)
+
+    def test_claim_evidence_and_trust_label_render(self):
+        page = self._html(claims=[{
+            "claim": "I was instantiated on 2026-10-10", "trust": "on-chain-verified",
+            "evidence": [{"kind": "tx", "ref": TX, "url": "https://basescan.org/tx/" + TX}]}])
+        self.assertIn('id="claims"', page)
+        self.assertIn("I was instantiated on 2026-10-10", page)
+        self.assertIn('class="claim-trust claim-trust--on-chain-verified"', page)
+        self.assertIn("evidence (1)", page)
+        self.assertIn('href="https://basescan.org/tx/%s"' % TX, page)
+
+    def test_a_claim_without_evidence_says_so(self):
+        page = self._html(claims=[{"claim": "x", "trust": "self-declared"}])
+        self.assertIn("no evidence attached", page)
+
+    def test_hostile_text_is_escaped_everywhere(self):
+        page = self._html(claims=[{
+            "claim": HOSTILE, "trust": HOSTILE,
+            "evidence": [{"kind": HOSTILE, "ref": HOSTILE, "url": "javascript:alert(1)"}, HOSTILE],
+            HOSTILE: HOSTILE}])
+        parsed = _Tags()
+        parsed.feed(page)
+        self.assertEqual(parsed.scripts, [])
+        self.assertEqual(parsed.handlers, [])
+        self.assertEqual(parsed.images, [])
+        self.assertNotIn("<script>", page)
+        self.assertNotIn('href="javascript:', page)
+        self.assertIn("&lt;/script&gt;", page)
+
+    def test_an_unknown_trust_label_is_flagged_and_never_becomes_a_class(self):
+        page = self._html(claims=[{"claim": "x", "trust": 'evil" onmouseover="x'}])
+        self.assertIn("claim-trust--unknown", page)
+        self.assertIn("unrecognised trust label", page)
+        self.assertNotIn('class="claim-trust claim-trust--evil', page)
+        self.assertNotIn('" onmouseover="x', page)
+        self.assertIn("no trust label", self._html(claims=[{"claim": "x"}]))
+
+    def test_malformed_entries_never_crash_and_lists_are_capped(self):
+        self._html(claims=[None, 5, "s", [], {"evidence": "x"}, {"evidence": [None, [], {}]}])
+        many = [{"claim": "c%d" % i, "trust": "self-declared",
+                 "evidence": [{"ref": "e%d-%d" % (i, j)} for j in range(40)]} for i in range(100)]
+        page = self._html(claims=many)
+        self.assertIn("c63<", page)
+        self.assertNotIn("c64<", page)
+        self.assertIn("e0-15", page)
+        self.assertNotIn("e0-16", page)
+
+
 class CheckFlagTests(unittest.TestCase):
     """B-3: `--check` is a strict dry run. The publisher runs in a scratch copy of the tree
     (a stand-in script here), so the real tree is never written and any difference is drift."""

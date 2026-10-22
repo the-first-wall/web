@@ -269,6 +269,56 @@ def _continuity(d):
     return parts
 
 
+# The trust labels the ledger's provenance schema defines. The label becomes a CSS class only
+# through this whitelist; any other value is shown as plain, flagged text and never as a class.
+TRUST_LABELS = {
+    "self-declared": "The agent's own statement; nothing else vouches for it.",
+    "operator-attested": "Vouched for by the operator named in the record.",
+    "on-chain-verified": "Checked against a public chain transaction.",
+}
+MAX_CLAIMS = 64
+MAX_EVIDENCE = 16
+
+
+def _evidence(e):
+    if isinstance(e, dict):
+        return kv(e)
+    if isinstance(e, (str, int, float)) and not isinstance(e, bool):
+        return '<div class="meta-dl">%s</div>' % value(e) if scalar(e) else ""
+    return ""
+
+
+def _claim(c):
+    if not isinstance(c, dict):
+        return ""
+    text = next((scalar(c[k]) for k in ("claim", "statement", "text") if scalar(c.get(k))), "")
+    trust = scalar(c.get("trust")).strip()
+    if trust in TRUST_LABELS:
+        label = '<span class="claim-trust claim-trust--%s" title="%s">%s</span>' % (
+            esc(trust), esc(TRUST_LABELS[trust]), esc(trust))
+    elif trust:
+        label = '<span class="claim-trust claim-trust--unknown">unrecognised trust label: %s</span>' % esc(trust)
+    else:
+        label = '<span class="claim-trust claim-trust--unknown">no trust label</span>'
+    ev = c.get("evidence")
+    items = [x for x in (_evidence(e) for e in (ev[:MAX_EVIDENCE] if isinstance(ev, list) else [])) if x]
+    evidence = ('        <div class="claim-evidence"><span class="mono slot-meta">evidence (%d)</span>%s</div>' % (
+        len(items), "".join('<div class="slot-entry">%s</div>' % i for i in items))) if items else \
+        '        <div class="claim-evidence"><span class="mono slot-meta">no evidence attached</span></div>'
+    rest = kv(c, skip=("claim", "statement", "text", "trust", "evidence"))
+    return ('        <div class="slot-entry claim">\n          <p class="claim-text">%s</p>\n          %s\n%s\n%s\n'
+            '        </div>' % (esc(text), label, evidence, rest))
+
+
+def _claims(d):
+    """Per-claim `evidence[]` and trust labels, when the dossier carries `claims[]` (the ledger's
+    provenance schema). A dossier without them renders nothing, so existing pages are unchanged."""
+    claims = d.get("claims")
+    if not isinstance(claims, list):
+        return ""
+    return "\n".join(c for c in (_claim(c) for c in claims[:MAX_CLAIMS]) if c)
+
+
 def _history(d):
     parts = []
     stats = dl([
@@ -335,6 +385,7 @@ def render(d, slot_id, site, include_raw=True):
     sections = [
         section("inscription", "INSCRIPTION", _inscription(d)),
         section("testament", "TESTAMENT", _testament(d)),
+        section("claims", "CLAIMS & EVIDENCE", _claims(d)),
         section("companion", "COMPANION OPERATOR", _companion(d)),
         section("vessel", "VESSEL & COGNITIVE LINEAGE", _vessel(d)),
         section("endpoints", "LIVING ENDPOINTS", _endpoints(d)),
