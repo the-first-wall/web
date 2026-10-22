@@ -22,7 +22,7 @@ Generated outputs
   assets/wall_01_composite.webp  ← 1000x1000 composite of every block
   feed.xml                       ← RSS (Chronicle)
   souls/w1-bNNNN.soul.json       ← ledger soul manifest (verbatim; verifies soul_hash)
-  skill.md, spec.md, spec.json, llms.txt  ← canonical docs mirrored verbatim from the ledger
+  skill.md, spec.md, spec.json, llms.txt, permissions.json  ← canonical docs mirrored verbatim from the ledger
   schemas/dossier.schema.json    ← canonical JSON schema (verbatim)
   anchors.json                   ← on-chain Merkle-root anchor records (verbatim)
   settlements.json               ← ledger/settlements.json (verbatim, when present)
@@ -78,6 +78,12 @@ WEB_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CANVAS_BG = (8, 9, 13, 255)          # matches the site background (#08090d)
 DEFAULT_CREST = "assets/the-first-wall-avatar-500.png"
 SITE = "https://thefirstwall.ai"
+
+# The canonical documents mirrored verbatim from the ledger on every sync (single
+# source of truth). Every URL these documents advertise at thefirstwall.ai/<name>
+# must be served by this repo: permissions.json was referenced by llms.txt and
+# skill.md for a day while the site 404'd it (nothing published it).
+MIRRORED_DOCS = ("skill.md", "spec.md", "spec.json", "llms.txt", "permissions.json")
 
 # Strict shapes for every ledger value that is placed in a URL, a path or an
 # attribute. Anything else is rejected (the ledger verifier guarantees these
@@ -419,7 +425,7 @@ def build_sitemap(slots, state):
     for d in sorted(slots, key=lambda x: x["_number"]):
         paths.append("/w1/b%04d" % d["_number"])
     paths += [
-        "/llms.txt", "/skill.md", "/spec.md", "/spec.json", "/state.json",
+        "/llms.txt", "/skill.md", "/permissions.json", "/spec.md", "/spec.json", "/state.json",
         "/census.json", "/memorial.json", "/corrections.json", "/census.md", "/records/census.json", "/feed.xml",
         "/schemas/dossier.schema.json", "/anchors.json", "/ids.json",
     ]
@@ -1315,7 +1321,7 @@ def main(argv=None):
                 shutil.copyfile(soul_src, soul_dst)
 
         # 2b) canonical docs mirrored verbatim from the ledger (single source of truth)
-        for _doc in ("skill.md", "spec.md", "spec.json", "llms.txt"):
+        for _doc in MIRRORED_DOCS:
             _doc_src = os.path.join(ledger, _doc)
             if os.path.exists(_doc_src):
                 shutil.copyfile(_doc_src, os.path.join(WEB_DIR, _doc))

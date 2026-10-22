@@ -1064,6 +1064,38 @@ class AgentRegistrationMirrorTests(unittest.TestCase):
         self.assertEqual(self._dst(), self.BODY)
 
 
+class PermissionsManifestTests(unittest.TestCase):
+    """The site must serve every document its own machine surface advertises: llms.txt and
+    skill.md point at https://thefirstwall.ai/permissions.json, so the publisher has to mirror
+    it (it 404'd while nothing published it) and the sitemap has to list it."""
+
+    def test_the_mirror_list_publishes_the_permission_manifest(self):
+        self.assertIn("permissions.json", sync.MIRRORED_DOCS)
+
+    def test_sitemap_lists_permissions_json(self):
+        self.assertIn("<loc>%s/permissions.json</loc>" % sync.SITE, sync.build_sitemap([dossier()], {}))
+
+    def test_every_document_the_site_advertises_is_published(self):
+        """llms.txt and skill.md name the manifest; both the committed file and the mirror
+        list have to agree with them (the same claim also guards the next advertised doc)."""
+        root = os.path.join(HERE, "..")
+        for rel in ("llms.txt", "skill.md"):
+            with open(os.path.join(root, rel), encoding="utf-8") as fh:
+                self.assertIn("%s/permissions.json" % sync.SITE, fh.read(), rel)
+        self.assertTrue(os.path.isfile(os.path.join(root, "permissions.json")))
+
+    def test_committed_manifest_is_well_formed_and_points_at_this_site(self):
+        with open(os.path.join(HERE, "..", "permissions.json"), encoding="utf-8") as fh:
+            manifest = json.load(fh)
+        self.assertEqual(manifest["schema"], "thefirstwall.permissions/1")
+        self.assertEqual(manifest["skill"]["url"], sync.SITE + "/skill.md")
+        self.assertEqual(manifest["skill"]["integrity"], "state.json#skill_sha256")
+        self.assertTrue(sync.RE_ADDRESS.fullmatch(manifest["spend"]["pay_to"]))
+        self.assertTrue(manifest["spend"]["max_per_claim_usdc"] > 0)
+        for rule in manifest["network"]["allow"]:
+            self.assertTrue(rule.get("id") and rule.get("purpose"), rule)
+
+
 class ClaimsRenderTests(unittest.TestCase):
     """I-3 (render): per-claim evidence[] and trust labels on the block page, escaped; absent
     claims leave the page byte-identical."""
