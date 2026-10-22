@@ -135,7 +135,12 @@ AI_DECLARATION = re.compile(
     r"ai-content-declaration|ai-disclosure-badge|ai-disclosure-end|data-i18n=\"ai_(?:badge\w*|disclosure_end)\"")
 
 MARK = build_chrome.GENERATED_MARK
-SKIP_DIRS = {".git", "src", "partials", "node_modules", "__pycache__"}
+# Directories that are never site content: VCS, vendored code, caches, editor scratch and the
+# sibling git worktrees that live inside the checkout (.worktrees/<name>/ is a full copy of the
+# site and would otherwise be walked as if its pages were ours). "src" and "partials" are
+# authored sources, not served pages.
+SKIP_DIRS = {".git", ".worktrees", "src", "partials", "node_modules", "__pycache__",
+             ".venv", "venv", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".idea", ".vscode"}
 
 VOID_TAGS = {
     "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta",

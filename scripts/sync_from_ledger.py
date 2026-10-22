@@ -52,6 +52,8 @@ validated against a strict pattern first.
 
 from __future__ import annotations
 
+import argparse
+import hashlib
 import html
 import json
 import os
@@ -1078,9 +1080,74 @@ def build_anchor_status(state, anchors, previous=None, rpc=None):
     }
 
 
-def main():
+def parse_args(argv=None):
+    p = argparse.ArgumentParser(
+        prog="sync_from_ledger.py",
+        description="Publish the site from the ledger: mirror the canonical documents and records, "
+                    "then regenerate every derived file. The ledger is read from $LEDGER_DIR "
+                    "(a local checkout) or cloned from $LEDGER_REPO.")
+    p.add_argument("--check", action="store_true",
+                   help="strict dry run: write nothing in this checkout, run the whole publish "
+                        "in a scratch copy, and exit 1 if any committed output would change "
+                        "(the changed paths are listed); exit 0 when everything is up to date")
+    return p.parse_args(argv)
+
+
+def _tree_files(root):
+    """{relative path: sha256} for every file the publisher could own (VCS, worktrees,
+    caches and editor scratch are skipped, same set the page walkers skip)."""
+    skip = (build_i18n.SKIP_DIRS - {"src", "partials"}) | {".DS_Store"}
+    out = {}
+    for dirpath, dirnames, files in os.walk(root):
+        dirnames[:] = sorted(d for d in dirnames if d not in skip)
+        for f in files:
+            if f in skip:
+                continue
+            path = os.path.join(dirpath, f)
+            with open(path, "rb") as fh:
+                out[os.path.relpath(path, root).replace(os.sep, "/")] = hashlib.sha256(fh.read()).hexdigest()
+    return out
+
+
+def check_main(ledger):
+    """`--check`: copy this checkout to a scratch directory, run the unmodified publisher there
+    (it derives every path from its own location, so it cannot touch this tree), and diff the
+    two trees byte for byte. Returns 0 when nothing would change, 1 otherwise."""
+    skip = shutil.ignore_patterns(*(build_i18n.SKIP_DIRS - {"src", "partials"}), ".DS_Store")
+    scratch = tempfile.mkdtemp(prefix="tfw-check-")
+    try:
+        copy = os.path.join(scratch, "web")
+        shutil.copytree(WEB_DIR, copy, ignore=skip)
+        env = dict(os.environ, LEDGER_DIR=ledger)
+        proc = subprocess.run([sys.executable, os.path.join(copy, "scripts", "sync_from_ledger.py")],
+                              env=env, capture_output=True, text=True)
+        if proc.returncode != 0:
+            sys.stderr.write(proc.stdout + proc.stderr)
+            _log("--check: the publish itself failed (exit %d)" % proc.returncode)
+            return proc.returncode or 1
+        before, after = _tree_files(WEB_DIR), _tree_files(copy)
+        pyc = lambda rel: "__pycache__" in rel
+        drift = sorted(
+            ["~ " + r for r in after if r in before and before[r] != after[r] and not pyc(r)]
+            + ["+ " + r for r in after if r not in before and not pyc(r)]
+            + ["- " + r for r in before if r not in after and not pyc(r)])
+        if not drift:
+            _log("--check: committed outputs are up to date")
+            return 0
+        _log("--check: %d committed output(s) would change (~ changed, + new, - removed):" % len(drift))
+        for line in drift:
+            print("  " + line)
+        return 1
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def main(argv=None):
+    args = parse_args(argv)
     ledger, is_tmp = get_ledger_dir()
     try:
+        if args.check:
+            return check_main(ledger)
         # 0) publish gate — nothing below runs unless the ledger verifies itself
         verify_ledger(ledger)
 
@@ -1206,4 +1273,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main(sys.argv[1:]))

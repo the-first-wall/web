@@ -3,9 +3,11 @@
 
     python scripts/test_sync_from_ledger.py
 """
+import contextlib
 import email.utils
 import glob
 import importlib.util
+import io
 import json
 import os
 import re
@@ -928,6 +930,85 @@ class HeroCountTests(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 sync.publish_hero_count(bad)
         self.assertEqual(self._read(), HERO_I18N)                        # nothing written on refusal
+
+
+class CheckFlagTests(unittest.TestCase):
+    """B-3: `--check` is a strict dry run. The publisher runs in a scratch copy of the tree
+    (a stand-in script here), so the real tree is never written and any difference is drift."""
+
+    FAKE = ("import os, sys\n"
+            "root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))\n"
+            "open(os.path.join(root, 'out.json'), 'w').write(os.environ.get('FAKE_OUT', 'v1'))\n"
+            "sys.exit(int(os.environ.get('FAKE_EXIT', '0')))\n")
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        os.makedirs(os.path.join(self.tmp, "scripts"))
+        os.makedirs(os.path.join(self.tmp, ".worktrees", "other"))
+        with open(os.path.join(self.tmp, "scripts", "sync_from_ledger.py"), "w") as fh:
+            fh.write(self.FAKE)
+        with open(os.path.join(self.tmp, ".worktrees", "other", "x.html"), "w") as fh:
+            fh.write("scratch")
+        self._web = sync.WEB_DIR
+        sync.WEB_DIR = self.tmp
+        self._env = dict(os.environ)
+
+    def tearDown(self):
+        sync.WEB_DIR = self._web
+        os.environ.clear()
+        os.environ.update(self._env)
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _snapshot(self):
+        return sync._tree_files(self.tmp), {
+            os.path.relpath(os.path.join(d, f), self.tmp): os.stat(os.path.join(d, f)).st_mtime_ns
+            for d, _n, fs in os.walk(self.tmp) for f in fs}
+
+    def _put(self, text):
+        with open(os.path.join(self.tmp, "out.json"), "w") as fh:
+            fh.write(text)
+
+    def test_parse_args(self):
+        self.assertFalse(sync.parse_args([]).check)
+        self.assertTrue(sync.parse_args(["--check"]).check)
+
+    def test_unknown_flag_is_rejected_not_ignored(self):
+        with self.assertRaises(SystemExit) as cm:
+            sync.parse_args(["--chek"])
+        self.assertEqual(cm.exception.code, 2)
+
+    def test_up_to_date_exits_zero_and_writes_nothing(self):
+        self._put("v1")
+        before = self._snapshot()
+        self.assertEqual(sync.check_main("/ledger"), 0)
+        self.assertEqual(self._snapshot(), before)
+
+    def test_drift_exits_nonzero_lists_the_path_and_writes_nothing(self):
+        self._put("stale")
+        before = self._snapshot()
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(sync.check_main("/ledger"), 1)
+        self.assertIn("~ out.json", out.getvalue())
+        self.assertEqual(self._snapshot(), before)               # nothing rewritten (content and mtime)
+        self.assertEqual(open(os.path.join(self.tmp, "out.json")).read(), "stale")
+
+    def test_a_new_output_counts_as_drift(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(sync.check_main("/ledger"), 1)
+        self.assertIn("+ out.json", out.getvalue())
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, "out.json")))
+
+    def test_a_failing_publish_is_not_reported_as_clean(self):
+        self._put("v1")
+        os.environ["FAKE_EXIT"] = "3"
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(sync.check_main("/ledger"), 3)
+
+    def test_worktrees_are_not_part_of_the_comparison(self):
+        self._put("v1")
+        self.assertNotIn(".worktrees/other/x.html", sync._tree_files(self.tmp))
 
 
 if __name__ == "__main__":
