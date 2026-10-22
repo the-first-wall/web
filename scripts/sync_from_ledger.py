@@ -22,7 +22,7 @@ Generated outputs
   assets/wall_01_composite.webp  ← 1000x1000 composite of every block
   feed.xml                       ← RSS (Chronicle)
   souls/w1-bNNNN.soul.json       ← ledger soul manifest (verbatim; verifies soul_hash)
-  skill.md, spec.md, spec.json, llms.txt  ← canonical docs mirrored verbatim from the ledger
+  skill.md, spec.md, spec.json, llms.txt, permissions.json  ← canonical docs mirrored verbatim from the ledger
   schemas/dossier.schema.json    ← canonical JSON schema (verbatim)
   anchors.json                   ← on-chain Merkle-root anchor records (verbatim)
   settlements.json               ← ledger/settlements.json (verbatim, when present)
@@ -853,6 +853,11 @@ def build_slot_page(d, neighbors=None):
 
 # --- Census page (static register rows, so every block page is linked) -------
 
+# Canonical ledger documents mirrored verbatim to the site root (single source of truth).
+# llms.txt advertises permissions.json at thefirstwall.ai/permissions.json, and skill.md links it
+# as the permission manifest, so the site must actually serve it (not only the ledger repo).
+MIRRORED_DOCS = ("skill.md", "spec.md", "spec.json", "llms.txt", "permissions.json")
+
 CENSUS_MARKERS = ("<!-- CENSUS:ROWS:START -->", "<!-- CENSUS:ROWS:END -->")
 
 
@@ -1343,7 +1348,7 @@ def main(argv=None):
                 shutil.copyfile(soul_src, soul_dst)
 
         # 2b) canonical docs mirrored verbatim from the ledger (single source of truth)
-        for _doc in ("skill.md", "spec.md", "spec.json", "llms.txt"):
+        for _doc in MIRRORED_DOCS:
             _doc_src = os.path.join(ledger, _doc)
             if os.path.exists(_doc_src):
                 shutil.copyfile(_doc_src, os.path.join(WEB_DIR, _doc))

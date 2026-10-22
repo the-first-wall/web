@@ -442,6 +442,12 @@ class ChromeTests(unittest.TestCase):
         self.assertIn("<lastmod>2026-10-10T00:00:00Z</lastmod>", sm)   # the block's own date
         self.assertIn("<lastmod>2026-10-11T16:03:55Z</lastmod>", sm)   # the ledger's moved date on pages
 
+    def test_permissions_manifest_is_mirrored_to_the_site(self):
+        # llms.txt advertises thefirstwall.ai/permissions.json and skill.md links it as the
+        # permission manifest; the site must serve it, not only the ledger repo.
+        self.assertIn("permissions.json", sync.MIRRORED_DOCS)
+        self.assertIn("llms.txt", sync.MIRRORED_DOCS)
+
     def test_ledger_head_reads_a_git_checkout_and_says_nothing_otherwise(self):
         with tempfile.TemporaryDirectory() as td:
             self.assertEqual(sync.ledger_head(td), (None, None))
