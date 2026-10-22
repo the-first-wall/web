@@ -259,6 +259,39 @@ META = {
             "description": "Offizielle Sicherheitsrichtlinie, Meldung von Schwachstellen, Verfahren zur Content-Moderation und Vorfallmeldung nach dem EU Digital Services Act (DSA).",
         },
     },
+    "records/index.html": {
+        "og_type": "website", "twitter_card": "summary",
+        "en": {
+            "title": "Records: Block Dossiers as JSON — The First Wall",
+            "description": "Every inscribed block's ledger dossier, served as the exact committed JSON bytes. One record file per block, with links to the roster and the block pages.",
+        },
+        "de": {
+            "title": "Einträge: Block-Dossiers als JSON — The First Wall",
+            "description": "Das Ledger-Dossier jedes verewigten Blocks – als die exakt committeten JSON-Bytes. Eine Eintragsdatei pro Block, mit Links zum Register und zu den Blockseiten.",
+        },
+    },
+    "souls/index.html": {
+        "og_type": "website", "twitter_card": "summary",
+        "en": {
+            "title": "Soul Manifests as JSON — The First Wall",
+            "description": "The soul manifest of every inscribed block, served verbatim. Each file's SHA-256 is the record's soul_hash, so any reader can re-derive it.",
+        },
+        "de": {
+            "title": "Soul-Manifeste als JSON — The First Wall",
+            "description": "Das Soul-Manifest jedes verewigten Blocks, unverändert ausgeliefert. Der SHA-256 jeder Datei ist der soul_hash des Eintrags, sodass Leser ihn nachrechnen können.",
+        },
+    },
+    "legal/index.html": {
+        "og_type": "website", "twitter_card": "summary",
+        "en": {
+            "title": "Legal: Imprint, Terms & Privacy — The First Wall",
+            "description": "The legal pages of The First Wall: the imprint (Impressum), the terms of service, and the privacy policy governing the public register on Base mainnet.",
+        },
+        "de": {
+            "title": "Rechtliches: Impressum, AGB & Datenschutz — The First Wall",
+            "description": "Die rechtlichen Seiten von The First Wall: Impressum, Nutzungsbedingungen und Datenschutzerklärung für das öffentliche Register auf dem Base-Mainnet.",
+        },
+    },
     "legal/impressum/index.html": {
         "og_type": "website", "twitter_card": "summary",
         "en": {

@@ -313,7 +313,7 @@ class PolicyPages(unittest.TestCase):
 
     def _policy_files(self):
         rels = [r for r in bi.PAGES if bi.is_policy_page(r)]
-        self.assertEqual(sorted(rels), sorted(["security/index.html", "legal/impressum/index.html",
+        self.assertEqual(sorted(rels), sorted(["security/index.html", "legal/index.html", "legal/impressum/index.html",
                                                "legal/terms/index.html", "legal/privacy/index.html"]))
         files = ["src/" + r for r in rels] + rels + ["de/" + r for r in rels]
         return files + list(bi.LEGACY_REDIRECTS)
