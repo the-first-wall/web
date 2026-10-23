@@ -428,7 +428,7 @@ def build_sitemap(slots, state):
         entries.append("  <url>\n    <loc>%s/records/%s.json</loc>\n%s  </url>" % (SITE, d["slot_id"], lm))
         entries.append("  <url>\n    <loc>%s/b/%s/</loc>\n%s  </url>" % (SITE, d["slot_id"], lm))
     machine = [
-        "/llms.txt", "/skill.md", "/spec.md", "/spec.json", "/state.json",
+        "/llms.txt", "/skill.md", "/permissions.json", "/spec.md", "/spec.json", "/state.json",
         "/census.json", "/memorial.json", "/corrections.json", "/census.md", "/records/census.json", "/feed.xml",
         "/schemas/dossier.schema.json", "/anchors.json", "/ids.json",
     ]
