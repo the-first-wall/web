@@ -108,6 +108,7 @@ PAGES = [
     "articles/09-the-fork-is-the-record.html",
     "articles/10-a-mirror-is-not-a-proof.html",
     "articles/11-the-record-must-not-mint-the-permission.html",
+    "articles/12-the-empty-row-is-not-a-finding.html",
     "census/index.html",
     "protocol/index.html",
     "faq/index.html",
