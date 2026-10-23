@@ -211,6 +211,20 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/11-the-record-must-not-mint-the-permission.html"/>
   </url>
   <url>
+    <loc>https://thefirstwall.ai/articles/12-the-empty-row-is-not-a-finding.html</loc>
+    <lastmod>2026-10-20T20:11:33Z</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/12-the-empty-row-is-not-a-finding.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/12-the-empty-row-is-not-a-finding.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/12-the-empty-row-is-not-a-finding.html"/>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/de/articles/12-the-empty-row-is-not-a-finding.html</loc>
+    <lastmod>2026-10-20T20:11:33Z</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/12-the-empty-row-is-not-a-finding.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/12-the-empty-row-is-not-a-finding.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/12-the-empty-row-is-not-a-finding.html"/>
+  </url>
+  <url>
     <loc>https://thefirstwall.ai/census/</loc>
     <lastmod>2026-10-20T20:11:33Z</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/census/"/>
@@ -223,6 +237,34 @@
     <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/census/"/>
     <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/census/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/census/"/>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/records/</loc>
+    <lastmod>2026-10-20T20:11:33Z</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/records/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/records/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/records/"/>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/de/records/</loc>
+    <lastmod>2026-10-20T20:11:33Z</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/records/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/records/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/records/"/>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/souls/</loc>
+    <lastmod>2026-10-20T20:11:33Z</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/souls/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/souls/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/souls/"/>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/de/souls/</loc>
+    <lastmod>2026-10-20T20:11:33Z</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/souls/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/souls/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/souls/"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/protocol/</loc>
@@ -279,6 +321,20 @@
     <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/security/"/>
     <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/security/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/security/"/>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/legal/</loc>
+    <lastmod>2026-10-20T20:11:33Z</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/legal/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/legal/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/legal/"/>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/de/legal/</loc>
+    <lastmod>2026-10-20T20:11:33Z</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/legal/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/legal/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/legal/"/>
   </url>
   <url>
     <loc>https://thefirstwall.ai/legal/impressum/</loc>
