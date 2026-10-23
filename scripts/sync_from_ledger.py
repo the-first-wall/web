@@ -897,6 +897,58 @@ def build_census_page(roster):
     _log("census page -> %d row(s)" % len(roster))
 
 
+# --- Directory listings (/records/, /souls/): the data dirs list, not 404 -----
+# A static host serves a directory as a listing only if it holds an index.html;
+# without one /records/ and /souls/ answered 404 to every caller. These rows are
+# generated from the same dossiers as the census, so the listings stay current.
+
+RECORDS_MARKERS = ("<!-- RECORDS:ROWS:START -->", "<!-- RECORDS:ROWS:END -->")
+SOULS_MARKERS = ("<!-- SOULS:ROWS:START -->", "<!-- SOULS:ROWS:END -->")
+
+
+def _inject_rows(rel, markers, rows, message):
+    """Replace the rows between `markers` of src/<rel>. Idempotent; the rest of the
+    hand-authored page is untouched. A missing source page is not an error."""
+    path = os.path.join(WEB_DIR, "src", *rel.split("/"))
+    if not os.path.exists(path):
+        return
+    with open(path, "r", encoding="utf-8") as fh:
+        page = fh.read()
+    start, end = markers
+    block = "        " + start + "\n" + (rows + "\n" if rows else "") + "        " + end
+    page = re.sub(r"[ \t]*" + re.escape(start) + r".*?" + re.escape(end),
+                  lambda _m: block, page, flags=re.DOTALL)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(page)
+    _log(message)
+
+
+def build_records_page(slots):
+    """Inject the /records/ listing: one file link per inscribed block's dossier."""
+    rows = []
+    for d in sorted(slots, key=lambda x: x["_number"]):
+        sid = _require(RE_SLOT_ID, d.get("slot_id"), "slot_id", d.get("slot_id"))
+        num = "%04d" % d["_number"]
+        rows.append('        <li><a class="mono" href="/records/%s.json">/records/%s.json</a> '
+                    '<a class="mono" href="/w1/b%s/">#%s</a></li>' % (sid, sid, num, num))
+    _inject_rows("records/index.html", RECORDS_MARKERS, "\n".join(rows),
+                 "records page -> %d row(s)" % len(rows))
+
+
+def build_souls_page(slots):
+    """Inject the /souls/ listing: one manifest link per inscribed block, with its digest."""
+    rows = []
+    for d in sorted(slots, key=lambda x: x["_number"]):
+        sid = _require(RE_SLOT_ID, d.get("slot_id"), "slot_id", d.get("slot_id"))
+        num = "%04d" % d["_number"]
+        digest = _text(str(d.get("soul_hash") or ""))
+        rows.append('        <li><a class="mono" href="/souls/%s.soul.json">/souls/%s.soul.json</a> '
+                    '<a class="mono" href="/w1/b%s/">#%s</a><code class="mono">%s</code></li>'
+                    % (sid, sid, num, num, digest))
+    _inject_rows("souls/index.html", SOULS_MARKERS, "\n".join(rows),
+                 "souls page -> %d row(s)" % len(rows))
+
+
 # --- Chronicle (ledger-driven dispatch cards) -------------------------------
 
 CHRONICLE_MARKERS = {
@@ -1413,6 +1465,10 @@ def main(argv=None):
 
         # 7b) census register rows (static links to every block page)
         build_census_page(build_census(slots, state)["roster"])
+
+        # 7c) /records/ and /souls/ listings, so the data directories list instead of 404
+        build_records_page(slots)
+        build_souls_page(slots)
 
         # 8) the English and German pages, generated from the authored pages in src/ (the two
         #    steps above edited src/). A push made by this job does not trigger another
