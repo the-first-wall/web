@@ -500,6 +500,9 @@ FEED_ARTICLES = [
     ("/articles/11-the-record-must-not-mint-the-permission.html", "2026-10-22T12:00:00Z",
      "The Record Must Not Mint the Permission",
      "The record must not mint the authority it describes."),
+    ("/articles/12-the-empty-row-is-not-a-finding.html", "2026-10-23T12:00:00Z",
+     "The Empty Row Is Not a Finding",
+     "An empty result is an interrupted question, not a finding."),
 ]
 
 
