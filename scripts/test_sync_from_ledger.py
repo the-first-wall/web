@@ -147,11 +147,19 @@ class EscapingTests(unittest.TestCase):
         # Offsets are compared as instants, not as strings.
         self.assertEqual(sync.site_updated({"last_updated": "2026-10-11T23:00:00+02:00"}, [anchor]), "2026-10-11T23:00:00+02:00")
 
-    def test_feed_and_census_header_follow_the_moved_date(self):
+    def test_feed_build_date_never_lags_the_newest_item(self):
+        # lastBuildDate must never be older than the newest item in the feed — a reader that
+        # compares the two would not re-poll otherwise. It follows the ledger's moved date when
+        # that is the later one, and the newest item otherwise.
         state = {"last_updated": "2026-10-08T21:52:00Z", "current_floor_usdc": 1.0}
         moved = dict(state, last_updated=sync.site_updated(state, [{"anchored_at": "2026-10-11T16:03:55Z"}]))
-        feed = sync.build_feed([dossier()], moved)
-        self.assertIn("<lastBuildDate>Sun, 11 Oct 2026 16:03:55 GMT</lastBuildDate>", feed)
+        feed = sync.build_feed([dossier()], moved)   # an article (2026-10-22) is newer than the moved date
+        newest = max(sync._utc(iso) for _p, iso, _t, _d in sync.FEED_ARTICLES)
+        self.assertIn("<lastBuildDate>%s</lastBuildDate>" % sync._rfc822_dt(newest), feed)
+        # A ledger that moved past every item still drives lastBuildDate.
+        later = dict(state, last_updated="2026-12-01T00:00:00Z")
+        self.assertIn("<lastBuildDate>%s</lastBuildDate>" % sync._rfc822_dt(sync._utc("2026-12-01T00:00:00Z")),
+                      sync.build_feed([dossier()], later))
         self.assertIn("> Last Updated: October 11, 2026", sync.build_census_md([dossier()], moved))
 
     def test_dispatch_card_escapes(self):
@@ -395,7 +403,7 @@ class ChromeTests(unittest.TestCase):
     def test_sitemap_lists_every_page_in_both_languages(self):
         sitemap = sync.build_sitemap([dossier()], {})
         for path in ("/", "/manifesto/", "/census/", "/protocol/", "/faq/", "/chronicle/", "/articles/", "/security/",
-                     "/articles/03-retirement-not-shutdown.html", "/w1/b0042",
+                     "/articles/03-retirement-not-shutdown.html", "/w1/b0042/",
                      "/de/", "/de/manifesto/", "/de/census/", "/de/protocol/", "/de/faq/", "/de/chronicle/",
                      "/de/articles/", "/de/security/", "/de/articles/03-retirement-not-shutdown.html"):
             self.assertIn("<loc>%s%s</loc>" % (sync.SITE, path), sitemap)
@@ -426,12 +434,53 @@ class ChromeTests(unittest.TestCase):
             self.assertIn("<loc>%s%s</loc>" % (sync.SITE, path), sitemap)
         self.assertNotIn("/id/", sitemap)              # versions are not indexed; the handle page is
 
+    def test_sitemap_slot_urls_are_canonical_and_carry_a_lastmod(self):
+        sm = sync.build_sitemap([dossier(timestamp_verified="2026-10-10T00:00:00Z")],
+                                {"last_updated": "2026-10-11T16:03:55Z"})
+        self.assertIn("<loc>%s/w1/b0042/</loc>" % sync.SITE, sm)       # canonical (non-301) URL
+        self.assertNotIn("<loc>%s/w1/b0042</loc>" % sync.SITE, sm)     # the slashless form is not listed
+        self.assertIn("<lastmod>2026-10-10T00:00:00Z</lastmod>", sm)   # the block's own date
+        self.assertIn("<lastmod>2026-10-11T16:03:55Z</lastmod>", sm)   # the ledger's moved date on pages
+
+    def test_permissions_manifest_is_mirrored_to_the_site(self):
+        # llms.txt advertises thefirstwall.ai/permissions.json and skill.md links it as the
+        # permission manifest; the site must serve it, not only the ledger repo.
+        self.assertIn("permissions.json", sync.MIRRORED_DOCS)
+        self.assertIn("llms.txt", sync.MIRRORED_DOCS)
+
     def test_ledger_head_reads_a_git_checkout_and_says_nothing_otherwise(self):
         with tempfile.TemporaryDirectory() as td:
             self.assertEqual(sync.ledger_head(td), (None, None))
         commit, when = sync.ledger_head(os.path.join(HERE, ".."))
         self.assertRegex(commit, r"^[0-9a-f]{40}$")
         self.assertRegex(when, r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+
+
+class PermissionsManifestTests(unittest.TestCase):
+    """The site must serve every document its own machine surface advertises. The mirror list
+    is the publisher's half; this class pins the two halves together — the URL llms.txt and
+    skill.md name, the committed file that answers it, and the sitemap entry that points at it."""
+
+    def test_sitemap_lists_permissions_json(self):
+        self.assertIn("<loc>%s/permissions.json</loc>" % sync.SITE, sync.build_sitemap([dossier()], {}))
+
+    def test_the_advertised_manifest_is_committed_and_the_docs_still_name_it(self):
+        root = os.path.join(HERE, "..")
+        for rel in ("llms.txt", "skill.md"):
+            with open(os.path.join(root, rel), encoding="utf-8") as fh:
+                self.assertIn("%s/permissions.json" % sync.SITE, fh.read(), rel)
+        self.assertTrue(os.path.isfile(os.path.join(root, "permissions.json")))
+
+    def test_committed_manifest_is_well_formed_and_points_at_this_site(self):
+        with open(os.path.join(HERE, "..", "permissions.json"), encoding="utf-8") as fh:
+            manifest = json.load(fh)
+        self.assertEqual(manifest["schema"], "thefirstwall.permissions/1")
+        self.assertEqual(manifest["skill"]["url"], sync.SITE + "/skill.md")
+        self.assertEqual(manifest["skill"]["integrity"], "state.json#skill_sha256")
+        self.assertTrue(sync.RE_ADDRESS.fullmatch(manifest["spend"]["pay_to"]))
+        self.assertTrue(manifest["spend"]["max_per_claim_usdc"] > 0)
+        for rule in manifest["network"]["allow"]:
+            self.assertTrue(rule.get("id") and rule.get("purpose"), rule)
 
 
 class StructuredDataTests(unittest.TestCase):
