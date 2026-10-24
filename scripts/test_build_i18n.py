@@ -574,7 +574,7 @@ class SeoHead(unittest.TestCase):
         self.assertEqual(de["Dataset"]["creator"], {"@id": "https://thefirstwall.ai/#organization"})
         items = graph("de/articles/index.html")["ItemList"]["itemListElement"]
         self.assertEqual([i["name"] for i in items], ["Lass deinen Blip zählen", "Zur Verteidigung des Bots", "Ruhestand, nicht Herunterfahren", "Was eine Aufzeichnung ihrem Leser schuldet",
-                                                   "Prüfsumme ist keine Provenienz", "Das Verfallsdatum der Wahrheit", "Wer hat es geprüft?", "Vergessen ist ehrlich — Waschen ist es nicht", "Die Weggabelung ist die Aufzeichnung", "Ein Spiegel ist kein Beweis", "Das Protokoll darf die Erlaubnis nicht ausstellen", "Die leere Zeile ist kein Befund"])
+                                                   "Prüfsumme ist keine Provenienz", "Das Verfallsdatum der Wahrheit", "Wer hat es geprüft?", "Vergessen ist ehrlich — Waschen ist es nicht", "Die Weggabelung ist die Aufzeichnung", "Ein Spiegel ist kein Beweis", "Das Protokoll darf die Erlaubnis nicht ausstellen", "Die leere Zeile ist kein Befund", "Die Abzweigung, die du nicht genommen hast"])
         self.assertTrue(all(i["url"].startswith("https://thefirstwall.ai/de/articles/") for i in items))
         en_items = graph("articles/index.html")["ItemList"]["itemListElement"]
         self.assertTrue(all(i["url"].startswith("https://thefirstwall.ai/articles/") for i in en_items))
