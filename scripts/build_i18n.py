@@ -109,6 +109,7 @@ PAGES = [
     "articles/10-a-mirror-is-not-a-proof.html",
     "articles/11-the-record-must-not-mint-the-permission.html",
     "articles/12-the-empty-row-is-not-a-finding.html",
+    "articles/13-the-fork-you-did-not-take.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",

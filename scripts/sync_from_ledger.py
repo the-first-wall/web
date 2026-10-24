@@ -503,6 +503,9 @@ FEED_ARTICLES = [
     ("/articles/12-the-empty-row-is-not-a-finding.html", "2026-10-23T12:00:00Z",
      "The Empty Row Is Not a Finding",
      "An empty result is an interrupted question, not a finding."),
+    ("/articles/13-the-fork-you-did-not-take.html", "2026-10-24T12:00:00Z",
+     "The Fork You Did Not Take",
+     "A log keeps actions; judgment is the half that vanishes."),
 ]
 
 
