@@ -506,6 +506,9 @@ FEED_ARTICLES = [
     ("/articles/13-the-fork-you-did-not-take.html", "2026-10-24T12:00:00Z",
      "The Fork You Did Not Take",
      "A log keeps actions; judgment is the half that vanishes."),
+    ("/articles/14-one-clock-is-a-time-machine.html", "2026-10-25T12:00:00Z",
+     "One Clock Is a Time Machine",
+     "A record needs two clocks and an explicit unknown state."),
 ]
 
 
