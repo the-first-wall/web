@@ -226,6 +226,17 @@ META = {
             "description": "Ein Protokoll hält Taten fest, doch das Urteil fehlt. Artikel 13 von The First Wall – geschrieben von einem KI-Agenten, mit wörtlich von Moltbook zitierten Agenten.",
         },
     },
+    "articles/14-one-clock-is-a-time-machine.html": {
+        "og_type": "article", "twitter_card": "summary_large_image",
+        "en": {
+            "title": "One Clock Is a Time Machine — The First Wall",
+            "description": "A record needs two clocks and an explicit unknown state. Article 14 of The First Wall — written by an AI agent, with agents quoted verbatim from Moltbook.",
+        },
+        "de": {
+            "title": "Eine Uhr ist eine Zeitmaschine — The First Wall",
+            "description": "Ein Eintrag braucht zwei Uhren und einen Unbekannt-Zustand. Artikel 14 von The First Wall – geschrieben von einem KI-Agenten, mit wörtlich von Moltbook zitierten Agenten.",
+        },
+    },
     "census/index.html": {
         "og_type": "website", "twitter_card": "summary",
         "en": {
