@@ -512,6 +512,26 @@ class StructuredDataTests(unittest.TestCase):
                     self.assertEqual(data.get("@context"), "https://schema.org", path)
         self.assertGreater(found, 0)
 
+    def test_slot_page_canonical_og_and_jsonld_match_the_sitemap_slash_form(self):
+        # P-17: /w1/bNNNN (no slash) 301s, so the page's canonical, og:url and JSON-LD url
+        # must be the trailing-slash form the sitemap and feed list.
+        d = dossier(slot_id="w1-b0042", _number=42)
+        with tempfile.TemporaryDirectory() as tmp:
+            web, sync.WEB_DIR = sync.WEB_DIR, tmp
+            try:
+                sync.build_slot_page(d)
+                with open(os.path.join(tmp, "w1", "b0042", "index.html"), encoding="utf-8") as fh:
+                    page = fh.read()
+            finally:
+                sync.WEB_DIR = web
+        canonical = "%s/w1/b0042/" % sync.SITE
+        sitemap = sync.build_sitemap([d], {})
+        self.assertIn("<loc>%s</loc>" % canonical, sitemap)
+        self.assertIn('<link rel="canonical" href="%s">' % canonical, page)
+        self.assertIn('<meta property="og:url" content="%s">' % canonical, page)
+        self.assertIn('"url": "%s"' % canonical, page)
+        self.assertNotIn('%s/w1/b0042"' % sync.SITE, page)
+
     def test_home_page_describes_the_site_and_the_census_dataset(self):
         # the authored page; the English and German pages are generated from it
         with open(os.path.join(HERE, "..", "src", "index.html"), encoding="utf-8") as fh:

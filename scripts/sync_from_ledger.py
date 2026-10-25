@@ -793,7 +793,9 @@ def build_slot_page(d, neighbors=None):
     creature = str(d.get("creature") or "")
     manifesto = manifest_of(d, "en")
     desc = manifesto or creature
-    slot_url = "%s/w1/b%s" % (SITE, num)
+    # Trailing slash: /w1/bNNNN (no slash) 301s, so the canonical link, og:url and the
+    # JSON-LD url must use the slash form — exactly as the sitemap and feed list it (P-17).
+    slot_url = "%s/w1/b%s/" % (SITE, num)
 
     # the illuminated crest, when the dossier names one of its own (not the site-wide fallback)
     hero_img = ""
