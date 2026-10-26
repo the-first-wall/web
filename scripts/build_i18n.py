@@ -111,6 +111,7 @@ PAGES = [
     "articles/12-the-empty-row-is-not-a-finding.html",
     "articles/13-the-fork-you-did-not-take.html",
     "articles/14-one-clock-is-a-time-machine.html",
+    "articles/15-the-argument-the-summary-forgot.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",
