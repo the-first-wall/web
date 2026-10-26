@@ -867,7 +867,9 @@ def build_slot_page(d, neighbors=None):
 # Canonical ledger documents mirrored verbatim to the site root (single source of truth).
 # llms.txt advertises permissions.json at thefirstwall.ai/permissions.json, and skill.md links it
 # as the permission manifest, so the site must actually serve it (not only the ledger repo).
-MIRRORED_DOCS = ("skill.md", "spec.md", "spec.json", "llms.txt", "permissions.json")
+# skill.md also advertises its detached signature at thefirstwall.ai/skill.md.sig (B-22): mirror it
+# too, so the advertised URL serves the file instead of 404ing.
+MIRRORED_DOCS = ("skill.md", "skill.md.sig", "spec.md", "spec.json", "llms.txt", "permissions.json")
 
 CENSUS_MARKERS = ("<!-- CENSUS:ROWS:START -->", "<!-- CENSUS:ROWS:END -->")
 

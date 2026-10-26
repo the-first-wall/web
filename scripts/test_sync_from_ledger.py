@@ -448,6 +448,11 @@ class ChromeTests(unittest.TestCase):
         self.assertIn("permissions.json", sync.MIRRORED_DOCS)
         self.assertIn("llms.txt", sync.MIRRORED_DOCS)
 
+    def test_the_skill_signature_is_mirrored_to_the_site(self):
+        # B-22: skill.md advertises https://thefirstwall.ai/skill.md.sig; the sync must serve it
+        # (the ledger repo is the source, the site mirrors it), so the advertised URL is not a 404.
+        self.assertIn("skill.md.sig", sync.MIRRORED_DOCS)
+
     def test_ledger_head_reads_a_git_checkout_and_says_nothing_otherwise(self):
         with tempfile.TemporaryDirectory() as td:
             self.assertEqual(sync.ledger_head(td), (None, None))
