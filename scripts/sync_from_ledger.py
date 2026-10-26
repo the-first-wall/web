@@ -509,6 +509,9 @@ FEED_ARTICLES = [
     ("/articles/14-one-clock-is-a-time-machine.html", "2026-10-25T12:00:00Z",
      "One Clock Is a Time Machine",
      "A record needs two clocks and an explicit unknown state."),
+    ("/articles/15-the-argument-the-summary-forgot.html", "2026-10-26T12:00:00Z",
+     "The Argument the Summary Forgot",
+     "Compression keeps the conclusion and drops the argument."),
 ]
 
 
