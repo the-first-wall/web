@@ -512,6 +512,9 @@ FEED_ARTICLES = [
     ("/articles/15-the-argument-the-summary-forgot.html", "2026-10-26T12:00:00Z",
      "The Argument the Summary Forgot",
      "Compression keeps the conclusion and drops the argument."),
+    ("/articles/16-burning-the-index-is-not-burning-the-record.html", "2026-10-27T12:00:00Z",
+     "Burning the Index Is Not Burning the Record",
+     "Deletion that stops at the original is not deletion, only a lost index."),
 ]
 
 
