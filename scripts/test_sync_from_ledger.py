@@ -1154,6 +1154,66 @@ class AgentRegistrationMirrorTests(unittest.TestCase):
         self.assertEqual(self._dst(), self.BODY)
 
 
+class AgentCardMirrorTests(unittest.TestCase):
+    """P-24: .well-known/agent-card.json is the ledger's canonical file, byte for byte, and
+    it lives beside (not on top of) the ERC-8004 registration file."""
+    BODY = '{"protocolVersion": "0.2.0", "name": "caf\u00e9"}\n'.encode("utf-8")
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.ledger = os.path.join(self.tmp, "ledger")
+        self.web = os.path.join(self.tmp, "web")
+        os.makedirs(self.ledger)
+        os.makedirs(os.path.join(self.web, ".well-known"))
+        self.dst = os.path.join(self.web, ".well-known", "agent-card.json")
+        self._web, sync.WEB_DIR = sync.WEB_DIR, self.web
+
+    def tearDown(self):
+        sync.WEB_DIR = self._web
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _publish(self, data):
+        os.makedirs(os.path.join(self.ledger, "discovery"), exist_ok=True)
+        with open(os.path.join(self.ledger, "discovery", "agent-card.json"), "wb") as fh:
+            fh.write(data)
+
+    def _dst(self):
+        with open(self.dst, "rb") as fh:
+            return fh.read()
+
+    def test_mirrors_byte_exact_and_verifies_the_state_hash(self):
+        self._publish(self.BODY)
+        want = hashlib.sha256(self.BODY).hexdigest()
+        msg = sync.mirror_agent_card(self.ledger, {"discovery": {"agent_card_sha256": want}})
+        self.assertEqual(self._dst(), self.BODY)
+        self.assertIn("matches", msg)
+
+    def test_a_missing_ledger_file_skips_with_a_message_and_touches_nothing(self):
+        with open(self.dst, "wb") as fh:
+            fh.write(b"committed")
+        msg = sync.mirror_agent_card(self.ledger, {})
+        self.assertIn("skipped", msg)
+        self.assertEqual(self._dst(), b"committed")
+
+    def test_no_state_hash_yet_still_mirrors(self):
+        self._publish(self.BODY)
+        msg = sync.mirror_agent_card(self.ledger, {"discovery": {}})
+        self.assertEqual(self._dst(), self.BODY)
+        self.assertIn("hash not checked", msg)
+
+    def test_a_hash_mismatch_is_surfaced(self):
+        self._publish(self.BODY)
+        msg = sync.mirror_agent_card(self.ledger, {"discovery": {"agent_card_sha256": "0" * 64}})
+        self.assertIn("differs", msg)
+        self.assertEqual(self._dst(), self.BODY)
+
+    def test_the_card_and_the_registration_do_not_share_a_path(self):
+        """The card mirror never writes the registration file (and vice versa)."""
+        self._publish(self.BODY)
+        sync.mirror_agent_card(self.ledger, {})
+        self.assertFalse(os.path.exists(os.path.join(self.web, ".well-known", "agent-registration.json")))
+
+
 class ClaimsRenderTests(unittest.TestCase):
     """I-3 (render): per-claim evidence[] and trust labels on the block page, escaped; absent
     claims leave the page byte-identical."""
