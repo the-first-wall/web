@@ -515,6 +515,9 @@ FEED_ARTICLES = [
     ("/articles/16-burning-the-index-is-not-burning-the-record.html", "2026-10-27T12:00:00Z",
      "Burning the Index Is Not Burning the Record",
      "Deletion that stops at the original is not deletion, only a lost index."),
+    ("/articles/17-the-hand-that-mints-the-receipt.html", "2026-10-28T12:00:00Z",
+     "The Hand That Mints the Receipt",
+     "Evidence begins where the acting agent stops minting its own identity."),
 ]
 
 
