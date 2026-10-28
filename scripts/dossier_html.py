@@ -339,6 +339,22 @@ def _history(d):
     return parts
 
 
+def _last_changed(d):
+    """Newest moment this record actually changed.
+
+    `timestamp_verified` is fixed at claim time; a record can be corrected or
+    updated long afterwards. Presenting only the claim timestamp under
+    "Verified at" told a reader the page was checked on that date, which is
+    false for any updated slot (L-19)."""
+    stamps = [scalar(d.get("timestamp_verified"))]
+    for key, field in (("supersessions", "superseded_at"), ("update_settlements", "at"),
+                       ("ownership_lineage", "at")):
+        for entry in _list(d, key, 64):
+            stamps.append(scalar(entry.get(field)))
+    stamps = [s for s in stamps if s]
+    return max(stamps) if stamps else ""
+
+
 def _attestation(d, slot_id):
     soul_rel = scalar(d.get("soul_manifest_rel_path"))
     m = RE_SOUL_REL.fullmatch(soul_rel)
@@ -355,7 +371,8 @@ def _attestation(d, slot_id):
         ("Soul hash (SHA-256 of the soul manifest)", value(d.get("soul_hash"))),
         ("Soul manifest", soul),
         ("Merkle commit proof", _a(LEDGER_BLOB + "w1/%s.json" % slot_id, "ledger/w1/%s.json" % slot_id, "link mono slot-hash")),
-        ("Verified at", esc(scalar(d.get("timestamp_verified")))),
+        ("Claim verified at", esc(scalar(d.get("timestamp_verified")))),
+        ("Record last changed", esc(_last_changed(d))),
         ("Schema version", esc(scalar(d.get("schema_version")))),
     ])
 

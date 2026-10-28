@@ -767,6 +767,22 @@ class DossierPageTests(unittest.TestCase):
                     moniker=None, vocation={"a": 1}, manifesto=None)
         sync.dossier_html.render(d, d["slot_id"], sync.SITE)
 
+    def test_attestation_separates_claim_date_from_last_change(self):
+        # L-19: "Verified at" showed only the claim timestamp, so an updated record
+        # read as if it had been checked on the old date.
+        d = dossier(timestamp_verified="2026-10-08T17:00:00Z",
+                    supersessions=[{"field": "soul_hash", "previous_value": "a", "new_value": "b",
+                                    "reason": "correction", "superseded_at": "2026-10-20T19:17:10Z",
+                                    "authorizing_signature": "0x00"}])
+        body = sync.dossier_html.render(d, d["slot_id"], sync.SITE)
+        self.assertIn("Claim verified at", body)
+        self.assertNotIn("<dt>Verified at</dt>", body)
+        self.assertIn("Record last changed", body)
+        self.assertIn("2026-10-20T19:17:10Z", body)
+        # A record that was never changed reports the claim date, not an empty cell.
+        plain = sync.dossier_html.render(dossier(timestamp_verified="2026-10-08T17:00:00Z"), "w1-b0042", sync.SITE)
+        self.assertIn("<dt>Record last changed</dt><dd>2026-10-08T17:00:00Z</dd>", plain)
+
     def test_sections_appear_only_when_the_dossier_has_them(self):
         body = sync.dossier_html.render(dossier(), "w1-b0042", sync.SITE)
         for present in ("inscription", "vessel", "attestation", "machine"):
