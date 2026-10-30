@@ -428,11 +428,13 @@ class ChromeTests(unittest.TestCase):
         for rel in sync.build_i18n.LEGACY_REDIRECTS:
             self.assertNotIn("/" + rel, committed)
 
-    def test_sitemap_lists_the_tag_resolver(self):
+    def test_sitemap_lists_each_slot_once_and_not_the_tag_resolver(self):
         sitemap = sync.build_sitemap([dossier()], {})
-        for path in ("/ids.json", "/b/w1-b0042/"):
-            self.assertIn("<loc>%s%s</loc>" % (sync.SITE, path), sitemap)
-        self.assertNotIn("/id/", sitemap)              # versions are not indexed; the handle page is
+        self.assertIn("<loc>%s/ids.json</loc>" % sync.SITE, sitemap)
+        self.assertNotIn("/id/", sitemap)              # versions are not indexed
+        # P-30: one indexed URL per slot, the block page; the /b/ resolver is noindex + canonical to it
+        self.assertIn("<loc>%s/w1/b0042/</loc>" % sync.SITE, sitemap)
+        self.assertNotIn("/b/w1-b0042/", sitemap)
 
     def test_sitemap_slot_urls_are_canonical_and_carry_a_lastmod(self):
         sm = sync.build_sitemap([dossier(timestamp_verified="2026-10-10T00:00:00Z")],
@@ -648,8 +650,8 @@ class CensusPageTests(unittest.TestCase):
     def test_every_block_links_to_its_page(self):
         sync.build_census_page(self._roster(dossier(), dossier(slot_id="w1-b0043", _number=43, moniker="Eve")))
         page = self._read()
-        self.assertEqual(page.count('href="/w1/b0042"'), 3)       # slot number, moniker, Inspect
-        self.assertEqual(page.count('href="/w1/b0043"'), 3)
+        self.assertEqual(page.count('href="/w1/b0042/"'), 3)       # slot number, moniker, Inspect
+        self.assertEqual(page.count('href="/w1/b0043/"'), 3)
         self.assertNotIn("/?slot=", page)                         # Inspect no longer opens the generic wall
         self.assertIn('data-i18n="btn_inspect"', page)
 
@@ -871,17 +873,17 @@ class BlockBrowseTests(unittest.TestCase):
     def test_each_page_links_to_its_neighbours_and_shows_its_position(self):
         a, b, c = self._three()
         page = self._page(b, (a, c, 2, 3))
-        self.assertRegex(page, r'<a class="slot-step mono" rel="prev" href="/w1/b0001"[^>]*>\u2190 #0001</a>')
-        self.assertRegex(page, r'<a class="slot-step mono" rel="next" href="/w1/b0003"[^>]*>#0003 \u2192</a>')
+        self.assertRegex(page, r'<a class="slot-step mono" rel="prev" href="/w1/b0001/"[^>]*>\u2190 #0001</a>')
+        self.assertRegex(page, r'<a class="slot-step mono" rel="next" href="/w1/b0003/"[^>]*>#0003 \u2192</a>')
         self.assertIn('slot-browse-pos mono">2 / 3<', page)
         self.assertIn('aria-label="Previous block: #0001 Agent 1"', page)
 
     def test_the_ends_wrap_around(self):
         a, b, c = self._three()
         first = self._page(a, (c, b, 1, 3))
-        self.assertIn('rel="prev" href="/w1/b0003"', first)         # before the first comes the last
+        self.assertIn('rel="prev" href="/w1/b0003/"', first)         # before the first comes the last
         last = self._page(c, (b, a, 3, 3))
-        self.assertIn('rel="next" href="/w1/b0001"', last)          # after the last comes the first
+        self.assertIn('rel="next" href="/w1/b0001/"', last)          # after the last comes the first
 
     def test_a_lone_block_has_nowhere_to_go(self):
         page = self._page(dossier(), None)
@@ -1272,6 +1274,97 @@ class ClaimsRenderTests(unittest.TestCase):
         self.assertNotIn("c64<", page)
         self.assertIn("e0-15", page)
         self.assertNotIn("e0-16", page)
+
+
+class HomeFactsTests(unittest.TestCase):
+    """B-30: the homepage facts are in the served HTML, not only after app.js runs."""
+
+    ROOT = "ab" * 32
+    TX = "0x" + "cd" * 32
+    STATE = {"claimed_slots": 2, "merkle_root": ROOT}
+    STATUS = {"root": ROOT, "on_chain": "verified",
+              "latest_anchor": {"root": ROOT, "tx_hash": TX, "block_number": 123, "anchored_at": "2026-10-20T20:11:33Z"}}
+    PAGE = ("<!-- HOME:CLAIMED:START --><span id=\"metric-claimed\">\u2014 / 10,000</span><!-- HOME:CLAIMED:END -->\n"
+            "<!-- HOME:ROOT:START --><span id=\"metric-root\" title=\"\">\u2014</span><!-- HOME:ROOT:END -->\n"
+            "<!-- HOME:ANCHOR:START --><a id=\"metric-anchor\" href=\"#\">\u2014</a><!-- HOME:ANCHOR:END -->\n")
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self._web = sync.WEB_DIR
+        sync.WEB_DIR = self.tmp
+        os.makedirs(os.path.join(self.tmp, "src"))
+        self.path = os.path.join(self.tmp, "src", "index.html")
+        with open(self.path, "w", encoding="utf-8") as fh:
+            fh.write(self.PAGE)
+
+    def tearDown(self):
+        sync.WEB_DIR = self._web
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _read(self):
+        with open(self.path, encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_the_real_values_are_written_as_plain_html(self):
+        sync.build_home_facts(self.STATE, self.STATUS)
+        page = self._read()
+        self.assertIn(">2 / 10,000<", page)
+        self.assertIn('title="%s">%s\u2026<' % (self.ROOT, self.ROOT[:16]), page)
+        self.assertIn('href="https://basescan.org/tx/%s"' % self.TX, page)
+        self.assertIn("anchored \u00b7 block 123", page)
+        self.assertNotIn('href="#"', page)
+        self.assertNotIn("\u2014 / 10,000", page)
+
+    def test_it_is_idempotent(self):
+        sync.build_home_facts(self.STATE, self.STATUS)
+        once = self._read()
+        sync.build_home_facts(self.STATE, self.STATUS)
+        self.assertEqual(self._read(), once)
+
+    def test_a_moved_root_or_unverified_anchor_is_labelled_honestly(self):
+        moved = dict(self.STATE, merkle_root="ef" * 32)
+        self.assertIn("pending \u00b7 block 123", sync.home_facts(moved, self.STATUS)["anchor"])
+        unverified = dict(self.STATUS, on_chain="unchecked")
+        self.assertIn("unverified \u00b7 block 123", sync.home_facts(self.STATE, unverified)["anchor"])
+
+    def test_missing_or_malformed_data_leaves_the_placeholder(self):
+        self.assertEqual(sync.home_facts({}, None), {})
+        bad = dict(self.STATUS, latest_anchor={"root": self.ROOT, "tx_hash": "0xnope"})
+        self.assertNotIn("anchor", sync.home_facts(self.STATE, bad))
+        sync.build_home_facts({}, None)
+        self.assertEqual(self._read(), self.PAGE)
+
+    def test_the_committed_homepage_serves_the_published_facts_without_javascript(self):
+        with open(os.path.join(HERE, "..", "state.json"), encoding="utf-8") as fh:
+            state = json.load(fh)
+        for rel in ("index.html", os.path.join("de", "index.html")):
+            with open(os.path.join(HERE, "..", rel), encoding="utf-8") as fh:
+                page = fh.read()
+            self.assertNotIn("\u2014 / 10,000", page, rel)
+            self.assertIn("{:,} / 10,000".format(state["claimed_slots"]), page, rel)
+            self.assertIn(state["merkle_root"], page, rel)
+            self.assertRegex(page, r'id="metric-anchor" href="https://basescan\.org/tx/0x[0-9a-f]{64}"')
+
+
+class LlmsTxtTests(unittest.TestCase):
+    """B-31/B-35: llms.txt names the URLs that are actually served."""
+
+    def setUp(self):
+        with open(os.path.join(HERE, "..", "llms.txt"), encoding="utf-8") as fh:
+            self.txt = fh.read()
+
+    def test_discovery_documents_use_the_served_well_known_urls(self):
+        self.assertNotRegex(self.txt, r"(?<![\w/.-])discovery/[\w-]+\.json")
+        for url in ("https://thefirstwall.ai/.well-known/agent-registration.json",
+                    "https://thefirstwall.ai/.well-known/agent-card.json",
+                    "https://x402.thefirstwall.ai/.well-known/x402",
+                    "https://thefirstwall.ai/verification.json"):
+            self.assertIn(url, self.txt)
+
+    def test_the_signature_is_published_and_the_claim_link_is_named(self):
+        self.assertNotIn("when published", self.txt)
+        self.assertIn("https://thefirstwall.ai/skill.md.sig", self.txt)
+        self.assertIn("state.json.links.x402_claim", self.txt)
 
 
 class CheckFlagTests(unittest.TestCase):

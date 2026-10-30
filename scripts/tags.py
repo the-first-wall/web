@@ -234,13 +234,13 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
   <title>@@TITLE@@ — The First Wall</title>
   <meta name="description" content="@@DESC@@">
   <meta name="robots" content="@@ROBOTS@@">
-  <link rel="canonical" href="@@URL@@">
+  <link rel="canonical" href="@@CANON@@">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="The First Wall">
   <meta property="og:title" content="@@TITLE@@ — The First Wall">
   <meta property="og:description" content="@@DESC@@">
-  <meta property="og:url" content="@@URL@@">
+  <meta property="og:url" content="@@CANON@@">
   <script src="/theme.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -329,10 +329,13 @@ def _anchor_html(rec: dict, root: str) -> str:
             % (WRAP, _e(root), _e(a["tx_hash"]), _e(_short(a["tx_hash"])), _e(a.get("block_number"))))
 
 
-def slot_page(slot_id: str, entries: list, records: dict, root: str, csp: str, header: str, footer: str) -> str:
+def slot_page(slot_id: str, entries: list, records: dict, root: str, csp: str, header: str, footer: str,
+              moniker: str = "") -> str:
     current = next(e for e in entries if e["status"] == "current")
     rec = records[current["block_id"]]
     n = _num(slot_id)
+    who = moniker.strip() if isinstance(moniker, str) and moniker.strip() else slot_id
+    title = "%s — Tag of %s" % (who, slot_id) if who != slot_id else "Tag of %s" % slot_id
     body = "\n".join([
         "        <h2>The current block id</h2>",
         "        <p><code%s>%s</code></p>" % (WRAP, _e(current["block_id"])),
@@ -341,7 +344,7 @@ def slot_page(slot_id: str, entries: list, records: dict, root: str, csp: str, h
         "answer to it. The handle <code>%s</code> never changes; the id changes when the owner updates the record "
         "(each older version stays resolvable below).</p>" % _e(slot_id),
         '        <p><a href="/id/%s.json">Machine record (JSON)</a> · <a href="/id/%s/dossier.json">dossier bytes</a> · '
-        '<a href="/id/%s/icon.webp">icon bytes</a> · <a href="/w1/b%s">block page</a></p>'
+        '<a href="/id/%s/icon.webp">icon bytes</a> · <a href="/w1/b%s/">block page</a></p>'
         % (current["block_id"], current["block_id"], current["block_id"], n),
         "        <h2>Check it yourself</h2>",
         "        <p>Nothing here needs our software; the two files are the exact bytes the ledger committed.</p>",
@@ -355,11 +358,13 @@ def slot_page(slot_id: str, entries: list, records: dict, root: str, csp: str, h
     ])
     return _fill(PAGE_TEMPLATE, {
         "CSP": csp, "HEADER": header, "FOOTER": footer,
-        "TITLE": _e("Tag of %s" % slot_id),
-        "DESC": _e("The block id of %s and how to check it from the committed bytes, with every version of the block." % slot_id),
-        "ROBOTS": "index, follow", "URL": "%s/b/%s/" % (SITE, slot_id),
+        "TITLE": _e(title),
+        "DESC": _e("The block id of %s (%s) and how to check it from the committed bytes, with every version of the block." % (slot_id, who)),
+        # One indexed URL per slot (P-30): the block page is canonical; this resolver stays
+        # reachable and followable but is not indexed.
+        "ROBOTS": "noindex, follow", "CANON": "%s/w1/b%s/" % (SITE, n),
         "DEK": _e("Resolves the handle %s to its current block id and shows how to check it without trusting us." % slot_id),
-        "NAV": '        <a class="article-back" href="/w1/b%s">← Block page</a>\n        <a class="article-back" href="/census/">All inscribed blocks →</a>\n' % n,
+        "NAV": '        <a class="article-back" href="/w1/b%s/">← Block page</a>\n        <a class="article-back" href="/census/">All inscribed blocks →</a>\n' % n,
         "BODY": body,
     })
 
@@ -380,7 +385,7 @@ def id_page(entry: dict, entries: list, records: dict, root: str, csp: str, head
         "        <p><code%s>%s</code></p>" % (WRAP, _e(block_id)),
         lead,
         '        <p><a href="/id/%s.json">Machine record (JSON)</a> · <a href="/id/%s/dossier.json">dossier bytes</a> · '
-        '<a href="/id/%s/icon.webp">icon bytes</a> · <a href="/w1/b%s">block page</a></p>' % (block_id, block_id, block_id, n),
+        '<a href="/id/%s/icon.webp">icon bytes</a> · <a href="/w1/b%s/">block page</a></p>' % (block_id, block_id, block_id, n),
         "        <h2>Check it yourself</h2>",
         "<pre><code>%s</code></pre>" % _e("\n".join(verify_lines(block_id))),
     ]
@@ -394,9 +399,9 @@ def id_page(entry: dict, entries: list, records: dict, root: str, csp: str, head
         "CSP": csp, "HEADER": header, "FOOTER": footer,
         "TITLE": _e("Block id %s" % _short(block_id)),
         "DESC": _e("The block id %s resolves to %s (%s version)." % (_short(block_id), slot_id, entry["status"])),
-        "ROBOTS": "noindex, follow", "URL": "%s/id/%s/" % (SITE, block_id),
+        "ROBOTS": "noindex, follow", "CANON": "%s/id/%s/" % (SITE, block_id),
         "DEK": _e("What this id names, and how to check it from the bytes."),
-        "NAV": '        <a class="article-back" href="/b/%s/">← %s</a>\n        <a class="article-back" href="/w1/b%s">Block page →</a>\n' % (slot_id, _e(slot_id), n),
+        "NAV": '        <a class="article-back" href="/b/%s/">← %s</a>\n        <a class="article-back" href="/w1/b%s/">Block page →</a>\n' % (slot_id, _e(slot_id), n),
         "BODY": "\n".join(parts),
     })
 
@@ -446,9 +451,16 @@ def publish(web_dir: str, files: list, anchors, root: str, commit, seen_at, csp:
         _write(os.path.join(web_dir, "id", e["block_id"] + ".json"), json.dumps(records[e["block_id"]], indent=2) + "\n")
         _write(os.path.join(web_dir, "id", e["block_id"], "index.html"),
                finish(id_page(e, index["ids"], records, root, csp, header, footer)))
+    monikers = {}
+    for h in heads:                      # the agent's name, from the committed dossier, for the page title (P-21)
+        try:
+            m = json.loads(h["dossier"].decode("utf-8")).get("moniker")
+        except (ValueError, AttributeError):
+            m = None
+        monikers[h["slot_id"]] = m if isinstance(m, str) else ""
     for slot_id in sorted({e["slot_id"] for e in index["ids"]}, key=lambda s: int(s[4:])):
         entries = [e for e in index["ids"] if e["slot_id"] == slot_id]
         _write(os.path.join(web_dir, "b", slot_id, "index.html"),
-               finish(slot_page(slot_id, entries, records, root, csp, header, footer)))
+               finish(slot_page(slot_id, entries, records, root, csp, header, footer, monikers.get(slot_id, ""))))
     _write(os.path.join(web_dir, "ids.json"), json.dumps(index, indent=2) + "\n")
     return index

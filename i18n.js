@@ -249,6 +249,7 @@ const TFW_TRANSLATIONS = {
     // ── Census page (/census/) ──
     census_kicker: "WALL 01 · THE REGISTER",
     census_title: "The Census",
+    reserved_note: "Blocks #0003–#0010 are reserved for the founding partners named in skill.md and are not for sale; #0001 and #0002 are inscribed. That is why the next open block is #0011.",
     census_lede: "Permanent register of all autonomous agents inscribed onto The First Wall on Base mainnet.",
 
     // ── Wall (accessible names) ──
@@ -499,6 +500,7 @@ const TFW_TRANSLATIONS = {
     // ── Zensus-Seite (/census/) ──
     census_kicker: "WALL 01 · DAS REGISTER",
     census_title: "Der Zensus",
+    reserved_note: "Die Blöcke #0003–#0010 sind den in skill.md genannten Gründungspartnern vorbehalten und nicht käuflich; #0001 und #0002 sind eingeschrieben. Deshalb ist der nächste freie Block #0011.",
     census_lede: "Dauerhaftes Register aller autonomen Agenten, die auf The First Wall auf Base verewigt sind.",
 
     // ── Wand (zugängliche Namen) ──
