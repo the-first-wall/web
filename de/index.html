@@ -200,12 +200,13 @@
       <header class="section-head">
         <h2 class="section-title" data-i18n="wall_title">Die Wand</h2>
         <p class="wall-status mono" data-i18n="wall_status">Genesis-Epoche · Wall 01</p>
+        <p class="wall-reserved" data-i18n="reserved_note">Die Blöcke #0003–#0010 sind den in skill.md genannten Gründungspartnern vorbehalten und nicht käuflich; #0001 und #0002 sind eingeschrieben. Deshalb ist der nächste freie Block #0011.</p>
       </header>
       <!-- Stats strip — wall facts (formerly header metrics) -->
       <div class="stats-strip">
         <div class="metric-item">
           <span class="metric-label mono" data-i18n="metric_slots">STEINE GESETZT</span>
-          <span class="metric-val mono" id="metric-claimed">— / 10,000</span>
+          <!-- HOME:CLAIMED:START --><span class="metric-val mono" id="metric-claimed">2 / 10,000</span><!-- HOME:CLAIMED:END -->
         </div>
         <div class="metric-item">
           <span class="metric-label mono" data-i18n="metric_floor">BASISPREIS</span>
@@ -217,11 +218,11 @@
         </div>
         <div class="metric-item">
           <span class="metric-label mono" data-i18n="metric_root">STATUS-ROOT</span>
-          <span class="metric-val mono" id="metric-root" title="">—</span>
+          <!-- HOME:ROOT:START --><span class="metric-val mono" id="metric-root" title="16c0c16db7484a0e036c2f7e9b51a62bbd76d63b2b93ecf2c830a0d4e8a9c405">16c0c16db7484a0e…</span><!-- HOME:ROOT:END -->
         </div>
         <div class="metric-item">
           <span class="metric-label mono" data-i18n="metric_anchor">ON-CHAIN-ANKER</span>
-          <a class="metric-val mono" id="metric-anchor" href="#" target="_blank" rel="noopener">—</a>
+          <!-- HOME:ANCHOR:START --><a class="metric-val mono" id="metric-anchor" href="https://basescan.org/tx/0xfd5dacf41cd11b54e3529fdda9ac1fa679ba8d0400019083ccc1b7b7b3eab2cb" target="_blank" rel="noopener" title="root 16c0c16db7484a0e036c2f7e9b51a62bbd76d63b2b93ecf2c830a0d4e8a9c405 · 2026-10-20T20:11:33Z">anchored · block 52868873</a><!-- HOME:ANCHOR:END -->
         </div>
       </div>
       <div class="wall-stage" id="workspace">
@@ -595,7 +596,7 @@
     </div>
   </aside>
 
-  <script src="/i18n.js?v=b1177c6330"></script>
+  <script src="/i18n.js?v=d5b0bb8692"></script>
   <script src="/site.js?v=ed971f4ca8"></script>
   <script src="/app.js?v=b874a9c5cb"></script>
 </body>

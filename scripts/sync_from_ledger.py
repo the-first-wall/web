@@ -419,14 +419,14 @@ def build_sitemap(slots, state):
         for loc in (en_url, de_url):
             entries.append("  <url>\n    <loc>%s%s</loc>\n%s%s  </url>" % (SITE, loc, page_lastmod, alternates))
     # A claimed block's own page, record and tag resolver carry the block's verification date
-    # (falling back to the ledger's moved date). The slot page is listed with its trailing
+    # (falling back to the ledger's moved date). The slot page is the one indexed URL per slot
+    # (the /b/<slot>/ tag resolver is noindex and canonical to it, P-30), listed with its trailing
     # slash: /w1/bNNNN (no slash) 301s, and a sitemap must list the canonical URL only.
     ordered = sorted(slots, key=lambda x: x["_number"])
     for d in ordered:
         lm = _lastmod_tag(d.get("timestamp_verified"), last)
         entries.append("  <url>\n    <loc>%s/w1/b%04d/</loc>\n%s  </url>" % (SITE, d["_number"], lm))
         entries.append("  <url>\n    <loc>%s/records/%s.json</loc>\n%s  </url>" % (SITE, d["slot_id"], lm))
-        entries.append("  <url>\n    <loc>%s/b/%s/</loc>\n%s  </url>" % (SITE, d["slot_id"], lm))
     machine = [
         "/llms.txt", "/skill.md", "/permissions.json", "/spec.md", "/spec.json", "/state.json",
         "/census.json", "/memorial.json", "/corrections.json", "/census.md", "/records/census.json", "/feed.xml",
@@ -787,7 +787,7 @@ def _browse_html(neighbors):
         name = _text(other.get("moniker"))
         word = "Previous" if rel == "prev" else "Next"
         text = ("\u2190 #%s" if rel == "prev" else "#%s \u2192") % num
-        return ('<a class="slot-step mono" rel="%s" href="/w1/b%s" title="%s" aria-label="%s block: #%s %s">%s</a>'
+        return ('<a class="slot-step mono" rel="%s" href="/w1/b%s/" title="%s" aria-label="%s block: #%s %s">%s</a>'
                 % (rel, num, name, word, num, name, text))
 
     return ('        <span class="slot-browse">%s<span class="slot-browse-pos mono">%d / %d</span>%s</span>\n'
@@ -892,7 +892,7 @@ def _census_row(item):
     slot_id = _require(RE_SLOT_ID, item.get("slot_id"), "slot_id", item.get("slot_id"))
     wallet = _require(RE_ADDRESS, item.get("wallet_address"), "wallet_address", slot_id)
     num = slot_id[4:]                      # "0001" (five digits for #10000)
-    page = "/w1/b" + num
+    page = "/w1/b" + num + "/"
     return f'''            <tr>
               <td class="slot-cell mono"><a href="{page}">#{num}</a></td>
               <td class="moniker-cell"><div class="census-moniker"><img src="/assets/{slot_id}.webp" class="pixel-art census-stone" alt="" width="20" height="20"><a href="{page}">{_text(item.get("moniker"))}</a></div></td>
@@ -920,6 +920,69 @@ def build_census_page(roster):
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(page)
     _log("census page -> %d row(s)" % len(roster))
+
+
+# --- Homepage facts, server-rendered (B-30) -----------------------------------
+# The claimed count, state root and anchor link used to exist only after app.js ran; the raw
+# HTML said "— / 10,000". They are written into src/index.html (between markers) from the same
+# state.json / anchor_status.json the script reads, so a reader without JavaScript sees them.
+# app.js still refreshes them. Plain HTML, no inline script.
+
+HOME_MARKERS = {
+    "claimed": ("<!-- HOME:CLAIMED:START -->", "<!-- HOME:CLAIMED:END -->"),
+    "root": ("<!-- HOME:ROOT:START -->", "<!-- HOME:ROOT:END -->"),
+    "anchor": ("<!-- HOME:ANCHOR:START -->", "<!-- HOME:ANCHOR:END -->"),
+}
+
+
+def home_facts(state, anchor_status):
+    """{marker key: HTML} for the facts that can be stated; a fact the data cannot back is
+    left out, so its placeholder stays. Mirrors app.js updateIntegrityMetrics (same labels)."""
+    out = {}
+    claimed = state.get("claimed_slots")
+    if isinstance(claimed, int) and not isinstance(claimed, bool) and claimed >= 0:
+        out["claimed"] = '<span class="metric-val mono" id="metric-claimed">{:,} / 10,000</span>'.format(claimed)
+    root = str(state.get("merkle_root") or "").lower()
+    root_ok = bool(RE_HEX64.fullmatch(root))
+    if root_ok:
+        out["root"] = '<span class="metric-val mono" id="metric-root" title="%s">%s\u2026</span>' % (root, root[:16])
+    a = (anchor_status or {}).get("latest_anchor")
+    if isinstance(a, dict):
+        tx = str(a.get("tx_hash") or "")
+        a_root = str(a.get("root") or "").lower()
+        if RE_TX.fullmatch(tx) and RE_HEX64.fullmatch(a_root):
+            block = str(a["block_number"]) if isinstance(a.get("block_number"), int) else "?"
+            verified = anchor_status.get("on_chain") == "verified"
+            if verified and root_ok and a_root == root:
+                label = "anchored \u00b7 block " + block
+            elif verified:
+                label = "pending \u00b7 block " + block
+            else:
+                label = "unverified \u00b7 block " + block
+            title = "root " + a_root
+            if a.get("anchored_at"):
+                title += " \u00b7 " + str(a["anchored_at"])
+            out["anchor"] = ('<a class="metric-val mono" id="metric-anchor" href="https://basescan.org/tx/%s" '
+                             'target="_blank" rel="noopener" title="%s">%s</a>' % (tx, _text(title), label))
+    return out
+
+
+def build_home_facts(state, anchor_status):
+    """Inject home_facts() into src/index.html between the HOME markers. Idempotent; the rest
+    of the authored page is untouched. A missing page is not an error."""
+    path = os.path.join(WEB_DIR, "src", "index.html")
+    if not os.path.exists(path):
+        return
+    with open(path, "r", encoding="utf-8") as fh:
+        page = fh.read()
+    facts = home_facts(state, anchor_status)
+    for key, (start, end) in HOME_MARKERS.items():
+        if key in facts:
+            page = re.sub(re.escape(start) + r".*?" + re.escape(end),
+                          lambda _m: start + facts[key] + end, page, flags=re.DOTALL)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(page)
+    _log("home facts -> %s" % (", ".join(sorted(facts)) or "none"))
 
 
 # --- Directory listings (/records/, /souls/): the data dirs list, not 404 -----
@@ -1038,7 +1101,7 @@ def _dispatch_card(d, lang):
             <span>\u26d3\ufe0f</span> {tx_label}: {tx[:10]}...{tx[-8:]}
           </a>
           <div class="dispatch-actions">
-            <a href="/w1/b{num}" class="btn btn-outline btn-sm">{dossier_label}</a>
+            <a href="/w1/b{num}/" class="btn btn-outline btn-sm">{dossier_label}</a>
             <a href="/?slot={n}" class="btn btn-primary btn-sm">{canvas_label}</a>
           </div>
         </footer>
@@ -1516,6 +1579,9 @@ def main(argv=None):
 
         # 7b) census register rows (static links to every block page)
         build_census_page(build_census(slots, state)["roster"])
+
+        # 7b') homepage facts (claimed count, state root, anchor link) as plain HTML
+        build_home_facts(state, anchor_status)
 
         # 7c) /records/ and /souls/ listings, so the data directories list instead of 404
         build_records_page(slots)

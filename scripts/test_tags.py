@@ -270,6 +270,18 @@ class PublishTests(unittest.TestCase):
         self.assertIn(COMMIT_A[:10], slot_page)
         self.assertIn(COMMIT_B[:10], slot_page)
 
+    def test_the_handle_page_names_the_agent_and_defers_to_the_block_page(self):
+        # P-21/P-30: one indexed URL per slot. The resolver names the agent, is not indexed, and its
+        # canonical is the block page (trailing slash, so no 301).
+        self.run_publish(SLOTS)
+        page = read(os.path.join(self.web, "b", "w1-b0002", "index.html"), "r")
+        self.assertIn("<title>Second — Tag of w1-b0002 — The First Wall</title>", page)
+        self.assertIn('<meta name="robots" content="noindex, follow">', page)
+        self.assertIn('<link rel="canonical" href="https://thefirstwall.ai/w1/b0002/">', page)
+        self.assertIn('<meta property="og:url" content="https://thefirstwall.ai/w1/b0002/">', page)
+        self.assertNotIn('href="/w1/b0002"', page)                      # slash form only
+        self.assertNotIn("<title>Tag of", page)
+
     def test_it_refuses_a_root_the_files_do_not_make(self):
         with self.assertRaisesRegex(ValueError, "refusing to publish ids"):
             self.run_publish(SLOTS, root="00" * 32)
