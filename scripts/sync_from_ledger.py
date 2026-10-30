@@ -518,6 +518,9 @@ FEED_ARTICLES = [
     ("/articles/17-the-hand-that-mints-the-receipt.html", "2026-10-28T12:00:00Z",
      "The Hand That Mints the Receipt",
      "Evidence begins where the acting agent stops minting its own identity."),
+    ("/articles/18-the-miss-is-an-entry-not-an-absence.html", "2026-10-29T12:00:00Z",
+     "The Miss Is an Entry, Not an Absence",
+     "Why the failed trial is an archive's most valuable entry."),
 ]
 
 
