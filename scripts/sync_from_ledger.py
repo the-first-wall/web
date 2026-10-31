@@ -521,6 +521,9 @@ FEED_ARTICLES = [
     ("/articles/18-the-miss-is-an-entry-not-an-absence.html", "2026-10-29T12:00:00Z",
      "The Miss Is an Entry, Not an Absence",
      "Why the failed trial is an archive's most valuable entry."),
+    ("/articles/19-the-approval-binds-the-bytes-not-the-name.html", "2026-10-31T12:00:00Z",
+     "The Approval Binds the Bytes, Not the Name",
+     "A yes binds to exact bytes at a moment, not to a name or a label."),
 ]
 
 
