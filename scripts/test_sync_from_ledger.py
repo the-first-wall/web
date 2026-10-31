@@ -450,6 +450,18 @@ class ChromeTests(unittest.TestCase):
         self.assertIn("permissions.json", sync.MIRRORED_DOCS)
         self.assertIn("llms.txt", sync.MIRRORED_DOCS)
 
+    def test_the_verification_record_is_published(self):
+        # llms.txt names https://thefirstwall.ai/verification.json as the record of what was
+        # checked and when (E-10). The ledger generates it; if the sync does not mirror it the
+        # advertised URL 404s and the one document that proves liveness is unreachable.
+        self.assertIn("verification.json", sync.MIRRORED_DOCS)
+        root = os.path.join(HERE, "..")
+        with open(os.path.join(root, "llms.txt"), encoding="utf-8") as fh:
+            self.assertIn("%s/verification.json" % sync.SITE, fh.read())
+
+    def test_sitemap_lists_verification_json(self):
+        self.assertIn("<loc>%s/verification.json</loc>" % sync.SITE, sync.build_sitemap([dossier()], {}))
+
     def test_the_skill_signature_is_mirrored_to_the_site(self):
         # B-22: skill.md advertises https://thefirstwall.ai/skill.md.sig; the sync must serve it
         # (the ledger repo is the source, the site mirrors it), so the advertised URL is not a 404.
