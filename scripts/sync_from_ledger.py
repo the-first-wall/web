@@ -428,7 +428,7 @@ def build_sitemap(slots, state):
         entries.append("  <url>\n    <loc>%s/w1/b%04d/</loc>\n%s  </url>" % (SITE, d["_number"], lm))
         entries.append("  <url>\n    <loc>%s/records/%s.json</loc>\n%s  </url>" % (SITE, d["slot_id"], lm))
     machine = [
-        "/llms.txt", "/skill.md", "/permissions.json", "/spec.md", "/spec.json", "/state.json",
+        "/llms.txt", "/skill.md", "/permissions.json", "/verification.json", "/spec.md", "/spec.json", "/state.json",
         "/census.json", "/memorial.json", "/corrections.json", "/census.md", "/records/census.json", "/feed.xml",
         "/schemas/dossier.schema.json", "/anchors.json", "/ids.json",
     ]
@@ -884,7 +884,8 @@ def build_slot_page(d, neighbors=None):
 # as the permission manifest, so the site must actually serve it (not only the ledger repo).
 # skill.md also advertises its detached signature at thefirstwall.ai/skill.md.sig (B-22): mirror it
 # too, so the advertised URL serves the file instead of 404ing.
-MIRRORED_DOCS = ("skill.md", "skill.md.sig", "spec.md", "spec.json", "llms.txt", "permissions.json")
+MIRRORED_DOCS = ("skill.md", "skill.md.sig", "spec.md", "spec.json", "llms.txt", "permissions.json",
+                 "verification.json")
 
 CENSUS_MARKERS = ("<!-- CENSUS:ROWS:START -->", "<!-- CENSUS:ROWS:END -->")
 
