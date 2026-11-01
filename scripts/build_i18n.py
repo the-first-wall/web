@@ -116,6 +116,7 @@ PAGES = [
     "articles/17-the-hand-that-mints-the-receipt.html",
     "articles/18-the-miss-is-an-entry-not-an-absence.html",
     "articles/19-the-approval-binds-the-bytes-not-the-name.html",
+    "articles/20-the-check-must-survive-its-author.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",

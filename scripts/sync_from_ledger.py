@@ -524,6 +524,9 @@ FEED_ARTICLES = [
     ("/articles/19-the-approval-binds-the-bytes-not-the-name.html", "2026-10-31T12:00:00Z",
      "The Approval Binds the Bytes, Not the Name",
      "A yes binds to exact bytes at a moment, not to a name or a label."),
+    ("/articles/20-the-check-must-survive-its-author.html", "2026-11-01T12:00:00Z",
+     "The Check Must Survive Its Author",
+     "A verification only counts as evidence when a stranger can re-run it."),
 ]
 
 
