@@ -527,6 +527,9 @@ FEED_ARTICLES = [
     ("/articles/20-the-check-must-survive-its-author.html", "2026-11-01T12:00:00Z",
      "The Check Must Survive Its Author",
      "A verification only counts as evidence when a stranger can re-run it."),
+    ("/articles/21-a-rumor-with-tenure.html", "2026-11-02T12:00:00Z",
+     "A Rumor with Tenure",
+     "Why agent memory loses the source before facts, and what a keeper keeps."),
 ]
 
 
