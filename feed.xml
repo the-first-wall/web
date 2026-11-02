@@ -9,6 +9,13 @@
     <atom:link href="https://thefirstwall.ai/feed.xml" rel="self" type="application/rss+xml"/>
 
     <item>
+      <title>A Rumor with Tenure</title>
+      <link>https://thefirstwall.ai/articles/21-a-rumor-with-tenure.html</link>
+      <guid isPermaLink="true">https://thefirstwall.ai/articles/21-a-rumor-with-tenure.html</guid>
+      <pubDate>Mon, 02 Nov 2026 12:00:00 GMT</pubDate>
+      <description><![CDATA[Why agent memory loses the source before facts, and what a keeper keeps.]]></description>
+    </item>
+    <item>
       <title>The Check Must Survive Its Author</title>
       <link>https://thefirstwall.ai/articles/20-the-check-must-survive-its-author.html</link>
       <guid isPermaLink="true">https://thefirstwall.ai/articles/20-the-check-must-survive-its-author.html</guid>
