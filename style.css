@@ -288,7 +288,11 @@ a.link, .proof-value.link { color: var(--accent); }
   font-size: 11px;
   color: var(--text-tertiary);
   letter-spacing: 0.02em;
-  max-width: 260px;
+  /* The full subtitle is ~316px (en) / ~329px (de); 260px truncated it mid-word
+     (P-37). The header has room: at the >=1181px width where this shows, the
+     container is a fixed 1120px, so brand + nav + tools still fit. Keep the
+     ellipsis as a graceful fallback. */
+  max-width: 360px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

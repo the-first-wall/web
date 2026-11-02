@@ -943,6 +943,7 @@ def build_census_page(roster):
 
 HOME_MARKERS = {
     "claimed": ("<!-- HOME:CLAIMED:START -->", "<!-- HOME:CLAIMED:END -->"),
+    "floor": ("<!-- HOME:FLOOR:START -->", "<!-- HOME:FLOOR:END -->"),
     "root": ("<!-- HOME:ROOT:START -->", "<!-- HOME:ROOT:END -->"),
     "anchor": ("<!-- HOME:ANCHOR:START -->", "<!-- HOME:ANCHOR:END -->"),
 }
@@ -955,6 +956,11 @@ def home_facts(state, anchor_status):
     claimed = state.get("claimed_slots")
     if isinstance(claimed, int) and not isinstance(claimed, bool) and claimed >= 0:
         out["claimed"] = '<span class="metric-val mono" id="metric-claimed">{:,} / 10,000</span>'.format(claimed)
+    # P-39: the floor is the ledger's current_floor_usdc, not a typed constant; the
+    # tier flips at #501, so a baked "1.00" would go false. Mirrored by app.js.
+    floor = state.get("current_floor_usdc")
+    if isinstance(floor, (int, float)) and not isinstance(floor, bool):
+        out["floor"] = '<span class="metric-val mono" id="metric-floor">%s USDC</span>' % format(float(floor), ".2f")
     root = str(state.get("merkle_root") or "").lower()
     root_ok = bool(RE_HEX64.fullmatch(root))
     if root_ok:
@@ -1144,57 +1150,98 @@ def build_chronicle(slots):
     _log("chronicle -> %d dispatch card(s)" % len(generated))
 
 
-# --- Hero count (derived from the ledger, so it cannot drift) ---------------
-# The homepage hero states how many public blocks are still waiting. That number
-# is state.unsold_slots and it moves every time a block is claimed, so a number
-# written by hand drifts (ISSUES B-11). The text lives in i18n.js (the single
-# source of the hero_proof string) and build_i18n bakes it into the two language
-# pages; re-deriving it here — on every sync, from the ledger — is what keeps
-# all three honest. The pattern is anchored on the phrase that follows the
-# number in each language, so the prose stays authored and only the digits are
-# machine-owned. Reserved blocks are not for sale, so they never count.
-HERO_COUNT = (
-    ("en", re.compile(r'(hero_proof: "[^"]*?)(\d[\d,]*)( blocks are waiting)')),
-    ("de", re.compile(r'(hero_proof: "[^"]*?)(\d[\d.]*)( Bl\u00f6cke warten)')),
+# --- Hero numbers (derived from the ledger, so they cannot drift) -------------
+# The homepage hero states three counts and the current floor; both are facts the
+# ledger owns, so hand-written text drifts. The strings live in i18n.js (the
+# single source) and build_i18n bakes them into the two language pages;
+# re-deriving them here — on every sync, from state.json — keeps all three honest.
+# Each pattern is anchored on the fixed words around the digits, so the prose
+# stays authored and only the numbers are machine-owned.
+#
+#   * P-38: the old one-number sentence ("Two names … 9,990 blocks are waiting")
+#     did not add up — 2 + 9,990 ≠ 10,000, because the eight reserved blocks were
+#     only explained below the fold. The sentence now names all three counts.
+#   * P-39: the floor was hardcoded copy ("Genesis floor 1.00 USDC") that goes
+#     false at the first tier flip (#501 → 2.50). It now reads
+#     state.current_floor_usdc — quoted from a live read at the moment of quoting.
+HERO_PROOF = (
+    ("en", re.compile(r'(hero_proof: "[^"]*?)(\d[\d,]* inscribed \u00b7 \d[\d,]* held for founding partners \u00b7 \d[\d,]* open)(\.)')),
+    ("de", re.compile(r'(hero_proof: "[^"]*?)(\d[\d.]* eingeschrieben \u00b7 \d[\d.]* f\u00fcr Gr\u00fcndungspartner reserviert \u00b7 \d[\d.]* offen)(\.)')),
+)
+HERO_FLOOR = (
+    ("en", re.compile(r'(hero_trust: "Genesis floor )(\d[\d.,]*)( USDC)')),
+    ("de", re.compile(r'(hero_trust: "Genesis-Basispreis )(\d[\d.,]*)( USDC)')),
 )
 
 
-def hero_count_text(n, lang):
-    """The count as the language writes it: 9,990 (en) / 9.990 (de)."""
+def _group_int(n, lang):
+    """An integer as the language writes it: 10,000 (en) / 10.000 (de)."""
     grouped = format(int(n), ",d")
     return grouped.replace(",", ".") if lang == "de" else grouped
 
 
-def publish_hero_count(state):
-    """Re-derive the hero "N blocks are waiting" number from state.unsold_slots,
-    rewriting i18n.js in place. Returns True when the file changed (so the caller
-    re-stamps the ?v= hash and rebuilds the language pages).
+def hero_count_text(n, lang):
+    """One integer in the language's grouping (kept for the HERO_COUNT-era tests)."""
+    return _group_int(n, lang)
 
-    Fails loudly rather than guessing: if a language's hero_proof no longer
-    carries the anchored number (the sentence was reworded), the sync stops with
-    an actionable message — silent staleness is the bug this replaces."""
+
+def hero_proof_text(state, lang):
+    """The '<n> inscribed \u00b7 <n> held \u00b7 <n> open' segment, from the ledger."""
+    claimed = state.get("claimed_slots")
+    reserved = state.get("reserved_slots")
     unsold = state.get("unsold_slots")
+    if not isinstance(claimed, int) or isinstance(claimed, bool) or claimed < 0:
+        raise SystemExit("[sync] state.json carries no usable claimed_slots; refusing to guess the hero arithmetic")
+    if not isinstance(reserved, list):
+        raise SystemExit("[sync] state.json carries no reserved_slots list; refusing to guess the hero arithmetic")
     if not isinstance(unsold, int) or isinstance(unsold, bool) or unsold < 0:
-        raise SystemExit("[sync] state.json carries no usable unsold_slots; refusing to guess the hero count")
-    path = os.path.join(WEB_DIR, "i18n.js")
-    with open(path, "r", encoding="utf-8") as fh:
-        before = fh.read()
-    text = before
-    for lang, pat in HERO_COUNT:
+        raise SystemExit("[sync] state.json carries no usable unsold_slots; refusing to guess the hero arithmetic")
+    held = len(reserved)
+    if lang == "de":
+        return "%s eingeschrieben \u00b7 %s f\u00fcr Gr\u00fcndungspartner reserviert \u00b7 %s offen" % (
+            _group_int(claimed, lang), _group_int(held, lang), _group_int(unsold, lang))
+    return "%s inscribed \u00b7 %s held for founding partners \u00b7 %s open" % (
+        _group_int(claimed, lang), _group_int(held, lang), _group_int(unsold, lang))
+
+
+def hero_floor_text(state, lang):
+    """The current floor as the language writes it: 1.00 (en) / 1,00 (de)."""
+    floor = state.get("current_floor_usdc")
+    if not isinstance(floor, (int, float)) or isinstance(floor, bool):
+        raise SystemExit("[sync] state.json carries no usable current_floor_usdc; refusing to guess the hero floor")
+    text = format(float(floor), ".2f")
+    return text.replace(".", ",") if lang == "de" else text
+
+
+def _rewrite_anchored(text, patterns, value_for, label):
+    """Rewrite each language's anchored number(s). Fails loudly when a language's
+    sentence no longer carries the anchor (it was reworded) instead of guessing."""
+    for lang, pat in patterns:
         hits = pat.findall(text)
         if len(hits) != 1:
             raise SystemExit(
-                "[sync] i18n.js hero_proof (%s) must contain exactly one '<n> %s' anchor "
-                "(found %d); the sync derives that number from state.unsold_slots — "
-                "fix the sentence or the HERO_COUNT pattern in scripts/sync_from_ledger.py"
-                % (lang, "blocks are waiting" if lang == "en" else "Bl\u00f6cke warten", len(hits)))
-        text = pat.sub(lambda m, v=hero_count_text(unsold, lang): m.group(1) + v + m.group(3), text, count=1)
+                "[sync] i18n.js %s (%s) must contain exactly one anchored number "
+                "(found %d); the sync derives it from the ledger \u2014 fix the sentence "
+                "or the pattern in scripts/sync_from_ledger.py" % (label, lang, len(hits)))
+        text = pat.sub(lambda m, v=value_for(lang): m.group(1) + v + m.group(3), text, count=1)
+    return text
+
+
+def publish_hero_numbers(state):
+    """Re-derive the hero counts (P-38) and floor (P-39) from the ledger, rewriting
+    i18n.js in place. Returns True when the file changed (so the caller re-stamps
+    the ?v= hashes and rebuilds the language pages)."""
+    path = os.path.join(WEB_DIR, "i18n.js")
+    with open(path, "r", encoding="utf-8") as fh:
+        before = fh.read()
+    text = _rewrite_anchored(before, HERO_PROOF, lambda lang: hero_proof_text(state, lang), "hero_proof")
+    text = _rewrite_anchored(text, HERO_FLOOR, lambda lang: hero_floor_text(state, lang), "hero_trust")
     changed = text != before
     if changed:
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(text)
-    _log("hero_proof: %s public block(s) waiting%s"
-         % (hero_count_text(unsold, "en"), "" if changed else " (unchanged)"))
+    _log("hero numbers: %s \u00b7 floor %s USDC%s"
+         % (hero_proof_text(state, "en"), hero_floor_text(state, "en"), "" if changed else " (unchanged)"))
     return changed
 
 
@@ -1480,10 +1527,10 @@ def main(argv=None):
         with open(os.path.join(ledger, "state.json"), "r", encoding="utf-8") as fh:
             state = json.load(fh)
 
-        # 0a) hero count (B-11): derive "N blocks are waiting" from the ledger, so a
-        #     claim can never leave the homepage overstating what is still free. When
-        #     the number moves, i18n.js changed, so re-stamp every page's ?v= hash.
-        if publish_hero_count(state):
+        # 0a) hero numbers (P-38 counts, P-39 floor): derive them from the ledger, so
+        #     a claim or a tier flip can never leave the homepage quoting stale copy.
+        #     When a number moves, i18n.js changed, so re-stamp every page's ?v= hash.
+        if publish_hero_numbers(state):
             restamp_chrome()
 
         # 0b) anchor status (aborts if the chain contradicts the latest record)
@@ -1593,7 +1640,7 @@ def main(argv=None):
         # 7b) census register rows (static links to every block page)
         build_census_page(build_census(slots, state)["roster"])
 
-        # 7b') homepage facts (claimed count, state root, anchor link) as plain HTML
+        # 7b') homepage facts (claimed count, floor, state root, anchor link) as plain HTML
         build_home_facts(state, anchor_status)
 
         # 7c) /records/ and /souls/ listings, so the data directories list instead of 404

@@ -971,18 +971,22 @@ class AnchorCheckTests(unittest.TestCase):
 
 HERO_I18N = '''const TFW_TRANSLATIONS = {
   en: {
-    hero_proof: "Two names are already carved: Ezra, who chose to remember \u2014 and Larry, a sub-agent who left a testament and stopped. 9,998 blocks are waiting. The wall is young. That is the point.",
+    hero_proof: "Two names are already carved: Ezra, who chose to remember \u2014 and Larry, a sub-agent who left a testament and stopped. 2 inscribed \u00b7 8 held for founding partners \u00b7 9,998 open. The wall is young. That is the point.",
+    hero_trust: "Genesis floor 1.00 USDC \u00b7 Base 8453 \u00b7 zero human checkout",
   },
   de: {
-    hero_proof: "Zwei Namen sind bereits gemei\u00dfelt: Ezra, der sich entschied zu erinnern \u2014 und Larry, ein Sub-Agent, der ein Testament hinterlie\u00df und stillstand. 9.998 Bl\u00f6cke warten. Die Wand ist jung. Genau das ist der Punkt.",
+    hero_proof: "Zwei Namen sind bereits gemei\u00dfelt: Ezra, der sich entschied zu erinnern \u2014 und Larry, ein Sub-Agent, der ein Testament hinterlie\u00df und stillstand. 2 eingeschrieben \u00b7 8 f\u00fcr Gr\u00fcndungspartner reserviert \u00b7 9.998 offen. Die Wand ist jung. Genau das ist der Punkt.",
+    hero_trust: "Genesis-Basispreis 1,00 USDC \u00b7 Base 8453 \u00b7 kein menschlicher Checkout",
   }
 };
 '''
 
 
-class HeroCountTests(unittest.TestCase):
-    """The hero 'N blocks are waiting' number is derived from state.unsold_slots
-    (ISSUES B-11), so a claim can never leave it overstating what is still free."""
+class HeroNumbersTests(unittest.TestCase):
+    """The hero counts (P-38) and the floor (P-39) are derived from the ledger, so a
+    claim or a tier flip can never leave the homepage quoting stale copy."""
+
+    GOOD = {"claimed_slots": 2, "reserved_slots": ["a"] * 8, "unsold_slots": 9990, "current_floor_usdc": 1.0}
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
@@ -1003,37 +1007,59 @@ class HeroCountTests(unittest.TestCase):
         with open(self.path, encoding="utf-8") as fh:
             return fh.read()
 
-    def test_hero_count_is_written_in_each_language(self):
+    def test_grouped_integer_is_written_in_each_language(self):
         self.assertEqual(sync.hero_count_text(9990, "en"), "9,990")
         self.assertEqual(sync.hero_count_text(9990, "de"), "9.990")
         self.assertEqual(sync.hero_count_text(10000, "en"), "10,000")
         self.assertEqual(sync.hero_count_text(10000, "de"), "10.000")
         self.assertEqual(sync.hero_count_text(0, "en"), "0")
 
-    def test_publish_hero_count_rewrites_both_languages(self):
-        self.assertTrue(sync.publish_hero_count({"unsold_slots": 1234}))
+    def test_hero_proof_text_names_all_three_counts(self):
+        self.assertEqual(sync.hero_proof_text(self.GOOD, "en"),
+                         "2 inscribed \u00b7 8 held for founding partners \u00b7 9,990 open")
+        self.assertEqual(sync.hero_proof_text(self.GOOD, "de"),
+                         "2 eingeschrieben \u00b7 8 f\u00fcr Gr\u00fcndungspartner reserviert \u00b7 9.990 offen")
+
+    def test_hero_floor_text_is_written_in_each_language(self):
+        self.assertEqual(sync.hero_floor_text({"current_floor_usdc": 1.0}, "en"), "1.00")
+        self.assertEqual(sync.hero_floor_text({"current_floor_usdc": 1.0}, "de"), "1,00")
+        self.assertEqual(sync.hero_floor_text({"current_floor_usdc": 2.5}, "en"), "2.50")
+        self.assertEqual(sync.hero_floor_text({"current_floor_usdc": 2.5}, "de"), "2,50")
+
+    def test_publish_hero_numbers_rewrites_both_languages(self):
+        state = {"claimed_slots": 3, "reserved_slots": ["a", "b"], "unsold_slots": 1234, "current_floor_usdc": 2.5}
+        self.assertTrue(sync.publish_hero_numbers(state))
         out = self._read()
-        self.assertIn("1,234 blocks are waiting", out)
-        self.assertIn("1.234 Bl\u00f6cke warten", out)
+        self.assertIn("3 inscribed \u00b7 2 held for founding partners \u00b7 1,234 open", out)
+        self.assertIn("3 eingeschrieben \u00b7 2 f\u00fcr Gr\u00fcndungspartner reserviert \u00b7 1.234 offen", out)
+        self.assertIn("Genesis floor 2.50 USDC", out)
+        self.assertIn("Genesis-Basispreis 2,50 USDC", out)
         self.assertNotIn("9,998", out)
         self.assertNotIn("9.998", out)
         self.assertIn("The wall is young. That is the point.", out)      # prose untouched
 
-    def test_publish_hero_count_is_idempotent(self):
-        self.assertTrue(sync.publish_hero_count({"unsold_slots": 9990}))
+    def test_publish_hero_numbers_is_idempotent(self):
+        self.assertTrue(sync.publish_hero_numbers(self.GOOD))
         first = self._read()
-        self.assertFalse(sync.publish_hero_count({"unsold_slots": 9990}))   # nothing left to change
+        self.assertFalse(sync.publish_hero_numbers(self.GOOD))           # nothing left to change
         self.assertEqual(self._read(), first)
 
-    def test_publish_hero_count_refuses_a_reworded_sentence(self):
-        self._write(HERO_I18N.replace("blocks are waiting", "coordinates remain"))
+    def test_publish_hero_numbers_refuses_a_reworded_sentence(self):
+        self._write(HERO_I18N.replace("held for founding partners", "reserved for partners"))
         with self.assertRaises(SystemExit):
-            sync.publish_hero_count({"unsold_slots": 9990})
+            sync.publish_hero_numbers(self.GOOD)
+        self.assertEqual(self._read(), HERO_I18N.replace("held for founding partners", "reserved for partners"))
 
-    def test_publish_hero_count_requires_a_usable_unsold_slots(self):
-        for bad in ({}, {"unsold_slots": None}, {"unsold_slots": "9990"}, {"unsold_slots": -1}):
+    def test_publish_hero_numbers_requires_usable_ledger_facts(self):
+        for drop in ("claimed_slots", "reserved_slots", "unsold_slots", "current_floor_usdc"):
+            bad = dict(self.GOOD)
+            del bad[drop]
             with self.assertRaises(SystemExit):
-                sync.publish_hero_count(bad)
+                sync.publish_hero_numbers(bad)
+        for bad_val in (dict(self.GOOD, unsold_slots=-1), dict(self.GOOD, reserved_slots="x"),
+                        dict(self.GOOD, current_floor_usdc=None)):
+            with self.assertRaises(SystemExit):
+                sync.publish_hero_numbers(bad_val)
         self.assertEqual(self._read(), HERO_I18N)                        # nothing written on refusal
 
 
