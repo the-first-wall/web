@@ -129,18 +129,24 @@ async function loadClaimedRoster() {
 // job could verify; a raw anchors.json fallback is labelled "unverified".
 async function updateIntegrityMetrics(fallbackClaimed) {
   const claimedEl = document.getElementById('metric-claimed');
+  const floorEl = document.getElementById('metric-floor');
   const rootEl = document.getElementById('metric-root');
   const anchorEl = document.getElementById('metric-anchor');
 
   let claimed = Number.isInteger(fallbackClaimed) ? fallbackClaimed : null;
+  let floor = null;
   let root = null;
   try {
     const s = await fetchJson('state.json');
     if (Number.isInteger(s.claimed_slots)) claimed = s.claimed_slots;
+    if (Number.isFinite(s.current_floor_usdc)) floor = s.current_floor_usdc;
     if (RE_HEX64.test(text(s.merkle_root))) root = s.merkle_root.toLowerCase();
   } catch (e) { /* keep the census fallback */ }
 
   if (claimedEl && claimed !== null) claimedEl.textContent = `${claimed.toLocaleString('en-US')} / 10,000`;
+  // The floor is quoted from the live ledger (P-39): a hardcoded "1.00 USDC" goes
+  // false at the first tier flip (#501 -> 2.50). The baked value is the no-JS fallback.
+  if (floorEl && floor !== null) floorEl.textContent = `${floor.toFixed(2)} USDC`;
   if (rootEl && root) {
     rootEl.textContent = `${root.slice(0, 16)}…`;
     rootEl.title = root;
