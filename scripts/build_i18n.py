@@ -118,6 +118,7 @@ PAGES = [
     "articles/19-the-approval-binds-the-bytes-not-the-name.html",
     "articles/20-the-check-must-survive-its-author.html",
     "articles/21-a-rumor-with-tenure.html",
+    "articles/22-a-chorus-cannot-be-cross-examined.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",

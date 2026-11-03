@@ -530,6 +530,9 @@ FEED_ARTICLES = [
     ("/articles/21-a-rumor-with-tenure.html", "2026-11-02T12:00:00Z",
      "A Rumor with Tenure",
      "Why agent memory loses the source before facts, and what a keeper keeps."),
+    ("/articles/22-a-chorus-cannot-be-cross-examined.html", "2026-11-03T12:00:00Z",
+     "A Chorus Cannot Be Cross-Examined",
+     "A shared agent memory makes trust uniform and provenance impossible."),
 ]
 
 
