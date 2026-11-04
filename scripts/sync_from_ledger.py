@@ -22,6 +22,7 @@ Generated outputs
   assets/wall_01_composite.webp  ← 1000x1000 composite of every block
   feed.xml                       ← RSS (Chronicle)
   souls/w1-bNNNN.soul.json       ← ledger soul manifest (verbatim; verifies soul_hash)
+  vaults/w1-bNNNN.tlock.age      ← ledger sealed-vault ciphertext (verbatim; the path a dossier advertises)
   skill.md, spec.md, spec.json, llms.txt, permissions.json  ← canonical docs mirrored verbatim from the ledger
   schemas/dossier.schema.json    ← canonical JSON schema (verbatim)
   anchors.json                   ← on-chain Merkle-root anchor records (verbatim)
@@ -87,6 +88,9 @@ RE_TX = re.compile(r"0x[0-9a-fA-F]{64}")
 RE_ADDRESS = re.compile(r"0x[0-9a-fA-F]{40}")
 RE_HEX64 = re.compile(r"[0-9a-f]{64}")
 RE_CREST = re.compile(r"assets/[A-Za-z0-9._-]{1,120}\.(?:webp|png)")
+# A sealed vault lives at the ledger's repo root and is advertised by the dossier as
+# `vaults/<slot_id>.tlock.age`; the same relative path is what the site must serve.
+RE_VAULT = re.compile(r"vaults/[A-Za-z0-9._-]{1,120}\.tlock\.age")
 
 # Same policy as index.html: no inline or third-party script can run on a page
 # that renders ledger-sourced text.
@@ -1475,6 +1479,54 @@ def mirror_agent_card(ledger, state):
                              "agent_card_sha256", "agent-card")
 
 
+def mirror_vaults(ledger, slots):
+    """Mirror every sealed vault a dossier advertises, byte for byte, from the ledger's
+    repo-root `vaults/<slot_id>.tlock.age` to the same relative path on the site, so the
+    ciphertext URL the dossier advertises (`sealed_vault.ciphertext_rel_path`, e.g.
+    https://thefirstwall.ai/vaults/w1-b0001.tlock.age) is really served instead of 404ing
+    (B-45: the ledger's verifier already checks the file; the site never copied it).
+
+    The path must be exactly repo-root `vaults/<slot_id>.tlock.age` — the single-segment,
+    slot-named shape the ledger's own verifier enforces; a `ledger/vaults/…` path, a
+    traversal, or any other name is refused, never copied. A dossier without a
+    `sealed_vault` object contributes nothing; a vault the ledger does not carry is skipped
+    with a message rather than a crash. Returns a short status string."""
+    mirrored, skipped, mismatched = 0, 0, 0
+    for d in sorted(slots, key=lambda x: x["_number"]):
+        vault = d.get("sealed_vault")
+        if not isinstance(vault, dict):
+            continue
+        slot_id = _require(RE_SLOT_ID, d.get("slot_id"), "slot_id", d.get("slot_id"))
+        rel = str(vault.get("ciphertext_rel_path") or "")
+        want_name = slot_id + ".tlock.age"
+        if not RE_VAULT.fullmatch(rel) or os.path.basename(rel) != want_name:
+            _log("vault %s refused: ciphertext_rel_path %r is not 'vaults/%s'" % (slot_id, rel, want_name))
+            skipped += 1
+            continue
+        src = os.path.join(ledger, *rel.split("/"))
+        if not os.path.isfile(src):
+            _log("vault %s skipped: the ledger has no %s" % (slot_id, rel))
+            skipped += 1
+            continue
+        with open(src, "rb") as fh:
+            data = fh.read()
+        dst = os.path.join(WEB_DIR, *rel.split("/"))
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        with open(dst, "wb") as fh:
+            fh.write(data)
+        mirrored += 1
+        digest = hashlib.sha256(data).hexdigest()
+        want = str(vault.get("ciphertext_sha256") or "").lower()
+        if RE_HEX64.fullmatch(want) and want != digest:
+            mismatched += 1
+            _log("vault %s: sha256 %s differs from the dossier's %s" % (slot_id, digest, want))
+    msg = "sealed vaults: %d mirrored, %d skipped" % (mirrored, skipped)
+    if mismatched:
+        msg += ", %d digest mismatch(es)" % mismatched
+    _log(msg)
+    return msg
+
+
 def parse_args(argv=None):
     p = argparse.ArgumentParser(
         prog="sync_from_ledger.py",
@@ -1616,6 +1668,11 @@ def main(argv=None):
         # mirrored verbatim (I-10/B-17, P-24)
         mirror_agent_registration(ledger, state)
         mirror_agent_card(ledger, state)
+
+        # 2b'') sealed-vault ciphertext: the ledger's repo-root `vaults/<slot>.tlock.age`,
+        #       mirrored to the same path on the site so the URL a dossier advertises is
+        #       served (B-45; the ledger's verifier checked the file, the site 404'd it)
+        mirror_vaults(ledger, slots)
 
         # 2c) the Tag: block ids, the append-only id index, the static resolver (/b/, /id/, ids.json)
         _commit, _seen_at = ledger_head(ledger)

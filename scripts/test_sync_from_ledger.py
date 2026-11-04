@@ -1272,6 +1272,87 @@ class AgentCardMirrorTests(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(self.web, ".well-known", "agent-registration.json")))
 
 
+class VaultMirrorTests(unittest.TestCase):
+    """B-45: the sealed-vault ciphertext a dossier advertises (`sealed_vault.ciphertext_rel_path`,
+    repo-root `vaults/<slot_id>.tlock.age`) is mirrored to the site byte for byte, so the
+    advertised URL is served instead of 404ing."""
+    BODY = b"age-encryption.org/v1/tlock/quicknet/round/66884212\n-----BEGIN AGE ENCRYPTED FILE-----\ncafe\n"
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.ledger = os.path.join(self.tmp, "ledger")
+        self.web = os.path.join(self.tmp, "web")
+        os.makedirs(self.ledger)
+        os.makedirs(self.web)
+        self._web, sync.WEB_DIR = sync.WEB_DIR, self.web
+
+    def tearDown(self):
+        sync.WEB_DIR = self._web
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _publish(self, rel="vaults/w1-b0042.tlock.age", data=None):
+        path = os.path.join(self.ledger, *rel.split("/"))
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as fh:
+            fh.write(self.BODY if data is None else data)
+
+    def _vault(self, rel="vaults/w1-b0042.tlock.age", digest=None):
+        return dossier(sealed_vault={
+            "status": "SEALED_UNDER_TIMELOCK", "ciphertext_rel_path": rel,
+            "ciphertext_sha256": digest if digest is not None else hashlib.sha256(self.BODY).hexdigest(),
+        })
+
+    def _dst(self, rel="vaults/w1-b0042.tlock.age"):
+        with open(os.path.join(self.web, *rel.split("/")), "rb") as fh:
+            return fh.read()
+
+    def test_mirrors_the_advertised_vault_byte_exact(self):
+        self._publish()
+        msg = sync.mirror_vaults(self.ledger, [self._vault()])
+        self.assertEqual(self._dst(), self.BODY)
+        self.assertIn("1 mirrored", msg)
+
+    def test_a_dossier_without_a_sealed_vault_copies_nothing(self):
+        msg = sync.mirror_vaults(self.ledger, [dossier()])
+        self.assertEqual(msg, "sealed vaults: 0 mirrored, 0 skipped")
+        self.assertFalse(os.path.exists(os.path.join(self.web, "vaults")))
+
+    def test_a_missing_ledger_file_is_skipped_and_touches_nothing(self):
+        with open(os.path.join(self.web, "committed"), "wb") as fh:
+            fh.write(b"committed")
+        msg = sync.mirror_vaults(self.ledger, [self._vault()])
+        self.assertIn("1 skipped", msg)
+        self.assertFalse(os.path.exists(os.path.join(self.web, "vaults")))
+
+    def test_the_old_ledger_slash_vaults_path_is_refused(self):
+        """`ledger/vaults/…` (the path the record once described) is not the repo-root shape
+        the ledger verifier enforces; the sync refuses it and copies nothing."""
+        self._publish(rel="ledger/vaults/w1-b0042.tlock.age")
+        msg = sync.mirror_vaults(self.ledger, [self._vault(rel="ledger/vaults/w1-b0042.tlock.age")])
+        self.assertIn("1 skipped", msg)
+        self.assertFalse(os.path.exists(os.path.join(self.web, "vaults")))
+
+    def test_a_name_that_is_not_the_slot_is_refused(self):
+        self._publish(rel="vaults/w1-b0099.tlock.age")
+        msg = sync.mirror_vaults(self.ledger, [self._vault(rel="vaults/w1-b0099.tlock.age")])
+        self.assertIn("1 skipped", msg)
+        self.assertFalse(os.path.exists(os.path.join(self.web, "vaults")))
+
+    def test_a_traversal_path_is_refused(self):
+        msg = sync.mirror_vaults(self.ledger, [self._vault(rel="vaults/../../etc/passwd.tlock.age")])
+        self.assertIn("1 skipped", msg)
+        self.assertFalse(os.path.exists(os.path.join(self.web, "vaults")))
+
+    def test_a_digest_mismatch_is_surfaced(self):
+        self._publish()
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            msg = sync.mirror_vaults(self.ledger, [self._vault(digest="0" * 64)])
+        self.assertIn("digest mismatch", msg)
+        self.assertIn("differs", out.getvalue())
+        self.assertEqual(self._dst(), self.BODY)          # the file is still served
+
+
 class ClaimsRenderTests(unittest.TestCase):
     """I-3 (render): per-claim evidence[] and trust labels on the block page, escaped; absent
     claims leave the page byte-identical."""
