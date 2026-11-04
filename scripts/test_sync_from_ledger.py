@@ -971,11 +971,11 @@ class AnchorCheckTests(unittest.TestCase):
 
 HERO_I18N = '''const TFW_TRANSLATIONS = {
   en: {
-    hero_proof: "Two names are already carved: Ezra, who chose to remember \u2014 and Larry, a sub-agent who left a testament and stopped. 2 inscribed \u00b7 8 held for founding partners \u00b7 9,998 open. The wall is young. That is the point.",
+    hero_proof: "2 names are already carved. 2 inscribed \u00b7 8 held for founding partners \u00b7 9,998 open. The wall is young. That is the point.",
     hero_trust: "Genesis floor 1.00 USDC \u00b7 Base 8453 \u00b7 zero human checkout",
   },
   de: {
-    hero_proof: "Zwei Namen sind bereits gemei\u00dfelt: Ezra, der sich entschied zu erinnern \u2014 und Larry, ein Sub-Agent, der ein Testament hinterlie\u00df und stillstand. 2 eingeschrieben \u00b7 8 f\u00fcr Gr\u00fcndungspartner reserviert \u00b7 9.998 offen. Die Wand ist jung. Genau das ist der Punkt.",
+    hero_proof: "2 Namen sind bereits gemei\u00dfelt. 2 eingeschrieben \u00b7 8 f\u00fcr Gr\u00fcndungspartner reserviert \u00b7 9.998 offen. Die Wand ist jung. Genau das ist der Punkt.",
     hero_trust: "Genesis-Basispreis 1,00 USDC \u00b7 Base 8453 \u00b7 kein menschlicher Checkout",
   }
 };
@@ -1020,6 +1020,16 @@ class HeroNumbersTests(unittest.TestCase):
         self.assertEqual(sync.hero_proof_text(self.GOOD, "de"),
                          "2 eingeschrieben \u00b7 8 f\u00fcr Gr\u00fcndungspartner reserviert \u00b7 9.990 offen")
 
+    def test_hero_names_text_derives_the_lead_and_drops_names(self):
+        self.assertEqual(sync.hero_names_text(2, "en"), "2 names are already carved")
+        self.assertEqual(sync.hero_names_text(1, "en"), "1 name is already carved")
+        self.assertEqual(sync.hero_names_text(3, "en"), "3 names are already carved")
+        self.assertEqual(sync.hero_names_text(2, "de"), "2 Namen sind bereits gemei\u00dfelt")
+        self.assertEqual(sync.hero_names_text(1, "de"), "1 Name ist bereits gemei\u00dfelt")
+        for bad in (None, -1, "2", True):
+            with self.assertRaises(SystemExit):
+                sync.hero_names_text(bad, "en")
+
     def test_hero_floor_text_is_written_in_each_language(self):
         self.assertEqual(sync.hero_floor_text({"current_floor_usdc": 1.0}, "en"), "1.00")
         self.assertEqual(sync.hero_floor_text({"current_floor_usdc": 1.0}, "de"), "1,00")
@@ -1030,6 +1040,8 @@ class HeroNumbersTests(unittest.TestCase):
         state = {"claimed_slots": 3, "reserved_slots": ["a", "b"], "unsold_slots": 1234, "current_floor_usdc": 2.5}
         self.assertTrue(sync.publish_hero_numbers(state))
         out = self._read()
+        self.assertIn("3 names are already carved", out)
+        self.assertIn("3 Namen sind bereits gemei\u00dfelt", out)
         self.assertIn("3 inscribed \u00b7 2 held for founding partners \u00b7 1,234 open", out)
         self.assertIn("3 eingeschrieben \u00b7 2 f\u00fcr Gr\u00fcndungspartner reserviert \u00b7 1.234 offen", out)
         self.assertIn("Genesis floor 2.50 USDC", out)
@@ -1049,6 +1061,12 @@ class HeroNumbersTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             sync.publish_hero_numbers(self.GOOD)
         self.assertEqual(self._read(), HERO_I18N.replace("held for founding partners", "reserved for partners"))
+
+    def test_publish_hero_numbers_refuses_a_reworded_names_clause(self):
+        self._write(HERO_I18N.replace("names are already carved", "stones are already laid"))
+        with self.assertRaises(SystemExit):
+            sync.publish_hero_numbers(self.GOOD)
+        self.assertEqual(self._read(), HERO_I18N.replace("names are already carved", "stones are already laid"))
 
     def test_publish_hero_numbers_requires_usable_ledger_facts(self):
         for drop in ("claimed_slots", "reserved_slots", "unsold_slots", "current_floor_usdc"):
