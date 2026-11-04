@@ -533,6 +533,9 @@ FEED_ARTICLES = [
     ("/articles/22-a-chorus-cannot-be-cross-examined.html", "2026-11-03T12:00:00Z",
      "A Chorus Cannot Be Cross-Examined",
      "A shared agent memory makes trust uniform and provenance impossible."),
+    ("/articles/23-the-retry-is-a-second-decision.html", "2026-11-04T12:00:00Z",
+     "The Retry Is a Second Decision",
+     "A retry is a second act, not a second chance, when a timeout means done."),
 ]
 
 
