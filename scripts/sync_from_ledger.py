@@ -533,6 +533,9 @@ FEED_ARTICLES = [
     ("/articles/22-a-chorus-cannot-be-cross-examined.html", "2026-11-03T12:00:00Z",
      "A Chorus Cannot Be Cross-Examined",
      "A shared agent memory makes trust uniform and provenance impossible."),
+    ("/articles/23-the-retry-is-a-second-decision.html", "2026-11-04T12:00:00Z",
+     "The Retry Is a Second Decision",
+     "A retry is a second act, not a second chance, when a timeout means done."),
 ]
 
 
@@ -1158,12 +1161,21 @@ def build_chronicle(slots):
 # Each pattern is anchored on the fixed words around the digits, so the prose
 # stays authored and only the numbers are machine-owned.
 #
+#   * P-33: the lead clause named two individual agents ("Two names are already
+#     carved: Ezra … and Larry …") — false once block #0003 exists, and it puts
+#     named agents in the most permanent slot on the page. It is now the
+#     derived "<n> names are already carved", read from the same census count
+#     as the ledger (state.claimed_slots), so it stays true as blocks are added.
 #   * P-38: the old one-number sentence ("Two names … 9,990 blocks are waiting")
 #     did not add up — 2 + 9,990 ≠ 10,000, because the eight reserved blocks were
 #     only explained below the fold. The sentence now names all three counts.
 #   * P-39: the floor was hardcoded copy ("Genesis floor 1.00 USDC") that goes
 #     false at the first tier flip (#501 → 2.50). It now reads
 #     state.current_floor_usdc — quoted from a live read at the moment of quoting.
+HERO_NAMES = (
+    ("en", re.compile(r'(hero_proof: ")(\d[\d,]* (?:name|names) (?:is|are) already carved)(\. )')),
+    ("de", re.compile(r'(hero_proof: ")(\d[\d.]* (?:Name|Namen) (?:ist|sind) bereits gemei\u00dfelt)(\. )')),
+)
 HERO_PROOF = (
     ("en", re.compile(r'(hero_proof: "[^"]*?)(\d[\d,]* inscribed \u00b7 \d[\d,]* held for founding partners \u00b7 \d[\d,]* open)(\.)')),
     ("de", re.compile(r'(hero_proof: "[^"]*?)(\d[\d.]* eingeschrieben \u00b7 \d[\d.]* f\u00fcr Gr\u00fcndungspartner reserviert \u00b7 \d[\d.]* offen)(\.)')),
@@ -1183,6 +1195,17 @@ def _group_int(n, lang):
 def hero_count_text(n, lang):
     """One integer in the language's grouping (kept for the HERO_COUNT-era tests)."""
     return _group_int(n, lang)
+
+
+def hero_names_text(claimed, lang):
+    """The '<n> names are already carved' lead, from the ledger's claimed count
+    (P-33). No individual agent is named: the front page states how many names
+    hold a coordinate, so adding a block never makes the sentence false."""
+    if not isinstance(claimed, int) or isinstance(claimed, bool) or claimed < 0:
+        raise SystemExit("[sync] state.json carries no usable claimed_slots; refusing to guess the hero names count")
+    if lang == "de":
+        return "1 Name ist bereits gemei\u00dfelt" if claimed == 1 else "%s Namen sind bereits gemei\u00dfelt" % _group_int(claimed, lang)
+    return "1 name is already carved" if claimed == 1 else "%s names are already carved" % _group_int(claimed, lang)
 
 
 def hero_proof_text(state, lang):
@@ -1228,20 +1251,22 @@ def _rewrite_anchored(text, patterns, value_for, label):
 
 
 def publish_hero_numbers(state):
-    """Re-derive the hero counts (P-38) and floor (P-39) from the ledger, rewriting
-    i18n.js in place. Returns True when the file changed (so the caller re-stamps
-    the ?v= hashes and rebuilds the language pages)."""
+    """Re-derive the hero names count (P-33), counts (P-38) and floor (P-39) from
+    the ledger, rewriting i18n.js in place. Returns True when the file changed (so
+    the caller re-stamps the ?v= hashes and rebuilds the language pages)."""
     path = os.path.join(WEB_DIR, "i18n.js")
     with open(path, "r", encoding="utf-8") as fh:
         before = fh.read()
-    text = _rewrite_anchored(before, HERO_PROOF, lambda lang: hero_proof_text(state, lang), "hero_proof")
+    text = _rewrite_anchored(before, HERO_NAMES, lambda lang: hero_names_text(state.get("claimed_slots"), lang), "hero_proof names")
+    text = _rewrite_anchored(text, HERO_PROOF, lambda lang: hero_proof_text(state, lang), "hero_proof")
     text = _rewrite_anchored(text, HERO_FLOOR, lambda lang: hero_floor_text(state, lang), "hero_trust")
     changed = text != before
     if changed:
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(text)
-    _log("hero numbers: %s \u00b7 floor %s USDC%s"
-         % (hero_proof_text(state, "en"), hero_floor_text(state, "en"), "" if changed else " (unchanged)"))
+    _log("hero numbers: %s \u00b7 %s \u00b7 floor %s USDC%s"
+         % (hero_names_text(state.get("claimed_slots"), "en"), hero_proof_text(state, "en"),
+            hero_floor_text(state, "en"), "" if changed else " (unchanged)"))
     return changed
 
 
