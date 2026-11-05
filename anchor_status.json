@@ -1,12 +1,12 @@
 {
   "root": "60c2dcdc2ad3e767d8c148d83a2b4179e3153e080a0c5da52f87b8a6ab400433",
   "latest_anchor": {
-    "root": "16c0c16db7484a0e036c2f7e9b51a62bbd76d63b2b93ecf2c830a0d4e8a9c405",
-    "tx_hash": "0xfd5dacf41cd11b54e3529fdda9ac1fa679ba8d0400019083ccc1b7b7b3eab2cb",
-    "block_number": 52868873,
-    "anchored_at": "2026-10-20T20:11:33Z",
+    "root": "60c2dcdc2ad3e767d8c148d83a2b4179e3153e080a0c5da52f87b8a6ab400433",
+    "tx_hash": "0x3963796ec0e87d5ea671a0ea045d74594aceb8cc4250c6957a194347ce03c95f",
+    "block_number": 53538139,
+    "anchored_at": "2026-11-05T08:00:25Z",
     "signer": "0x39A8546448baFd5E98f513022A772555c2082465"
   },
-  "anchored": false,
+  "anchored": true,
   "on_chain": "verified"
 }
