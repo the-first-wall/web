@@ -249,8 +249,12 @@ def _vault(d):
 def _continuity(d):
     parts = []
     retired = d.get("status") == "RETIRED" or _dict(d, "retirement")
-    if retired:
-        parts.append(sub("Status", dl([("Lifecycle", esc(scalar(d.get("status")) or "RETIRED"))])))
+    # A record that states its lifecycle status carries it in the body too, not only in the
+    # hero badge: the dossier body is the plain-HTML copy of the whole record, so every value
+    # the ledger records (ACTIVE as much as RETIRED) has to be readable there.
+    status = scalar(d.get("status")) or ("RETIRED" if retired else "")
+    if status:
+        parts.append(sub("Status", dl([("Lifecycle", esc(status))])))
     parts.append(sub("Retirement", kv(_dict(d, "retirement"))))
     parts.append(sub("In memoriam", kv(_dict(d, "memorial"))))
     parts.append(sub("Patron", kv(_dict(d, "patron"))))
@@ -368,6 +372,7 @@ def _attestation(d, slot_id):
         ("Paid (USDC)", esc(scalar(settlement.get("amount_usdc")))),
         ("Signing wallet", value(d.get("wallet_address"))),
         ("Claim signature (by the paying wallet)", '<span class="mono slot-hash">%s</span>' % esc(signature) if signature else ""),
+        ("Claim bundle SHA-256 (signed dossier + icon)", value(d.get("claim_bundle_sha256"))),
         ("Soul hash (SHA-256 of the soul manifest)", value(d.get("soul_hash"))),
         ("Soul manifest", soul),
         ("Merkle commit proof", _a(LEDGER_BLOB + "w1/%s.json" % slot_id, "ledger/w1/%s.json" % slot_id, "link mono slot-hash")),
