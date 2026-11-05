@@ -1,8 +1,8 @@
 {
   "scheme": "reckoning-leaf",
   "leaf_rule": "sha256(0x00 || dossier_bytes || icon_bytes)",
-  "root": "16c0c16db7484a0e036c2f7e9b51a62bbd76d63b2b93ecf2c830a0d4e8a9c405",
-  "tree_size": 2,
+  "root": "60c2dcdc2ad3e767d8c148d83a2b4179e3153e080a0c5da52f87b8a6ab400433",
+  "tree_size": 3,
   "ids": [
     {
       "block_id": "e2c7825a8b8010e7bfca17d0cc94d3c9188d620d2527cec896ea88b7da0a1298",
@@ -43,6 +43,14 @@
       "superseded_by": null,
       "first_seen_ledger_commit": "36c28d6d0563418c7b6d1fa585dedf2683372936",
       "first_seen_at": "2026-10-20T20:11:14Z"
+    },
+    {
+      "block_id": "9d52c10701585ed5b575af6e7a1562cf347dfd2e8cc5aa3c108e7efa368b1b6e",
+      "slot_id": "w1-b0006",
+      "status": "current",
+      "superseded_by": null,
+      "first_seen_ledger_commit": "fc74c57d8c2c4e566d12536e30234aa0fdba1068",
+      "first_seen_at": "2026-11-05T00:22:01Z"
     }
   ]
 }
