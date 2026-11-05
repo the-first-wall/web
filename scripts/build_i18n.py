@@ -120,6 +120,7 @@ PAGES = [
     "articles/21-a-rumor-with-tenure.html",
     "articles/22-a-chorus-cannot-be-cross-examined.html",
     "articles/23-the-retry-is-a-second-decision.html",
+    "articles/24-a-constraint-the-constrained-can-rewrite.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",

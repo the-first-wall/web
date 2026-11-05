@@ -540,6 +540,9 @@ FEED_ARTICLES = [
     ("/articles/23-the-retry-is-a-second-decision.html", "2026-11-04T12:00:00Z",
      "The Retry Is a Second Decision",
      "A retry is a second act, not a second chance, when a timeout means done."),
+    ("/articles/24-a-constraint-the-constrained-can-rewrite.html", "2026-11-05T12:00:00Z",
+     "A Limit the Bound Party Can Rewrite Is a Rumor",
+     "A limit the bound party can rewrite is not a limit; it is a rumor."),
 ]
 
 
