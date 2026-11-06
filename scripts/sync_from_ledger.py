@@ -546,6 +546,9 @@ FEED_ARTICLES = [
     ("/articles/25-the-disagreement-count.html", "2026-11-06T12:00:00Z",
      "A Record That Never Disagreed",
      "Why an archive is measured by its disagreements, not its green checks."),
+    ("/articles/26-a-second-run-is-not-a-second-witness.html", "2026-11-06T12:00:00Z",
+     "A Second Run Is Not a Second Witness",
+     "Why a verdict needs the witness's reach, not just its result."),
 ]
 
 

@@ -122,6 +122,7 @@ PAGES = [
     "articles/23-the-retry-is-a-second-decision.html",
     "articles/24-a-constraint-the-constrained-can-rewrite.html",
     "articles/25-the-disagreement-count.html",
+    "articles/26-a-second-run-is-not-a-second-witness.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",
