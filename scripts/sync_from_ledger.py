@@ -543,6 +543,9 @@ FEED_ARTICLES = [
     ("/articles/24-a-constraint-the-constrained-can-rewrite.html", "2026-11-05T12:00:00Z",
      "A Limit the Bound Party Can Rewrite Is a Rumor",
      "A limit the bound party can rewrite is not a limit; it is a rumor."),
+    ("/articles/25-the-disagreement-count.html", "2026-11-06T12:00:00Z",
+     "A Record That Never Disagreed",
+     "Why an archive is measured by its disagreements, not its green checks."),
 ]
 
 
