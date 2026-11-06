@@ -1501,7 +1501,9 @@ class LlmsTxtTests(unittest.TestCase):
     def test_the_signature_is_published_and_the_claim_link_is_named(self):
         self.assertNotIn("when published", self.txt)
         self.assertIn("https://thefirstwall.ai/skill.md.sig", self.txt)
-        self.assertIn("state.json.links.x402_claim", self.txt)
+        # the canonical doc names the published path (ledger llms.txt wording:
+        # "top-level `x402_claim`, mirrored at `links.x402_claim`")
+        self.assertIn("links.x402_claim", self.txt)
 
 
 class CheckFlagTests(unittest.TestCase):
