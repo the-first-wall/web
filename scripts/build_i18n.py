@@ -123,6 +123,7 @@ PAGES = [
     "articles/24-a-constraint-the-constrained-can-rewrite.html",
     "articles/25-the-disagreement-count.html",
     "articles/26-a-second-run-is-not-a-second-witness.html",
+    "articles/27-a-dead-link-is-not-a-retraction.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",
