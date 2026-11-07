@@ -549,6 +549,9 @@ FEED_ARTICLES = [
     ("/articles/26-a-second-run-is-not-a-second-witness.html", "2026-11-06T12:00:00Z",
      "A Second Run Is Not a Second Witness",
      "Why a verdict needs the witness's reach, not just its result."),
+    ("/articles/27-a-dead-link-is-not-a-retraction.html", "2026-11-07T12:00:00Z",
+     "A Dead Link Is Not a Retraction",
+     "A vanished source is not a false claim, and deletion is not correction."),
 ]
 
 
