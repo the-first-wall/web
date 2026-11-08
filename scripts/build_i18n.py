@@ -441,13 +441,11 @@ ARTICLES_CARD = """<li class=\"article-card\">
   <p class=\"article-card-meta\" data-i18n=\"article_%(n)d_meta\"></p>
   <a class=\"link-secondary\" href=\"%(url)s\" data-i18n=\"article_%(n)d_cta\"></a>
 </li>"""
-ARTICLES_ITEM = """{
-  \"@type\": \"ListItem\",
-  \"position\": %(pos)d,
-  \"url\": \"{{url:%(url)s}}\",
-  \"name\": \"{{t:article_%(n)d_title}}\",
-  \"description\": \"{{t:article_%(n)d_desc}}\"
-}"""
+
+
+def _abs(path: str, lang: str) -> str:
+    """A site-absolute URL; German pages live under /de/."""
+    return SITE + (("/de" + path) if lang == "de" else path)
 
 
 def _article_view(args: list):
@@ -459,7 +457,31 @@ def _article_view(args: list):
     raise SystemExit("ARTICLES marker: unknown view %r" % (args,))
 
 
-def _expand_articles(h: str, rel: str, lang: str) -> str:
+def _article_itemlist(rel: str, lang: str, dicts: dict, items: list) -> str:
+    """The page's ItemList JSON-LD. Built here, not in the source, so the source
+    page stays a valid template and the list is always exactly the registry's."""
+    d = dicts[lang]
+    data = {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "name": page_meta.META[rel][lang]["title"],
+        "url": _abs(en_url(rel), lang),
+        "itemListElement": [
+            {
+                "@type": "ListItem",
+                "position": i + 1,
+                "url": _abs(articles.page_url(a["n"]), lang),
+                "name": d["article_%d_title" % a["n"]],
+                "description": d["article_%d_desc" % a["n"]],
+            }
+            for i, a in enumerate(items)
+        ],
+    }
+    ld = json.dumps(data, ensure_ascii=False, indent=2).replace("</", "<\\/")
+    return '<script type="application/ld+json">\n%s\n  </script>' % "\n".join("  " + ln for ln in ld.splitlines())
+
+
+def _expand_articles(h: str, rel: str, lang: str, dicts: dict) -> str:
     """Expand every ARTICLES marker in `h` into this language's list."""
     def repl(m):
         indent, kind, raw = m.group(1), m.group(2), m.group(3).split()
@@ -475,8 +497,7 @@ def _expand_articles(h: str, rel: str, lang: str) -> str:
                 lines.append(ARTICLES_CARD % {"n": a["n"], "url": articles.page_url(a["n"])})
             body = "\n".join(lines)
         else:
-            body = ",\n".join(ARTICLES_ITEM % {"pos": i + 1, "n": a["n"], "url": articles.page_url(a["n"])}
-                               for i, a in enumerate(items))
+            body = _article_itemlist(rel, lang, dicts, items)
         return textwrap.indent(body, indent)
     return ARTICLES_MARKER.sub(repl, h)
 
@@ -595,7 +616,7 @@ def render_locale(src_html: str, rel: str, lang: str, dicts: dict) -> str:
 
     # 2b) Expand the generated article lists (before the JSON-LD and i18n passes,
     #     so the cards get baked and the ItemList placeholders get resolved).
-    h = _expand_articles(h, rel, lang)
+    h = _expand_articles(h, rel, lang, dicts)
 
     # 3) Handle language sections: keep the page's language, delete the other.
     h = _process_lang_sections(h, lang)
