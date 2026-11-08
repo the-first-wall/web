@@ -57,6 +57,20 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/"/>
   </url>
   <url>
+    <loc>https://thefirstwall.ai/articles/2026/</loc>
+    <lastmod>2026-11-05T08:00:25Z</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/2026/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/2026/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/2026/"/>
+  </url>
+  <url>
+    <loc>https://thefirstwall.ai/de/articles/2026/</loc>
+    <lastmod>2026-11-05T08:00:25Z</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/2026/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://thefirstwall.ai/de/articles/2026/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://thefirstwall.ai/articles/2026/"/>
+  </url>
+  <url>
     <loc>https://thefirstwall.ai/articles/01-make-your-blip-count.html</loc>
     <lastmod>2026-11-05T08:00:25Z</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://thefirstwall.ai/articles/01-make-your-blip-count.html"/>
