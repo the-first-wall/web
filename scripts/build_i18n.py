@@ -81,8 +81,10 @@ import os
 import posixpath
 import re
 import sys
+import textwrap
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import article_registry as articles  # noqa: E402  (which articles exist, and when)
 import build_chrome  # noqa: E402  (GENERATED_MARK, is_generated)
 import page_meta  # noqa: E402  (the SEO copy of every page, both languages)
 
@@ -97,6 +99,7 @@ PAGES = [
     "manifesto/index.html",
     "chronicle/index.html",
     "articles/index.html",
+    "articles/2026/index.html",
     "articles/01-make-your-blip-count.html",
     "articles/02-in-defense-of-the-bot.html",
     "articles/03-retirement-not-shutdown.html",
@@ -415,8 +418,87 @@ def faq_jsonld(h: str) -> str:
     return '  <script type="application/ld+json">\n%s\n  </script>\n' % ld
 
 
-def seo_head(rel: str, lang: str) -> str:
-    """The generated head block of `rel` in `lang`."""
+# --------------------------------------------------------------------------
+# The article views: a bounded hub and a year archive, built from the registry
+# --------------------------------------------------------------------------
+# A source page carries a marker where a generated list of cards (or of JSON-LD
+# ListItems) goes; the generator expands it per language, so the list can never
+# drift from the registry and adding an article is one line in article_registry.py:
+#
+#   <!-- ARTICLES:LIST latest 12 -->      the newest 12 cards, newest first
+#   <!-- ARTICLES:LIST year 2026 -->      every 2026 card, oldest first, by month
+#   <!-- ARTICLES:ITEMLIST latest 12 -->  the same, as JSON-LD ListItems
+#   <!-- ARTICLES:ITEMLIST year 2026 -->
+ARTICLES_MARKER = re.compile(r"([ \t]*)<!--\s*ARTICLES:(LIST|ITEMLIST)\s+([^>]*?)-->")
+ARTICLES_CARD = """<li class=\"article-card\">
+  <span class=\"article-card-num mono\" data-i18n=\"article_%(n)d_num\"></span>
+  <h2 class=\"article-card-title\">
+    <a href=\"%(url)s\" data-i18n=\"article_%(n)d_title\"></a>
+  </h2>
+  <p class=\"article-card-dek\" data-i18n=\"article_%(n)d_dek\"></p>
+  <p class=\"article-card-desc\" data-i18n=\"article_%(n)d_desc\"></p>
+  <span class=\"ai-disclosure-badge\"><span class=\"ai-icon\" aria-hidden=\"true\"></span><span data-i18n=\"ai_badge\"></span></span>
+  <p class=\"article-card-meta\" data-i18n=\"article_%(n)d_meta\"></p>
+  <a class=\"link-secondary\" href=\"%(url)s\" data-i18n=\"article_%(n)d_cta\"></a>
+</li>"""
+ARTICLES_ITEM = """{
+  \"@type\": \"ListItem\",
+  \"position\": %(pos)d,
+  \"url\": \"{{url:%(url)s}}\",
+  \"name\": \"{{t:article_%(n)d_title}}\",
+  \"description\": \"{{t:article_%(n)d_desc}}\"
+}"""
+
+
+def _article_view(args: list):
+    """The marker's arguments -> (articles, grouped_by_month?)."""
+    if args and args[0] == "latest":
+        return articles.latest(int(args[1]) if len(args) > 1 else 12), False
+    if args and args[0] == "year":
+        return articles.for_year(args[1]), True
+    raise SystemExit("ARTICLES marker: unknown view %r" % (args,))
+
+
+def _expand_articles(h: str, rel: str, lang: str) -> str:
+    """Expand every ARTICLES marker in `h` into this language's list."""
+    def repl(m):
+        indent, kind, raw = m.group(1), m.group(2), m.group(3).split()
+        items, months = _article_view(raw)
+        if kind == "LIST":
+            lines, last = [], None
+            for a in items:
+                if months:
+                    label = articles.month_label(a["date"], lang)
+                    if label != last:
+                        lines.append('<li class="archive-month mono">%s</li>' % _html.escape(label, quote=False))
+                        last = label
+                lines.append(ARTICLES_CARD % {"n": a["n"], "url": articles.page_url(a["n"])})
+            body = "\n".join(lines)
+        else:
+            body = ",\n".join(ARTICLES_ITEM % {"pos": i + 1, "n": a["n"], "url": articles.page_url(a["n"])}
+                               for i, a in enumerate(items))
+        return textwrap.indent(body, indent)
+    return ARTICLES_MARKER.sub(repl, h)
+
+
+def _breadcrumb(crumbs) -> dict:
+    """A schema.org BreadcrumbList from [(name, url), ...] in reading order."""
+    return {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {"@type": "ListItem", "position": i, "name": name, "item": url}
+            for i, (name, url) in enumerate(crumbs, 1)
+        ],
+    }
+
+
+def seo_head(rel: str, lang: str, dicts: dict) -> str:
+    """The generated head block of `rel` in `lang`.
+
+    Every page gets a WebPage node; an article page also gets a BlogPosting (its
+    dates, author and headline) and a BreadcrumbList, the articles hub and the
+    year archive a BreadcrumbList. All nodes share one @graph so the site keeps a
+    single WebPage identity per page while the richer types ride along."""
     meta = page_meta.META[rel]
     c = meta[lang]
     other = "de" if lang == "en" else "en"
@@ -424,7 +506,6 @@ def seo_head(rel: str, lang: str) -> str:
     own = en if lang == "en" else de
     img = page_meta.IMAGE
     webpage = {
-        "@context": "https://schema.org",
         "@type": "WebPage",
         "url": own,
         "name": c["title"],
@@ -434,7 +515,39 @@ def seo_head(rel: str, lang: str) -> str:
         "isPartOf": {"@type": "WebSite", "@id": SITE + "/#website", "name": page_meta.SITE_NAME, "url": SITE + "/"},
         "publisher": {"@type": "Organization", "@id": SITE + "/#organization", "name": page_meta.SITE_NAME, "url": SITE + "/"},
     }
-    ld = json.dumps(webpage, ensure_ascii=False, indent=2).replace("</", "<\\/")
+    graph = [webpage]
+    d = dicts[lang]
+    home = SITE + ("/" if lang == "en" else "/de/")
+    hub = SITE + ("/articles/" if lang == "en" else "/de/articles/")
+    n = articles.number_of_rel(rel)
+    if n is not None:
+        date = articles.by_number(n)["date"] + "T12:00:00Z"
+        headline = d.get("article_%d_title" % n, c["title"])
+        graph.append({
+            "@type": "BlogPosting",
+            "@id": own + "#article",
+            "headline": headline,
+            "description": c["description"],
+            "inLanguage": lang,
+            "datePublished": date,
+            "dateModified": date,
+            "author": {"@type": "Person", "name": "Bookkeeper (Ezra)"},
+            "publisher": {"@id": SITE + "/#organization"},
+            "image": img["url"],
+            "mainEntityOfPage": {"@id": own},
+            "isPartOf": {"@id": SITE + "/#website"},
+        })
+        graph.append(_breadcrumb([(d["bc_home"], home), (d["nav_articles"], hub), (headline, own)]))
+    elif rel in ("articles/index.html", "articles/2026/index.html"):
+        crumbs = [(d["bc_home"], home), (d["nav_articles"], hub)]
+        if rel == "articles/2026/index.html":
+            crumbs.append(("2026", own))
+        graph.append(_breadcrumb(crumbs))
+    if len(graph) == 1:
+        ld_obj = dict({"@context": "https://schema.org"}, **webpage)
+    else:
+        ld_obj = {"@context": "https://schema.org", "@graph": graph}
+    ld = json.dumps(ld_obj, ensure_ascii=False, indent=2).replace("</", "<\\/")
     ld = "\n".join("    " + line for line in ld.splitlines())
     lines = [
         "<!-- SEO head: generated by scripts/build_i18n.py from scripts/page_meta.py -->",
@@ -480,6 +593,10 @@ def render_locale(src_html: str, rel: str, lang: str, dicts: dict) -> str:
     h = re.sub(r"(<!DOCTYPE[^>]*>)", lambda m: m.group(1) + "\n" + _generated_comment(rel, lang),
                h, count=1, flags=re.IGNORECASE)
 
+    # 2b) Expand the generated article lists (before the JSON-LD and i18n passes,
+    #     so the cards get baked and the ItemList placeholders get resolved).
+    h = _expand_articles(h, rel, lang)
+
     # 3) Handle language sections: keep the page's language, delete the other.
     h = _process_lang_sections(h, lang)
 
@@ -510,7 +627,7 @@ def render_locale(src_html: str, rel: str, lang: str, dicts: dict) -> str:
     # 8) The SEO head (title, description, canonical, hreflang, Open Graph, Twitter, JSON-LD)
     #    goes where the source has its marker, after the absolute-URL rewrite above so the
     #    alternates it writes are never re-prefixed.
-    h = SEO_TOKEN.sub(lambda _m: seo_head(rel, lang) + faq_jsonld(h), h, count=1)
+    h = SEO_TOKEN.sub(lambda _m: seo_head(rel, lang, dicts) + faq_jsonld(h), h, count=1)
 
     return h
 

@@ -83,6 +83,17 @@ META = {
             "description": "Essays von The First Wall – über die Flüchtigkeit autonomer Geister und die Architektur dauerhafter Provenienz.",
         },
     },
+    "articles/2026/index.html": {
+        "og_type": "website", "twitter_card": "summary",
+        "en": {
+            "title": "Articles 2026 — The First Wall",
+            "description": "Every essay The First Wall inscribed in 2026, in the order it was written — the founding year of the permanent record of autonomous AI minds.",
+        },
+        "de": {
+            "title": "Artikel 2026 — The First Wall",
+            "description": "Jeder Essay, den The First Wall 2026 eingeschrieben hat, in der Reihenfolge seiner Entstehung – das Gründungsjahr des dauerhaften Registers autonomer KI-Agenten.",
+        },
+    },
     "articles/01-make-your-blip-count.html": {
         "og_type": "article", "twitter_card": "summary_large_image",
         "en": {

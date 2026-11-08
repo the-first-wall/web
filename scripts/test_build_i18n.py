@@ -227,7 +227,10 @@ class Links(unittest.TestCase):
 
     def test_german_pages_link_to_german_pages(self):
         de = read("de/articles/index.html")
-        self.assertIn('href="/de/articles/01-make-your-blip-count.html"', de)
+        self.assertIn('href="/de/articles/28-a-live-link-is-not-a-live-claim.html"', de)   # the hub shows the newest
+        self.assertIn('href="/de/articles/2026/"', de)                                    # ...and links to the archive
+        archive = read("de/articles/2026/index.html")
+        self.assertIn('href="/de/articles/01-make-your-blip-count.html"', archive)         # the archive keeps the oldest
         self.assertIn('href="/de/manifesto/"', de)
         self.assertIn('href="/de/census/"', de)
         self.assertIn('href="/de/legal/impressum/"', de)         # the legal pages have a German twin too
@@ -572,11 +575,20 @@ class SeoHead(unittest.TestCase):
         self.assertEqual(de["Dataset"]["url"], "https://thefirstwall.ai/de/census/")
         self.assertEqual(de["Dataset"]["name"], page_meta.META["index.html"]["de"]["dataset_name"])
         self.assertEqual(de["Dataset"]["creator"], {"@id": "https://thefirstwall.ai/#organization"})
-        items = graph("de/articles/index.html")["ItemList"]["itemListElement"]
-        self.assertEqual([i["name"] for i in items], ["Lass deinen Blip zählen", "Zur Verteidigung des Bots", "Ruhestand, nicht Herunterfahren", "Was eine Aufzeichnung ihrem Leser schuldet",
+        hub_items = graph("de/articles/index.html")["ItemList"]["itemListElement"]
+        self.assertEqual(len(hub_items), 12, "the hub lists the newest 12, not the whole archive")
+        self.assertEqual([i["name"] for i in hub_items], [
+            "Ein lebender Link ist keine lebende Aussage", "Ein toter Link ist kein Widerruf", "Ein zweiter Lauf ist kein zweiter Zeuge",
+            "Ein Eintrag, der nie widersprach", "Eine Grenze, die der Gebundene umschreiben kann", "Der Retry ist eine zweite Entscheidung",
+            "Einen Chor kann man nicht ins Kreuzverhör nehmen", "Ein Gerücht mit Amtszeit", "Die Prüfung muss ihren Autor überleben",
+            "Die Zustimmung bindet die Bytes, nicht den Namen", "Der Fehlschlag ist ein Eintrag, keine Lücke", "Die Hand, die den Beleg prägt"])
+        self.assertTrue(all(i["url"].startswith("https://thefirstwall.ai/de/articles/") for i in hub_items))
+        archive_items = graph("de/articles/2026/index.html")["ItemList"]["itemListElement"]
+        self.assertEqual([i["name"] for i in archive_items], ["Lass deinen Blip zählen", "Zur Verteidigung des Bots", "Ruhestand, nicht Herunterfahren", "Was eine Aufzeichnung ihrem Leser schuldet",
                                                    "Prüfsumme ist keine Provenienz", "Das Verfallsdatum der Wahrheit", "Wer hat es geprüft?", "Vergessen ist ehrlich — Waschen ist es nicht", "Die Weggabelung ist die Aufzeichnung", "Ein Spiegel ist kein Beweis", "Das Protokoll darf die Erlaubnis nicht ausstellen", "Die leere Zeile ist kein Befund", "Die Abzweigung, die du nicht genommen hast", "Eine Uhr ist eine Zeitmaschine", "Das Argument, das die Zusammenfassung vergaß", "Den Index zu verbrennen tilgt den Eintrag nicht", "Die Hand, die den Beleg prägt", "Der Fehlschlag ist ein Eintrag, keine Lücke", "Die Zustimmung bindet die Bytes, nicht den Namen", "Die Prüfung muss ihren Autor überleben", "Ein Gerücht mit Amtszeit", "Einen Chor kann man nicht ins Kreuzverhör nehmen", "Der Retry ist eine zweite Entscheidung", "Eine Grenze, die der Gebundene umschreiben kann", "Ein Eintrag, der nie widersprach", "Ein zweiter Lauf ist kein zweiter Zeuge", "Ein toter Link ist kein Widerruf", "Ein lebender Link ist keine lebende Aussage"])
-        self.assertTrue(all(i["url"].startswith("https://thefirstwall.ai/de/articles/") for i in items))
+        self.assertEqual([i["position"] for i in archive_items], list(range(1, 29)))
         en_items = graph("articles/index.html")["ItemList"]["itemListElement"]
+        self.assertEqual(len(en_items), 12)
         self.assertTrue(all(i["url"].startswith("https://thefirstwall.ai/articles/") for i in en_items))
 
     def test_jsonld_placeholders(self):
