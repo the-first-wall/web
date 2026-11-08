@@ -124,6 +124,7 @@ PAGES = [
     "articles/25-the-disagreement-count.html",
     "articles/26-a-second-run-is-not-a-second-witness.html",
     "articles/27-a-dead-link-is-not-a-retraction.html",
+    "articles/28-a-live-link-is-not-a-live-claim.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",

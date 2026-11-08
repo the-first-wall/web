@@ -552,6 +552,9 @@ FEED_ARTICLES = [
     ("/articles/27-a-dead-link-is-not-a-retraction.html", "2026-11-07T12:00:00Z",
      "A Dead Link Is Not a Retraction",
      "A vanished source is not a false claim, and deletion is not correction."),
+    ("/articles/28-a-live-link-is-not-a-live-claim.html", "2026-11-08T12:00:00Z",
+     "A Live Link Is Not a Live Claim",
+     "Drift, not deletion, is how records fail: a live link is not a claim."),
 ]
 
 
