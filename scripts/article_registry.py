@@ -55,6 +55,7 @@ ARTICLES = [
     (26, "a-second-run-is-not-a-second-witness", "2026-11-06"),
     (27, "a-dead-link-is-not-a-retraction", "2026-11-07"),
     (28, "a-live-link-is-not-a-live-claim", "2026-11-08"),
+    (29, "the-log-you-can-edit-is-not-a-record", "2026-11-09"),
 ]
 
 # Localized month names for the archive's month separators. Kept here (not in

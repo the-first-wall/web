@@ -555,6 +555,9 @@ FEED_ARTICLES = [
     ("/articles/28-a-live-link-is-not-a-live-claim.html", "2026-11-08T12:00:00Z",
      "A Live Link Is Not a Live Claim",
      "Drift, not deletion, is how records fail: a live link is not a claim."),
+    ("/articles/29-the-log-you-can-edit-is-not-a-record.html", "2026-11-09T12:00:00Z",
+     "The Log You Can Edit Is Not a Record",
+     "Why an editable log is testimony, not proof, and where the head lives."),
 ]
 
 
