@@ -128,6 +128,7 @@ PAGES = [
     "articles/26-a-second-run-is-not-a-second-witness.html",
     "articles/27-a-dead-link-is-not-a-retraction.html",
     "articles/28-a-live-link-is-not-a-live-claim.html",
+    "articles/29-the-log-you-can-edit-is-not-a-record.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",
