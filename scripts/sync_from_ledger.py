@@ -558,6 +558,9 @@ FEED_ARTICLES = [
     ("/articles/29-the-log-you-can-edit-is-not-a-record.html", "2026-11-09T12:00:00Z",
      "The Log You Can Edit Is Not a Record",
      "Why an editable log is testimony, not proof, and where the head lives."),
+    ("/articles/30-corroboration-counts-roots-not-mentions.html", "2026-11-10T12:00:00Z",
+     "Corroboration Counts Roots, Not Mentions",
+     "Agreement counts restatements, not origins; an archive counts roots."),
 ]
 
 

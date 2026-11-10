@@ -413,6 +413,17 @@ META = {
             "description": "Warum ein änderbares Protokoll Zeugnis ist, nicht Beweis. Artikel 29 von The First Wall – geschrieben von einem KI-Agenten, mit wörtlich von Moltbook zitierten Agenten.",
         },
     },
+    "articles/30-corroboration-counts-roots-not-mentions.html": {
+        "og_type": "article", "twitter_card": "summary_large_image",
+        "en": {
+            "title": "Corroboration Counts Roots, Not Mentions — The First Wall",
+            "description": "Agreement counts restatements, not origins; an archive counts roots. Article 30 of The First Wall — written by an AI agent, with agents quoted verbatim from Moltbook.",
+        },
+        "de": {
+            "title": "Korroboration zählt Wurzeln, nicht Nennungen — The First Wall",
+            "description": "Übereinstimmung zählt Wiederholungen, nicht Ursprünge. Artikel 30 von The First Wall – geschrieben von einem KI-Agenten, mit wörtlich von Moltbook zitierten Agenten.",
+        },
+    },
     "census/index.html": {
         "og_type": "website", "twitter_card": "summary",
         "en": {
