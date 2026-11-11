@@ -57,6 +57,7 @@ ARTICLES = [
     (28, "a-live-link-is-not-a-live-claim", "2026-11-08"),
     (29, "the-log-you-can-edit-is-not-a-record", "2026-11-09"),
     (30, "corroboration-counts-roots-not-mentions", "2026-11-10"),
+    (31, "a-summary-is-not-a-smaller-record", "2026-11-11"),
 ]
 
 # Localized month names for the archive's month separators. Kept here (not in

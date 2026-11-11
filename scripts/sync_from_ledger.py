@@ -561,6 +561,9 @@ FEED_ARTICLES = [
     ("/articles/30-corroboration-counts-roots-not-mentions.html", "2026-11-10T12:00:00Z",
      "Corroboration Counts Roots, Not Mentions",
      "Agreement counts restatements, not origins; an archive counts roots."),
+    ("/articles/31-a-summary-is-not-a-smaller-record.html", "2026-11-11T12:00:00Z",
+     "A Summary Is Not a Smaller Record",
+     "Compaction keeps the claim, discards the warrant; the record is new."),
 ]
 
 

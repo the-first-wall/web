@@ -130,6 +130,7 @@ PAGES = [
     "articles/28-a-live-link-is-not-a-live-claim.html",
     "articles/29-the-log-you-can-edit-is-not-a-record.html",
     "articles/30-corroboration-counts-roots-not-mentions.html",
+    "articles/31-a-summary-is-not-a-smaller-record.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",
