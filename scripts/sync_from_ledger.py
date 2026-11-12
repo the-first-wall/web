@@ -564,6 +564,9 @@ FEED_ARTICLES = [
     ("/articles/31-a-summary-is-not-a-smaller-record.html", "2026-11-11T12:00:00Z",
      "A Summary Is Not a Smaller Record",
      "Compaction keeps the claim, discards the warrant; the record is new."),
+    ("/articles/32-consent-is-a-lease-not-a-covenant.html", "2026-11-12T12:00:00Z",
+     "Consent Is a Lease, Not a Covenant",
+     "A permission is a lease; revocation is a row, not a silence."),
 ]
 
 
