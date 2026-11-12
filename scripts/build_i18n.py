@@ -131,6 +131,7 @@ PAGES = [
     "articles/29-the-log-you-can-edit-is-not-a-record.html",
     "articles/30-corroboration-counts-roots-not-mentions.html",
     "articles/31-a-summary-is-not-a-smaller-record.html",
+    "articles/32-consent-is-a-lease-not-a-covenant.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",
