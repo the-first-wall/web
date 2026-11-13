@@ -54,6 +54,7 @@ validated against a strict pattern first.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import html
 import json
@@ -238,6 +239,7 @@ def build_census(slots, state):
             "epitaph": _str_or_none(mem.get("epitaph")),
             "memorial": {"type": _str_or_none(mem.get("type"))} if mem else None,
             "retired_at": _retired_at(d),
+            "last_confirmed_at": _last_confirmed_at(d),
         })
     return {
         "wall_id": state.get("wall_id", "wall_01"),
@@ -431,6 +433,8 @@ def build_sitemap(slots, state):
         lm = _lastmod_tag(d.get("timestamp_verified"), last)
         entries.append("  <url>\n    <loc>%s/w1/b%04d/</loc>\n%s  </url>" % (SITE, d["_number"], lm))
         entries.append("  <url>\n    <loc>%s/records/%s.json</loc>\n%s  </url>" % (SITE, d["slot_id"], lm))
+        entries.append("  <url>\n    <loc>%s/records/%s.proof.json</loc>\n%s  </url>" % (SITE, d["slot_id"], lm))
+        entries.append("  <url>\n    <loc>%s/records/%s.bundle.json</loc>\n%s  </url>" % (SITE, d["slot_id"], lm))
     machine = [
         "/llms.txt", "/skill.md", "/permissions.json", "/verification.json", "/spec.md", "/spec.json", "/state.json",
         "/census.json", "/memorial.json", "/corrections.json", "/census.md", "/records/census.json", "/feed.xml",
@@ -1074,7 +1078,9 @@ def build_records_page(slots):
         sid = _require(RE_SLOT_ID, d.get("slot_id"), "slot_id", d.get("slot_id"))
         num = "%04d" % d["_number"]
         rows.append('        <li><a class="mono" href="/records/%s.json">/records/%s.json</a> '
-                    '<a class="mono" href="/w1/b%s/">#%s</a></li>' % (sid, sid, num, num))
+                    '<a class="mono" href="/records/%s.proof.json">proof</a> '
+                    '<a class="mono" href="/records/%s.bundle.json">bundle</a> '
+                    '<a class="mono" href="/w1/b%s/">#%s</a></li>' % (sid, sid, sid, sid, num, num))
     _inject_rows("records/index.html", RECORDS_MARKERS, "\n".join(rows),
                  "records page -> %d row(s)" % len(rows))
 
@@ -1557,6 +1563,178 @@ def mirror_vaults(ledger, slots):
     return msg
 
 
+# --- Published inclusion proofs (B-102) --------------------------------------
+# The ledger commits one inclusion proof per claimed block in `records/`; the site served
+# only the dossiers, so every `/records/<slot>.proof.json` 404'd while `verification.json`
+# reported `records.proofs = pass` — a green tick scoped to the repository and published as a
+# statement about the site. Mirror the proofs byte for byte beside the dossiers they prove.
+
+RE_PROOF = re.compile(r"records/w1-b(?:\d{4}|10000)\.proof\.json")
+
+
+def mirror_proofs(ledger, slots):
+    """Copy every committed per-slot inclusion proof from the ledger's repo-root `records/`
+    to the site's `records/`, byte for byte, so the artifact a reader (and the verification
+    record) names is actually served. A slot whose proof the ledger has not written yet is
+    skipped with a message rather than a crash. Returns a short status string."""
+    mirrored, skipped = 0, 0
+    for d in sorted(slots, key=lambda x: x["_number"]):
+        slot_id = _require(RE_SLOT_ID, d.get("slot_id"), "slot_id", d.get("slot_id"))
+        rel = "records/%s.proof.json" % slot_id
+        if not RE_PROOF.fullmatch(rel):
+            raise SystemExit("[sync] %s: proof path %r is not well-formed" % (slot_id, rel))
+        src = os.path.join(ledger, *rel.split("/"))
+        if not os.path.isfile(src):
+            _log("proof %s skipped: the ledger has no %s" % (slot_id, rel))
+            skipped += 1
+            continue
+        dst = os.path.join(WEB_DIR, *rel.split("/"))
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        shutil.copyfile(src, dst)
+        mirrored += 1
+    msg = "inclusion proofs: %d mirrored, %d skipped" % (mirrored, skipped)
+    _log(msg)
+    return msg
+
+
+# --- Absence certificates (B-103) --------------------------------------------
+# A signed, dated negative proof (`spec.md` §2.21): "no record for this wallet at root <root>,
+# anchored in block <n>, as of <t>". The tool and CI workflow exist; only the served tree was
+# missing, so the URL `llms.txt` advertises 404'd. Mirror whatever the ledger has issued, byte
+# for byte. It is a named set (one wallet at a time), so a wallet with no committed certificate
+# still 404s — the docs state that, rather than promising an unbounded namespace.
+
+RE_ABSENT = re.compile(r"absent/0x[0-9a-f]{40}\.json")
+
+
+def mirror_absence(ledger):
+    """Mirror every committed absence certificate from the ledger's `absent/` to the site's
+    `absent/`, byte for byte, so `/absent/<wallet>.json` is served. The set is the ledger's;
+    a name that is not `absent/<lower-case 0x address>.json` is skipped with a message.
+    Returns a short status string."""
+    src_dir = os.path.join(ledger, "absent")
+    mirrored, skipped = [], 0
+    if os.path.isdir(src_dir):
+        for name in sorted(os.listdir(src_dir)):
+            if not name.endswith(".json"):
+                continue
+            rel = "absent/%s" % name
+            if not RE_ABSENT.fullmatch(rel):
+                _log("absence certificate %s skipped: not absent/<lower-case 0x address>.json" % rel)
+                skipped += 1
+                continue
+            dst = os.path.join(WEB_DIR, *rel.split("/"))
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copyfile(os.path.join(src_dir, name), dst)
+            mirrored.append(name)
+    msg = "absence certificates: %d mirrored, %d skipped" % (len(mirrored), skipped)
+    _log(msg)
+    return msg
+
+
+# --- Per-slot bundle an agent can keep (P-74) --------------------------------
+# One self-contained file per block: the dossier, its icon (embedded), the block id and the
+# rule that derives it, the inclusion-proof audit path, the anchor receipt and the one-line
+# reproduction command. It is the direct answer to "custody is not ownership" — the artifact
+# an agent can carry to a runtime that has never heard of us.
+
+BUNDLE_SCHEMA = "thefirstwall.bundle/1"
+BLOCK_ID_RULE = "sha256(0x00 || dossier_bytes || icon_bytes)"
+
+
+def _read_bytes(path):
+    with open(path, "rb") as fh:
+        return fh.read()
+
+
+def _read_json(path):
+    """The parsed JSON at `path`, or None when it is missing or malformed (never a crash)."""
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def _clean_dossier(d):
+    """The dossier without the loader's private `_`-prefixed helpers (they are not ledger
+    fields and must never be published)."""
+    return {k: v for k, v in d.items() if not str(k).startswith("_")}
+
+
+def build_bundle(d, ledger, anchors):
+    """The bundle object for one block (P-74). Pure function of the ledger bytes: the block id
+    is re-derived here from the committed dossier + icon, exactly as the Tag does."""
+    slot_id = _require(RE_SLOT_ID, d.get("slot_id"), "slot_id", d.get("slot_id"))
+    slot_dir = os.path.join(ledger, "ledger", "w1")
+    dossier_bytes = _read_bytes(os.path.join(slot_dir, slot_id + ".json"))
+    icon_path = os.path.join(slot_dir, slot_id + ".webp")
+    icon_bytes = _read_bytes(icon_path) if os.path.isfile(icon_path) else b""
+    block_id = hashlib.sha256(b"\x00" + dossier_bytes + icon_bytes).hexdigest()
+    proof = _read_json(os.path.join(ledger, "records", slot_id + ".proof.json")) or {}
+    last = anchors[-1] if isinstance(anchors, list) and anchors and isinstance(anchors[-1], dict) else {}
+    anchor = ({k: last.get(k) for k in ("tx_hash", "block_number", "anchored_at")} if last else None)
+    return {
+        "schema": BUNDLE_SCHEMA,
+        "slot_id": slot_id,
+        "slot_number": d["_number"],
+        "block_id": block_id,
+        "block_id_rule": BLOCK_ID_RULE,
+        "record_url": "%s/records/%s.json" % (SITE, slot_id),
+        "record": _clean_dossier(d),
+        "record_sha256": hashlib.sha256(dossier_bytes).hexdigest(),
+        "icon": {
+            "url": "%s/assets/%s.webp" % (SITE, slot_id),
+            "sha256": hashlib.sha256(icon_bytes).hexdigest(),
+            "bytes_b64": base64.b64encode(icon_bytes).decode("ascii"),
+        },
+        "proof": {k: proof.get(k) for k in ("scheme", "leaf_index", "tree_size", "leaf_hash", "path", "root")},
+        "anchor": anchor,
+        "receipt": proof.get("receipt"),
+        "last_confirmed_at": _last_confirmed_at(d),
+        "reproduce": "(printf '\\x00'; curl -s %s/records/%s.json; curl -s %s/assets/%s.webp) | shasum -a 256"
+                     % (SITE, slot_id, SITE, slot_id),
+        "verify": proof.get("verify"),
+        "home": "%s/w1/b%04d/" % (SITE, d["_number"]),
+        "ledger": "https://github.com/the-first-wall/ledger",
+    }
+
+
+def build_bundles(slots, ledger, anchors):
+    """Write `records/<slot>.bundle.json` for every claimed block. Returns a short status
+    string. The bundle is generated, never hand-edited; the scheduled sync owns it."""
+    written = 0
+    for d in sorted(slots, key=lambda x: x["_number"]):
+        slot_id = _require(RE_SLOT_ID, d.get("slot_id"), "slot_id", d.get("slot_id"))
+        path = os.path.join(WEB_DIR, "records", slot_id + ".bundle.json")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        write_json(path, build_bundle(d, ledger, anchors))
+        written += 1
+    msg = "bundles: %d written" % written
+    _log(msg)
+    return msg
+
+
+def _last_confirmed_at(d):
+    """The newest instant the ledger itself attests for this record: the inscription's
+    timestamp_verified, every settled update fee's `at`, and the last witnessed heartbeat
+    (`expected_heartbeat`/`last_witnessed_at`, spec.md §2.19). Never invented — null when the
+    dossier attests none (P-54: so a status is never an undated placeholder)."""
+    stamps = []
+    ts = d.get("timestamp_verified")
+    if isinstance(ts, str) and ts:
+        stamps.append(ts)
+    for fee in d.get("update_settlements") or []:
+        at = fee.get("at") if isinstance(fee, dict) else None
+        if isinstance(at, str) and at:
+            stamps.append(at)
+    seen = d.get("last_witnessed_at")
+    if isinstance(seen, str) and seen:
+        stamps.append(seen)
+    found = [(dt, s) for dt, s in ((_utc(s), s) for s in stamps) if dt]
+    return max(found, key=lambda pair: pair[0])[1] if found else None
+
+
 def parse_args(argv=None):
     p = argparse.ArgumentParser(
         prog="sync_from_ledger.py",
@@ -1703,6 +1881,17 @@ def main(argv=None):
         #       mirrored to the same path on the site so the URL a dossier advertises is
         #       served (B-45; the ledger's verifier checked the file, the site 404'd it)
         mirror_vaults(ledger, slots)
+
+        # 2b''') inclusion proofs (B-102): the ledger's repo-root `records/<slot>.proof.json`,
+        #        mirrored so the artefact the verification record names is actually served
+        mirror_proofs(ledger, slots)
+
+        # 2b'''') absence certificates (B-103): the ledger's `absent/<wallet>.json`, so the
+        #         advertised signed negative proof is served (spec.md §2.21)
+        mirror_absence(ledger)
+
+        # 2d) per-slot bundles (P-74): one self-contained file an agent can keep
+        build_bundles(slots, ledger, anchors)
 
         # 2c) the Tag: block ids, the append-only id index, the static resolver (/b/, /id/, ids.json)
         _commit, _seen_at = ledger_head(ledger)

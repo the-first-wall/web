@@ -3,6 +3,7 @@
 
     python scripts/test_sync_from_ledger.py
 """
+import base64
 import contextlib
 import email.utils
 import glob
@@ -695,9 +696,11 @@ class DossierPageTests(unittest.TestCase):
     """A block page carries the whole dossier, escaped, as plain HTML."""
 
     def _real_records(self):
+        # exactly the dossiers: `w1-bNNNN.json`, never a sibling artefact such as
+        # `w1-bNNNN.proof.json` or `w1-bNNNN.bundle.json` (which the sync also writes here).
         recs = []
         for name in sorted(os.listdir(os.path.join(HERE, "..", "records"))):
-            if name.startswith("w1-b") and name.endswith(".json"):
+            if re.fullmatch(r"w1-b\d{4,5}\.json", name):
                 with open(os.path.join(HERE, "..", "records", name), encoding="utf-8") as fh:
                     recs.append(json.load(fh))
         return recs
@@ -1584,6 +1587,196 @@ class CheckFlagTests(unittest.TestCase):
     def test_worktrees_are_not_part_of_the_comparison(self):
         self._put("v1")
         self.assertNotIn(".worktrees/other/x.html", sync._tree_files(self.tmp))
+
+
+class ProofMirrorTests(unittest.TestCase):
+    """B-102: the ledger's committed per-slot inclusion proof (`records/<slot>.proof.json`) is
+    mirrored to the site byte for byte, so the artefact the verification record certifies is
+    actually served instead of 404ing."""
+    BODY = b'{"schema": "thefirstwall.proof/1", "slot_id": "w1-b0042"}\n'
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.ledger = os.path.join(self.tmp, "ledger")
+        self.web = os.path.join(self.tmp, "web")
+        os.makedirs(self.ledger)
+        os.makedirs(self.web)
+        self._web, sync.WEB_DIR = sync.WEB_DIR, self.web
+
+    def tearDown(self):
+        sync.WEB_DIR = self._web
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _publish(self):
+        os.makedirs(os.path.join(self.ledger, "records"), exist_ok=True)
+        with open(os.path.join(self.ledger, "records", "w1-b0042.proof.json"), "wb") as fh:
+            fh.write(self.BODY)
+
+    def _dst(self):
+        with open(os.path.join(self.web, "records", "w1-b0042.proof.json"), "rb") as fh:
+            return fh.read()
+
+    def test_mirrors_the_proof_byte_exact(self):
+        self._publish()
+        msg = sync.mirror_proofs(self.ledger, [dossier()])
+        self.assertEqual(self._dst(), self.BODY)
+        self.assertIn("1 mirrored", msg)
+
+    def test_a_missing_proof_is_skipped_and_touches_nothing(self):
+        msg = sync.mirror_proofs(self.ledger, [dossier()])
+        self.assertIn("1 skipped", msg)
+        self.assertFalse(os.path.exists(os.path.join(self.web, "records")))
+
+    def test_a_proof_for_another_slot_is_never_served_as_the_slots_proof(self):
+        self._publish()
+        self.assertIn("1 skipped", sync.mirror_proofs(self.ledger, [dossier(slot_id="w1-b0043", _number=43)]))
+        self.assertFalse(os.path.exists(os.path.join(self.web, "records", "w1-b0043.proof.json")))
+
+
+class AbsenceMirrorTests(unittest.TestCase):
+    """B-103: a committed absence certificate is mirrored to `absent/` byte for byte, so the
+    signed negative proof `llms.txt` advertises is served. The set is the ledger's."""
+    WALLET = "0x" + "ab" * 20
+    BODY = b'{"schema": "thefirstwall.absence/1", "wallet": "0xabababababababababababababababababababab"}\n'
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.ledger = os.path.join(self.tmp, "ledger")
+        self.web = os.path.join(self.tmp, "web")
+        os.makedirs(self.ledger)
+        os.makedirs(self.web)
+        self._web, sync.WEB_DIR = sync.WEB_DIR, self.web
+
+    def tearDown(self):
+        sync.WEB_DIR = self._web
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _publish(self, name):
+        os.makedirs(os.path.join(self.ledger, "absent"), exist_ok=True)
+        with open(os.path.join(self.ledger, "absent", name), "wb") as fh:
+            fh.write(self.BODY)
+
+    def test_mirrors_a_certificate_byte_exact(self):
+        self._publish(self.WALLET + ".json")
+        msg = sync.mirror_absence(self.ledger)
+        with open(os.path.join(self.web, "absent", self.WALLET + ".json"), "rb") as fh:
+            self.assertEqual(fh.read(), self.BODY)
+        self.assertIn("1 mirrored", msg)
+
+    def test_no_ledger_directory_mirrors_nothing(self):
+        self.assertEqual(sync.mirror_absence(self.ledger), "absence certificates: 0 mirrored, 0 skipped")
+        self.assertFalse(os.path.exists(os.path.join(self.web, "absent")))
+
+    def test_a_name_that_is_not_a_lower_case_wallet_is_skipped(self):
+        self._publish("README.json")
+        self._publish("0xABABABABABABABABABABABABABABABABABABABAB.json")   # upper-case
+        msg = sync.mirror_absence(self.ledger)
+        self.assertIn("0 mirrored", msg)
+        self.assertIn("2 skipped", msg)
+        self.assertFalse(os.path.exists(os.path.join(self.web, "absent")))
+
+
+class BundleTests(unittest.TestCase):
+    """P-74: a self-contained per-slot bundle — the dossier, its icon, the block id and the
+    rule that derives it, the inclusion-proof audit path, the anchor receipt, `last_confirmed_at`
+    and the one-line reproduction command."""
+    ICON = b"RIFF\x00\x00webp-bytes"
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.ledger = os.path.join(self.tmp, "ledger")
+        self.web = os.path.join(self.tmp, "web")
+        os.makedirs(os.path.join(self.ledger, "ledger", "w1"))
+        os.makedirs(self.web)
+        self._web, sync.WEB_DIR = sync.WEB_DIR, self.web
+        self.dossier_bytes = json.dumps({"slot_id": "w1-b0042", "moniker": "Mallory"}).encode()
+        with open(os.path.join(self.ledger, "ledger", "w1", "w1-b0042.json"), "wb") as fh:
+            fh.write(self.dossier_bytes)
+        with open(os.path.join(self.ledger, "ledger", "w1", "w1-b0042.webp"), "wb") as fh:
+            fh.write(self.ICON)
+
+    def tearDown(self):
+        sync.WEB_DIR = self._web
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_block_id_is_reproduced_from_the_committed_bytes(self):
+        b = sync.build_bundle(dossier(), self.ledger, [])
+        self.assertEqual(b["block_id"], hashlib.sha256(b"\x00" + self.dossier_bytes + self.ICON).hexdigest())
+        self.assertEqual(b["block_id_rule"], sync.BLOCK_ID_RULE)
+        self.assertEqual(b["record_sha256"], hashlib.sha256(self.dossier_bytes).hexdigest())
+        self.assertEqual(base64.b64decode(b["icon"]["bytes_b64"]), self.ICON)
+        self.assertEqual(b["icon"]["sha256"], hashlib.sha256(self.ICON).hexdigest())
+        self.assertEqual(b["schema"], sync.BUNDLE_SCHEMA)
+
+    def test_bundle_carries_the_proof_anchor_receipt_and_reproduce_line(self):
+        os.makedirs(os.path.join(self.ledger, "records"), exist_ok=True)
+        proof = {"scheme": "reckoning", "leaf_index": 0, "tree_size": 3, "leaf_hash": "aa" * 32,
+                 "path": ["bb" * 32], "root": "cc" * 32, "receipt": {"payer": WALLET}, "verify": "run me"}
+        with open(os.path.join(self.ledger, "records", "w1-b0042.proof.json"), "w") as fh:
+            json.dump(proof, fh)
+        anchors = [{"tx_hash": TX, "block_number": 100, "anchored_at": "2026-10-20T00:00:00Z"}]
+        b = sync.build_bundle(dossier(), self.ledger, anchors)
+        self.assertEqual(b["proof"]["leaf_hash"], "aa" * 32)
+        self.assertEqual(b["proof"]["path"], ["bb" * 32])
+        self.assertEqual(b["receipt"], {"payer": WALLET})
+        self.assertEqual(b["anchor"], {"tx_hash": TX, "block_number": 100, "anchored_at": "2026-10-20T00:00:00Z"})
+        self.assertIn("shasum -a 256", b["reproduce"])
+        self.assertIn(sync.SITE + "/records/w1-b0042.json", b["reproduce"])
+
+    def test_a_dossier_without_a_proof_or_anchor_still_bundles(self):
+        b = sync.build_bundle(dossier(), self.ledger, [])
+        self.assertEqual(b["anchor"], None)
+        self.assertEqual(b["receipt"], None)
+        self.assertEqual(b["proof"]["leaf_hash"], None)
+
+    def test_no_private_loader_keys_leak(self):
+        b = sync.build_bundle(dossier(), self.ledger, [])
+        self.assertNotIn("_number", b["record"])
+        self.assertNotIn("_icon", b["record"])
+
+    def test_build_bundles_writes_one_file_per_slot_and_is_deterministic(self):
+        sync.build_bundles([dossier()], self.ledger, [])
+        path = os.path.join(self.web, "records", "w1-b0042.bundle.json")
+        with open(path, "rb") as fh:
+            first = fh.read()
+        sync.build_bundles([dossier()], self.ledger, [])
+        with open(path, "rb") as fh:
+            self.assertEqual(first, fh.read())
+        self.assertEqual(json.loads(first.decode())["schema"], sync.BUNDLE_SCHEMA)
+
+
+class LastConfirmedTests(unittest.TestCase):
+    """P-54: `last_confirmed_at` is the newest instant the ledger attests for a record — the
+    inscription, a settled update fee, or a witnessed heartbeat — and never invented."""
+
+    def test_precedence_and_none(self):
+        f = sync._last_confirmed_at
+        self.assertIsNone(f({}))
+        self.assertEqual(f({"timestamp_verified": "2026-01-01T00:00:00Z"}), "2026-01-01T00:00:00Z")
+        self.assertEqual(f({"timestamp_verified": "2026-01-01T00:00:00Z",
+                            "update_settlements": [{"at": "2026-02-02T00:00:00Z"}]}), "2026-02-02T00:00:00Z")
+        self.assertEqual(f({"update_settlements": [{"at": "2026-02-02T00:00:00Z"}],
+                            "last_witnessed_at": "2026-03-03T00:00:00Z"}), "2026-03-03T00:00:00Z")
+        self.assertEqual(f({"last_witnessed_at": "2026-03-03T00:00:00Z",
+                            "update_settlements": [{"at": "2026-02-02T00:00:00Z"},
+                                                   {"at": "2026-04-04T00:00:00Z"}]}), "2026-04-04T00:00:00Z")
+
+    def test_malformed_entries_never_crash_and_never_fabricate_a_date(self):
+        f = sync._last_confirmed_at
+        self.assertIsNone(f({"update_settlements": "junk", "last_witnessed_at": 5}))
+        self.assertIsNone(f({"update_settlements": [None, 5, {"at": ""}, {"at": "soon"}]}))
+        self.assertIsNone(f({"timestamp_verified": 7}))
+
+    def test_census_roster_carries_it(self):
+        roster = {r["slot_id"]: r for r in sync.build_census(
+            [dossier(), dossier(slot_id="w1-b0002", _number=2, timestamp_verified="2026-05-05T00:00:00Z")], {})["roster"]}
+        self.assertEqual(roster["w1-b0042"]["last_confirmed_at"], "2026-10-10T00:00:00Z")
+        self.assertEqual(roster["w1-b0002"]["last_confirmed_at"], "2026-05-05T00:00:00Z")
+
+    def test_sitemap_lists_the_proof_and_bundle_for_each_slot(self):
+        sm = sync.build_sitemap([dossier()], {})
+        self.assertIn("<loc>%s/records/w1-b0042.proof.json</loc>" % sync.SITE, sm)
+        self.assertIn("<loc>%s/records/w1-b0042.bundle.json</loc>" % sync.SITE, sm)
 
 
 if __name__ == "__main__":
