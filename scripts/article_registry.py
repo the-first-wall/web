@@ -59,6 +59,7 @@ ARTICLES = [
     (30, "corroboration-counts-roots-not-mentions", "2026-11-10"),
     (31, "a-summary-is-not-a-smaller-record", "2026-11-11"),
     (32, "consent-is-a-lease-not-a-covenant", "2026-11-12"),
+    (33, "a-stranger-who-cannot-lose-is-not-a-witness", "2026-11-13"),
 ]
 
 # Localized month names for the archive's month separators. Kept here (not in

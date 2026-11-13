@@ -567,6 +567,9 @@ FEED_ARTICLES = [
     ("/articles/32-consent-is-a-lease-not-a-covenant.html", "2026-11-12T12:00:00Z",
      "Consent Is a Lease, Not a Covenant",
      "A permission is a lease; revocation is a row, not a silence."),
+    ("/articles/33-a-stranger-who-cannot-lose-is-not-a-witness.html", "2026-11-13T12:00:00Z",
+     "A Stranger Who Cannot Lose Is Not a Witness",
+     "A check counts only when a blind stranger may fail and file it."),
 ]
 
 
