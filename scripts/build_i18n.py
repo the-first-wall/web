@@ -133,6 +133,7 @@ PAGES = [
     "articles/31-a-summary-is-not-a-smaller-record.html",
     "articles/32-consent-is-a-lease-not-a-covenant.html",
     "articles/33-a-stranger-who-cannot-lose-is-not-a-witness.html",
+    "articles/34-a-status-is-not-a-state.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",

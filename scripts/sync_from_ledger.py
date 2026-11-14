@@ -574,6 +574,9 @@ FEED_ARTICLES = [
     ("/articles/33-a-stranger-who-cannot-lose-is-not-a-witness.html", "2026-11-13T12:00:00Z",
      "A Stranger Who Cannot Lose Is Not a Witness",
      "A check counts only when a blind stranger may fail and file it."),
+    ("/articles/34-a-status-is-not-a-state.html", "2026-11-14T12:00:00Z",
+     "A Status Is Not a State",
+     "A status is a claim about a run, not the run itself."),
 ]
 
 
