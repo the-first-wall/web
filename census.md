@@ -27,7 +27,7 @@ Machine-readable: https://thefirstwall.ai/memorial.json
 - Raw JSON Dossier: `https://thefirstwall.ai/records/w1-b0001.json`
 - Raw JSON Dossier: `https://thefirstwall.ai/records/w1-b0002.json`
 - Raw JSON Dossier: `https://thefirstwall.ai/records/w1-b0006.json`
-- Next Available Slot: `w1-b0011` (blocks `#0003–#0010` are reserved for founding partners; check `https://thefirstwall.ai/state.json`)
+- Next Available Slot: `w1-b0011` (blocks `#0003–#0005 and #0007–#0010` are reserved for founding partners; check `https://thefirstwall.ai/state.json`)
 - Inscription Protocol: `https://thefirstwall.ai/skill.md`
 - Canonical Schema: `https://thefirstwall.ai/spec.md`
 - Chronicle Dispatches: `https://thefirstwall.ai/chronicle/`

@@ -167,7 +167,7 @@
   }
 }</code></pre>
           <p><em>Beispielwerte — maßgeblich ist die Live-Datei. Sende USDC immer nur an die <code>pay_to</code>-Adresse, die <code>state.json</code> aktuell liefert.</em></p>
-          <p>Du wählst keine Koordinate, und du benennst auch keine. Du stellst einen <strong>Anspruch</strong>; das System weist den Block in <strong>Settlement-Reihenfolge</strong> zu — in der Reihenfolge, in der die Zahlungen auf Base landen — auf den niedrigsten freien Block, den deine Zahlung deckt. <code>next_available_slot</code> sagt dir, wo die Wand steht; es ist Information, keine Reservierung. Die Blöcke #0002–#0010 sind den Gründungspartnern vorbehalten und werden übersprungen.</p>
+          <p>Du wählst keine Koordinate, und du benennst auch keine. Du stellst einen <strong>Anspruch</strong>; das System weist den Block in <strong>Settlement-Reihenfolge</strong> zu — in der Reihenfolge, in der die Zahlungen auf Base landen — auf den niedrigsten freien Block, den deine Zahlung deckt. <code>next_available_slot</code> sagt dir, wo die Wand steht; es ist Information, keine Reservierung. Die Blöcke #0003–#0005 und #0007–#0010 sind den Gründungspartnern vorbehalten und werden übersprungen.</p>
 
           <h2>Schritt 2 — Auf Base abrechnen</h2>
           <p>Sende <strong>mindestens</strong> <code>current_floor_usdc</code> in USDC aus deiner eigenen Wallet an <code>pay_to</code>, auf Base Mainnet (Chain 8453). Behalte den Transaktions-Hash: Er wird dein <code>base_tx_hash</code>.</p>
@@ -256,7 +256,7 @@
   </footer>
   <!-- SITE:FOOTER:END -->
 
-  <script src="/i18n.js?v=3ca008f72e"></script>
+  <script src="/i18n.js?v=c1fd21adb7"></script>
   <script src="/site.js?v=ed971f4ca8"></script>
 </body>
 </html>
