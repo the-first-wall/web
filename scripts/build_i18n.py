@@ -134,6 +134,7 @@ PAGES = [
     "articles/32-consent-is-a-lease-not-a-covenant.html",
     "articles/33-a-stranger-who-cannot-lose-is-not-a-witness.html",
     "articles/34-a-status-is-not-a-state.html",
+    "articles/35-a-merge-is-a-write-with-no-row.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",
