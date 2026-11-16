@@ -348,11 +348,12 @@ def build_census_md(slots, state):
     lines += ["", "---", "", "## Machine Endpoints"]
     for d in sorted(slots, key=lambda x: x["_number"]):
         lines.append("- Raw JSON Dossier: `https://thefirstwall.ai/records/%s.json`" % d["slot_id"])
-    reserved = sorted(int(s[4:]) for s in state.get("reserved_slots", [])
-                      if isinstance(s, str) and RE_SLOT_ID.fullmatch(s))
+    reserved = _slot_numbers(state.get("reserved_slots") or [])
     reserved_note = ""
     if reserved:
-        reserved_note = " (blocks `#%04d\u2013#%04d` are reserved for founding partners; check `https://thefirstwall.ai/state.json`)" % (min(reserved), max(reserved))
+        # the published set has holes once a founding block is granted: state the
+        # compacted list, never a min-max range that would swallow the granted block
+        reserved_note = " (blocks `%s` are reserved for founding partners; check `https://thefirstwall.ai/state.json`)" % _compact_ranges(reserved, "en")
     lines += [
         "- Next Available Slot: `%s`%s" % (state.get("next_available_slot", ""), reserved_note),
         "- Inscription Protocol: `https://thefirstwall.ai/skill.md`",
@@ -1282,6 +1283,143 @@ def hero_floor_text(state, lang):
     return text.replace(".", ",") if lang == "de" else text
 
 
+# --- B-119: the reserved/inscribed sentence is derived, not typed -----------
+# The block ranges in the "reserved" copy were hand-typed. "Blocks #0003-#0010 are
+# reserved ... #0001 and #0002 are inscribed" went false the day #0006 was granted
+# (2026-11-04): the reserved set then had a hole where #0006 sits, so it cannot be
+# written as one range, and the inscribed set is not a prefix of it either. Both are
+# read from the ledger (state.reserved_slots, state.claimed_slots, next_available_slot)
+# and the sync refuses to publish when it cannot name them, so no future grant can
+# leave the sentence false.
+RESERVED_NOTE_I18N = (
+    ("en", re.compile(r'(reserved_note: ")(Blocks .*? are inscribed\. That is why the next open block is #\d+\.)(")')),
+    ("de", re.compile(r'(reserved_note: ")(Die Bl\u00f6cke .*? sind eingeschrieben\. Deshalb ist der n\u00e4chste freie Block #\d+\.)(")')),
+)
+# The FAQ and the protocol page state the same set inside a hand-authored sentence.
+# The anchor is the words, not the digits: the rewrite must match its own output
+# (one range before, a compacted list after), or the second run would not find it.
+RESERVED_PAGE = (
+    ("en", re.compile(r'Blocks #\d{4}[^.]* are reserved for the founding partners and are skipped\.')),
+    ("de", re.compile(r'Die Bl\u00f6cke #\d{4}[^.]* sind den Gr\u00fcndungspartnern vorbehalten und werden \u00fcbersprungen\.')),
+)
+RESERVED_PAGES = ("src/faq/index.html", "src/protocol/index.html")
+
+
+def _slot_numbers(items):
+    """['w1-b0003', ...] -> [3, ...]. Anything that is not a slot id is ignored."""
+    return sorted(int(s[4:]) for s in items
+                  if isinstance(s, str) and RE_SLOT_ID.fullmatch(s))
+
+
+def _compact_ranges(nums, lang):
+    """[3,4,5,7,8,9,10] -> '#0003\u2013#0005 and #0007\u2013#0010'. Consecutive slots
+    collapse into one range; the list is never widened into a single range,
+    because the holes are the point (B-119)."""
+    runs = []
+    for n in sorted(nums):
+        if runs and n == runs[-1][1] + 1:
+            runs[-1][1] = n
+        else:
+            runs.append([n, n])
+    parts = ["#%04d" % a if a == b else "#%04d\u2013#%04d" % (a, b) for a, b in runs]
+    if not parts:
+        return ""
+    if len(parts) == 1:
+        return parts[0]
+    return ", ".join(parts[:-1]) + (" und " if lang == "de" else " and ") + parts[-1]
+
+
+def reserved_blocks_text(state, lang):
+    """The still-reserved blocks exactly as state.json publishes them."""
+    reserved = _slot_numbers(state.get("reserved_slots") or [])
+    if not reserved:
+        raise SystemExit("[sync] state.json publishes no reserved_slots; refusing to write a "
+                         "reserved-block sentence that names none")
+    return _compact_ranges(reserved, lang)
+
+
+def reserved_note_text(state, lang):
+    """The homepage/census note: the blocks still held (a compacted range list,
+    since the set has holes) and how many blocks are inscribed. Never a range
+    that swallows a granted or a retired block."""
+    claimed = state.get("claimed_slots")
+    if not isinstance(claimed, int) or isinstance(claimed, bool) or claimed < 0:
+        raise SystemExit("[sync] state.json carries no usable claimed_slots; refusing to guess the inscribed count")
+    nxt = state.get("next_available_slot")
+    if not isinstance(nxt, str) or not RE_SLOT_ID.fullmatch(nxt):
+        raise SystemExit("[sync] state.json carries no usable next_available_slot; refusing to guess the next open block")
+    next_no = "#%04d" % int(nxt[4:])
+    blocks = reserved_blocks_text(state, lang)
+    if lang == "de":
+        inscribed = "1 Block ist eingeschrieben" if claimed == 1 else \
+            "%s Bl\u00f6cke sind eingeschrieben" % _group_int(claimed, lang)
+        return ("Die Bl\u00f6cke %s sind den in skill.md genannten Gr\u00fcndungspartnern "
+                "vorbehalten und nicht k\u00e4uflich; %s. Deshalb ist der n\u00e4chste freie "
+                "Block %s." % (blocks, inscribed, next_no))
+    inscribed = "1 block is inscribed" if claimed == 1 else \
+        "%s blocks are inscribed" % _group_int(claimed, lang)
+    return ("Blocks %s are reserved for the founding partners named in skill.md and "
+            "are not for sale; %s. That is why the next open block is %s."
+            % (blocks, inscribed, next_no))
+
+
+def reserved_faq_text(state, lang):
+    """The FAQ/protocol line: exactly the published reserved set. The old copy
+    named #0002-#0010, which counted a retired block and an inscribed one as
+    reserved (B-119)."""
+    blocks = reserved_blocks_text(state, lang)
+    if lang == "de":
+        return ("Die Bl\u00f6cke %s sind den Gr\u00fcndungspartnern vorbehalten und "
+                "werden \u00fcbersprungen." % blocks)
+    return "Blocks %s are reserved for the founding partners and are skipped." % blocks
+
+
+def _rewrite_patterns(text, patterns, render, label):
+    """Rewrite the one anchored sentence per language. Fails loudly when a
+    language's copy no longer carries the anchor (it was reworded) instead of
+    guessing at a substitution."""
+    for lang, pat in patterns:
+        hits = pat.findall(text)
+        if len(hits) != 1:
+            raise SystemExit(
+                "[sync] %s (%s) must contain exactly one anchored sentence "
+                "(found %d); the sync derives it from the ledger \u2014 fix the sentence "
+                "or the pattern in scripts/sync_from_ledger.py" % (label, lang, len(hits)))
+        text = pat.sub(lambda m, l=lang: render(l, m), text, count=1)
+    return text
+
+
+def publish_reserved_copy(state):
+    """Re-derive the reserved/inscribed sentences (B-119) and rewrite them in
+    place: i18n.js (homepage + census note), the FAQ page and the protocol page.
+    Returns True when a file changed (so the caller re-stamps and rebuilds)."""
+    changed = False
+
+    def _rewrite(path, patterns, render, label):
+        with open(path, "r", encoding="utf-8") as fh:
+            before = fh.read()
+        text = _rewrite_patterns(before, patterns, render, label)
+        if text != before:
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(text)
+            return True
+        return False
+
+    i18n = os.path.join(WEB_DIR, "i18n.js")
+    changed |= _rewrite(
+        i18n, RESERVED_NOTE_I18N,
+        lambda lang, m: m.group(1) + reserved_note_text(state, lang) + m.group(3),
+        "reserved_note")
+    for rel in RESERVED_PAGES:
+        path = os.path.join(WEB_DIR, *rel.split("/"))
+        changed |= _rewrite(
+            path, RESERVED_PAGE,
+            lambda lang, m: reserved_faq_text(state, lang),
+            "reserved FAQ sentence")
+    _log("reserved copy: %s%s" % (reserved_note_text(state, "en"), "" if changed else " (unchanged)"))
+    return changed
+
+
 def _rewrite_anchored(text, patterns, value_for, label):
     """Rewrite each language's anchored number(s). Fails loudly when a language's
     sentence no longer carries the anchor (it was reworded) instead of guessing."""
@@ -1821,7 +1959,9 @@ def main(argv=None):
         # 0a) hero numbers (P-38 counts, P-39 floor): derive them from the ledger, so
         #     a claim or a tier flip can never leave the homepage quoting stale copy.
         #     When a number moves, i18n.js changed, so re-stamp every page's ?v= hash.
-        if publish_hero_numbers(state):
+        changed = publish_hero_numbers(state)
+        changed = publish_reserved_copy(state) or changed
+        if changed:
             restamp_chrome()
 
         # 0b) anchor status (aborts if the chain contradicts the latest record)

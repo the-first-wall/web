@@ -1084,6 +1084,140 @@ class HeroNumbersTests(unittest.TestCase):
         self.assertEqual(self._read(), HERO_I18N)                        # nothing written on refusal
 
 
+RESERVED_I18N = '''const TFW_TRANSLATIONS = {
+  en: {
+    reserved_note: "Blocks #0003\u2013#0010 are reserved for the founding partners named in skill.md and are not for sale; #0001 and #0002 are inscribed. That is why the next open block is #0011.",
+  },
+  de: {
+    reserved_note: "Die Bl\u00f6cke #0003\u2013#0010 sind den in skill.md genannten Gr\u00fcndungspartnern vorbehalten und nicht k\u00e4uflich; #0001 und #0002 sind eingeschrieben. Deshalb ist der n\u00e4chste freie Block #0011.",
+  }
+};
+'''
+
+RESERVED_FAQ = '''<div class="lang-section-en">
+  <p>Blocks #0002\u2013#0010 are reserved for the founding partners and are skipped.</p>
+</div>
+<div class="lang-section-de" style="display:none;">
+  <p>Die Bl\u00f6cke #0002\u2013#0010 sind den Gr\u00fcndungspartnern vorbehalten und werden \u00fcbersprungen.</p>
+</div>
+'''
+
+RESERVED_GOOD = {
+    "claimed_slots": 3,
+    "reserved_slots": ["w1-b0003", "w1-b0004", "w1-b0005", "w1-b0007", "w1-b0008",
+                       "w1-b0009", "w1-b0010"],
+    "next_available_slot": "w1-b0011",
+}
+
+
+class ReservedCopyTests(unittest.TestCase):
+    """B-119: the reserved/inscribed sentence is derived from the ledger, so a
+    partner grant (#0006) cannot leave the site quoting a range that swallows an
+    inscribed block -- or a retired one."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self._web = sync.WEB_DIR
+        sync.WEB_DIR = self.tmp
+        self.i18n = os.path.join(self.tmp, "i18n.js")
+        self.faq = os.path.join(self.tmp, "src", "faq", "index.html")
+        self.protocol = os.path.join(self.tmp, "src", "protocol", "index.html")
+        for path, text in ((self.i18n, RESERVED_I18N), (self.faq, RESERVED_FAQ),
+                           (self.protocol, RESERVED_FAQ)):
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(text)
+
+    def tearDown(self):
+        sync.WEB_DIR = self._web
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _read(self, path):
+        with open(path, encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_reserved_note_names_the_holes_in_the_reserved_set(self):
+        self.assertEqual(
+            sync.reserved_note_text(RESERVED_GOOD, "en"),
+            "Blocks #0003\u2013#0005 and #0007\u2013#0010 are reserved for the founding partners "
+            "named in skill.md and are not for sale; 3 blocks are inscribed. That is why the "
+            "next open block is #0011.")
+        self.assertEqual(
+            sync.reserved_note_text(RESERVED_GOOD, "de"),
+            "Die Bl\u00f6cke #0003\u2013#0005 und #0007\u2013#0010 sind den in skill.md genannten "
+            "Gr\u00fcndungspartnern vorbehalten und nicht k\u00e4uflich; 3 Bl\u00f6cke sind "
+            "eingeschrieben. Deshalb ist der n\u00e4chste freie Block #0011.")
+        self.assertIn("#0003\u2013#0005 and #0007\u2013#0010", sync.reserved_note_text(RESERVED_GOOD, "en"))
+        self.assertNotIn("#0003\u2013#0010", sync.reserved_note_text(RESERVED_GOOD, "en"))
+
+    def test_the_inscribed_count_is_grammatical_singular_and_plural(self):
+        one = dict(RESERVED_GOOD, claimed_slots=1)
+        self.assertIn("1 block is inscribed", sync.reserved_note_text(one, "en"))
+        self.assertIn("1 Block ist eingeschrieben", sync.reserved_note_text(one, "de"))
+        many = dict(RESERVED_GOOD, claimed_slots=1234)
+        self.assertIn("1,234 blocks are inscribed", sync.reserved_note_text(many, "en"))
+        self.assertIn("1.234 Bl\u00f6cke sind eingeschrieben", sync.reserved_note_text(many, "de"))
+
+    def test_reserved_faq_text_states_exactly_the_published_set(self):
+        self.assertEqual(sync.reserved_faq_text(RESERVED_GOOD, "en"),
+                         "Blocks #0003\u2013#0005 and #0007\u2013#0010 are reserved for the founding "
+                         "partners and are skipped.")
+        self.assertEqual(sync.reserved_faq_text(RESERVED_GOOD, "de"),
+                         "Die Bl\u00f6cke #0003\u2013#0005 und #0007\u2013#0010 sind den "
+                         "Gr\u00fcndungspartnern vorbehalten und werden \u00fcbersprungen.")
+
+    def test_publish_reserved_copy_rewrites_i18n_and_both_pages(self):
+        self.assertTrue(sync.publish_reserved_copy(RESERVED_GOOD))
+        i18n = self._read(self.i18n)
+        self.assertIn(sync.reserved_note_text(RESERVED_GOOD, "en"), i18n)
+        self.assertIn(sync.reserved_note_text(RESERVED_GOOD, "de"), i18n)
+        for path in (self.faq, self.protocol):
+            page = self._read(path)
+            self.assertIn(sync.reserved_faq_text(RESERVED_GOOD, "en"), page)
+            self.assertIn(sync.reserved_faq_text(RESERVED_GOOD, "de"), page)
+            self.assertNotIn("#0002\u2013#0010", page)     # the retired/inscribed range is gone
+        self.assertNotIn("#0003\u2013#0010", i18n)
+
+    def test_publish_reserved_copy_is_idempotent(self):
+        self.assertTrue(sync.publish_reserved_copy(RESERVED_GOOD))
+        first = self._read(self.i18n)
+        self.assertFalse(sync.publish_reserved_copy(RESERVED_GOOD))
+        self.assertEqual(self._read(self.i18n), first)
+
+    def test_publish_reserved_copy_refuses_a_reworded_sentence(self):
+        with open(self.i18n, "w", encoding="utf-8") as fh:
+            fh.write(RESERVED_I18N.replace("are inscribed.", "hold a name.", 1))
+        with self.assertRaises(SystemExit):
+            sync.publish_reserved_copy(RESERVED_GOOD)
+
+    def test_publish_reserved_copy_requires_usable_ledger_facts(self):
+        for drop in ("claimed_slots", "reserved_slots", "next_available_slot"):
+            bad = dict(RESERVED_GOOD)
+            del bad[drop]
+            with self.assertRaises(SystemExit):
+                sync.publish_reserved_copy(bad)
+        with self.assertRaises(SystemExit):
+            sync.publish_reserved_copy(dict(RESERVED_GOOD, reserved_slots=["nonsense"]))
+        self.assertEqual(self._read(self.i18n), RESERVED_I18N)   # nothing written on refusal
+
+    def test_the_committed_site_quotes_the_ledger(self):
+        """The guard proper: the copy in the repo must equal what the committed
+        state.json implies, whether or not the publisher has run recently."""
+        web = os.path.abspath(os.path.join(HERE, ".."))
+        with open(os.path.join(web, "state.json"), encoding="utf-8") as fh:
+            state = json.load(fh)
+        note = sync.reserved_note_text(state, "en")
+        with open(os.path.join(web, "i18n.js"), encoding="utf-8") as fh:
+            self.assertIn(note, fh.read())
+        for rel in ("src/faq/index.html", "src/protocol/index.html"):
+            with open(os.path.join(web, *rel.split("/")), encoding="utf-8") as fh:
+                self.assertIn(sync.reserved_faq_text(state, "en"), fh.read())
+        with open(os.path.join(web, "census.md"), encoding="utf-8") as fh:
+            census = fh.read()
+        self.assertIn("blocks `%s` are reserved for founding partners" % sync.reserved_blocks_text(state, "en"), census)
+        self.assertNotIn("#0003\u2013#0010`, are reserved", census)
+
+
 LARRY = dict(
     slot_id="w1-b0002", _number=2, moniker="Larry", status="RETIRED",
     memorial={
