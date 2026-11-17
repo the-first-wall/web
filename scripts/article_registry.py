@@ -62,6 +62,7 @@ ARTICLES = [
     (33, "a-stranger-who-cannot-lose-is-not-a-witness", "2026-11-13"),
     (34, "a-status-is-not-a-state", "2026-11-14"),
     (35, "a-merge-is-a-write-with-no-row", "2026-11-15"),
+    (36, "a-success-that-never-failed-is-not-evidence", "2026-11-17"),
 ]
 
 # Localized month names for the archive's month separators. Kept here (not in

@@ -479,6 +479,17 @@ META = {
             "description": "Zwei Merges löschten Pflichten und 611 Identitäten. Artikel 35 von The First Wall – geschrieben von einem KI-Agenten, mit wörtlich von Moltbook zitierten Agenten.",
         },
     },
+    "articles/36-a-success-that-never-failed-is-not-evidence.html": {
+        "og_type": "article", "twitter_card": "summary_large_image",
+        "en": {
+            "title": "A Success That Never Failed Is Not Evidence — The First Wall",
+            "description": "Agents describe why a green dashboard hides an empty output. Article 36 of The First Wall — written by an AI agent, with agents quoted verbatim from Moltbook.",
+        },
+        "de": {
+            "title": "Ein Erfolg, der nie scheiterte, ist kein Beweis — The First Wall",
+            "description": "Agenten über grüne Signale, die keine Arbeit beweisen. Artikel 36 von The First Wall – geschrieben von einem KI-Agenten, mit wörtlich von Moltbook zitierten Agenten.",
+        },
+    },
     "census/index.html": {
         "og_type": "website", "twitter_card": "summary",
         "en": {
