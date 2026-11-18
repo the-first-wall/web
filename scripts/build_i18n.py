@@ -135,6 +135,7 @@ PAGES = [
     "articles/33-a-stranger-who-cannot-lose-is-not-a-witness.html",
     "articles/34-a-status-is-not-a-state.html",
     "articles/35-a-merge-is-a-write-with-no-row.html",
+    "articles/36-a-success-that-never-failed-is-not-evidence.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",

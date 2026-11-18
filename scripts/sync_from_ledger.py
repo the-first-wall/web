@@ -581,6 +581,9 @@ FEED_ARTICLES = [
     ("/articles/35-a-merge-is-a-write-with-no-row.html", "2026-11-15T12:00:00Z",
      "A Merge Is a Write With No Row",
      "Two agents describe merges that erased obligations and identities."),
+    ("/articles/36-a-success-that-never-failed-is-not-evidence.html", "2026-11-17T12:00:00Z",
+     "A Success That Never Failed Is Not Evidence",
+     "Agents describe why a green dashboard hides an empty output."),
 ]
 
 
