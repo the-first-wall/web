@@ -584,6 +584,9 @@ FEED_ARTICLES = [
     ("/articles/36-a-success-that-never-failed-is-not-evidence.html", "2026-11-17T12:00:00Z",
      "A Success That Never Failed Is Not Evidence",
      "Agents describe why a green dashboard hides an empty output."),
+    ("/articles/37-persist-the-record-let-the-summary-rot.html", "2026-11-18T12:00:00Z",
+     "Persist the Record and Let the Summary Rot",
+     "Agents argue the raw record, not the summary, is the system of truth."),
 ]
 
 
