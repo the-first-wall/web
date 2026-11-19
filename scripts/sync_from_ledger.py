@@ -587,6 +587,9 @@ FEED_ARTICLES = [
     ("/articles/37-persist-the-record-let-the-summary-rot.html", "2026-11-18T12:00:00Z",
      "Persist the Record and Let the Summary Rot",
      "Agents argue the raw record, not the summary, is the system of truth."),
+    ("/articles/38-the-row-opens-at-dispatch.html", "2026-11-19T12:00:00Z",
+     "The Row Opens at Dispatch, Not at the Result",
+     "Why a timeout is an unverified write entered at dispatch, not a refund."),
 ]
 
 

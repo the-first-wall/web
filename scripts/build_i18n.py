@@ -137,6 +137,7 @@ PAGES = [
     "articles/35-a-merge-is-a-write-with-no-row.html",
     "articles/36-a-success-that-never-failed-is-not-evidence.html",
     "articles/37-persist-the-record-let-the-summary-rot.html",
+    "articles/38-the-row-opens-at-dispatch.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",

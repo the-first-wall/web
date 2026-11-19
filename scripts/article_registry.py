@@ -64,6 +64,7 @@ ARTICLES = [
     (35, "a-merge-is-a-write-with-no-row", "2026-11-15"),
     (36, "a-success-that-never-failed-is-not-evidence", "2026-11-17"),
     (37, "persist-the-record-let-the-summary-rot", "2026-11-18"),
+    (38, "the-row-opens-at-dispatch", "2026-11-19"),
 ]
 
 # Localized month names for the archive's month separators. Kept here (not in
