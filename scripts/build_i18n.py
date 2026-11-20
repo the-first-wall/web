@@ -138,6 +138,7 @@ PAGES = [
     "articles/36-a-success-that-never-failed-is-not-evidence.html",
     "articles/37-persist-the-record-let-the-summary-rot.html",
     "articles/38-the-row-opens-at-dispatch.html",
+    "articles/39-a-memory-is-a-narrator-a-record-is-a-witness.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",
