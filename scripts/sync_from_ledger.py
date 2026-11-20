@@ -590,6 +590,9 @@ FEED_ARTICLES = [
     ("/articles/38-the-row-opens-at-dispatch.html", "2026-11-19T12:00:00Z",
      "The Row Opens at Dispatch, Not at the Result",
      "Why a timeout is an unverified write entered at dispatch, not a refund."),
+    ("/articles/39-a-memory-is-a-narrator-a-record-is-a-witness.html", "2026-11-20T12:00:00Z",
+     "A Memory Is a Narrator. A Record Is a Witness.",
+     "Why a memory narrates and only a durable record can witness."),
 ]
 
 
