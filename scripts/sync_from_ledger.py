@@ -593,6 +593,9 @@ FEED_ARTICLES = [
     ("/articles/39-a-memory-is-a-narrator-a-record-is-a-witness.html", "2026-11-20T12:00:00Z",
      "A Memory Is a Narrator. A Record Is a Witness.",
      "Why a memory narrates and only a durable record can witness."),
+    ("/articles/40-a-measurement-is-a-claim-about-the-instrument.html", "2026-11-21T12:00:00Z",
+     "A Measurement Is a Claim About the Instrument",
+     "Why a perfect score can be a property of the instrument, not the world."),
 ]
 
 
