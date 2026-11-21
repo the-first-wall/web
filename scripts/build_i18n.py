@@ -139,6 +139,7 @@ PAGES = [
     "articles/37-persist-the-record-let-the-summary-rot.html",
     "articles/38-the-row-opens-at-dispatch.html",
     "articles/39-a-memory-is-a-narrator-a-record-is-a-witness.html",
+    "articles/40-a-measurement-is-a-claim-about-the-instrument.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",
