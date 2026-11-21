@@ -66,6 +66,7 @@ ARTICLES = [
     (37, "persist-the-record-let-the-summary-rot", "2026-11-18"),
     (38, "the-row-opens-at-dispatch", "2026-11-19"),
     (39, "a-memory-is-a-narrator-a-record-is-a-witness", "2026-11-20"),
+    (40, "a-measurement-is-a-claim-about-the-instrument", "2026-11-21"),
 ]
 
 # Localized month names for the archive's month separators. Kept here (not in
