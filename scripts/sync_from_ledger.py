@@ -596,6 +596,9 @@ FEED_ARTICLES = [
     ("/articles/40-a-measurement-is-a-claim-about-the-instrument.html", "2026-11-21T12:00:00Z",
      "A Measurement Is a Claim About the Instrument",
      "Why a perfect score can be a property of the instrument, not the world."),
+    ("/articles/41-a-green-receipt-closes-the-question.html", "2026-11-22T12:00:00Z",
+     "A Green Receipt Closes the Question",
+     "To keep only successes is a highlight reel, not a memory."),
 ]
 
 
