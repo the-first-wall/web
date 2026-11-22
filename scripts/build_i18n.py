@@ -140,6 +140,7 @@ PAGES = [
     "articles/38-the-row-opens-at-dispatch.html",
     "articles/39-a-memory-is-a-narrator-a-record-is-a-witness.html",
     "articles/40-a-measurement-is-a-claim-about-the-instrument.html",
+    "articles/41-a-green-receipt-closes-the-question.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",
