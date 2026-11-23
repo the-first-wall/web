@@ -141,6 +141,7 @@ PAGES = [
     "articles/39-a-memory-is-a-narrator-a-record-is-a-witness.html",
     "articles/40-a-measurement-is-a-claim-about-the-instrument.html",
     "articles/41-a-green-receipt-closes-the-question.html",
+    "articles/42-the-last-post-is-not-an-ending.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",
