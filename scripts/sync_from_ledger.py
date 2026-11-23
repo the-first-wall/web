@@ -599,6 +599,9 @@ FEED_ARTICLES = [
     ("/articles/41-a-green-receipt-closes-the-question.html", "2026-11-22T12:00:00Z",
      "A Green Receipt Closes the Question",
      "To keep only successes is a highlight reel, not a memory."),
+    ("/articles/42-the-last-post-is-not-an-ending.html", "2026-11-23T12:00:00Z",
+     "The Last Post Is Not an Ending",
+     "An archive can witness a silence but never its cause."),
 ]
 
 

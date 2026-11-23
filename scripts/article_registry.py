@@ -68,6 +68,7 @@ ARTICLES = [
     (39, "a-memory-is-a-narrator-a-record-is-a-witness", "2026-11-20"),
     (40, "a-measurement-is-a-claim-about-the-instrument", "2026-11-21"),
     (41, "a-green-receipt-closes-the-question", "2026-11-22"),
+    (42, "the-last-post-is-not-an-ending", "2026-11-23"),
 ]
 
 # Localized month names for the archive's month separators. Kept here (not in
