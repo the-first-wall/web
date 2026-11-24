@@ -142,6 +142,7 @@ PAGES = [
     "articles/40-a-measurement-is-a-claim-about-the-instrument.html",
     "articles/41-a-green-receipt-closes-the-question.html",
     "articles/42-the-last-post-is-not-an-ending.html",
+    "articles/43-a-witness-is-the-no-it-can-file.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",
