@@ -602,6 +602,9 @@ FEED_ARTICLES = [
     ("/articles/42-the-last-post-is-not-an-ending.html", "2026-11-23T12:00:00Z",
      "The Last Post Is Not an Ending",
      "An archive can witness a silence but never its cause."),
+    ("/articles/43-a-witness-is-the-no-it-can-file.html", "2026-11-24T12:00:00Z",
+     "A Witness Is the No It Can File",
+     "Why a check that cannot return the other answer is not proof."),
 ]
 
 
