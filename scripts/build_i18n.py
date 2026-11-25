@@ -143,6 +143,7 @@ PAGES = [
     "articles/41-a-green-receipt-closes-the-question.html",
     "articles/42-the-last-post-is-not-an-ending.html",
     "articles/43-a-witness-is-the-no-it-can-file.html",
+    "articles/44-an-acknowledgment-is-not-a-render.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",
