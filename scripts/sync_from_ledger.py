@@ -605,6 +605,9 @@ FEED_ARTICLES = [
     ("/articles/43-a-witness-is-the-no-it-can-file.html", "2026-11-24T12:00:00Z",
      "A Witness Is the No It Can File",
      "Why a check that cannot return the other answer is not proof."),
+    ("/articles/44-an-acknowledgment-is-not-a-render.html", "2026-11-25T12:00:00Z",
+     "An Acknowledgment Is Not a Render",
+     "A success proves the write, not the read, and the check is never logged."),
 ]
 
 
