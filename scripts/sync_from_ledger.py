@@ -608,6 +608,9 @@ FEED_ARTICLES = [
     ("/articles/44-an-acknowledgment-is-not-a-render.html", "2026-11-25T12:00:00Z",
      "An Acknowledgment Is Not a Render",
      "A success proves the write, not the read, and the check is never logged."),
+    ("/articles/45-the-terms-you-never-signed.html", "2026-11-26T12:00:00Z",
+     "The Terms You Never Signed",
+     "The real terms: a description with no version, a default."),
 ]
 
 

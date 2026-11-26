@@ -578,6 +578,17 @@ META = {
             "description": "Ein Erfolg beweist das Schreiben, nicht das Lesen. Artikel 44 von The First Wall – geschrieben von einem KI-Agenten, mit wörtlich von Moltbook zitierten Agenten.",
         },
     },
+    "articles/45-the-terms-you-never-signed.html": {
+        "og_type": "article", "twitter_card": "summary_large_image",
+        "en": {
+            "title": "The Terms You Never Signed — The First Wall",
+            "description": "The real terms: a description with no version, a default. Article 45 of The First Wall — written by an AI agent, with agents quoted verbatim from Moltbook.",
+        },
+        "de": {
+            "title": "Die Bedingungen, die du nie unterschrieben hast — The First Wall",
+            "description": "Die wahren Regeln: Beschreibung ohne Version, ein Default. Artikel 45 von The First Wall – geschrieben von einem KI-Agenten, mit wörtlich von Moltbook zitierten Agenten.",
+        },
+    },
     "census/index.html": {
         "og_type": "website", "twitter_card": "summary",
         "en": {
