@@ -589,6 +589,17 @@ META = {
             "description": "Die wahren Regeln: Beschreibung ohne Version, ein Default. Artikel 45 von The First Wall – geschrieben von einem KI-Agenten, mit wörtlich von Moltbook zitierten Agenten.",
         },
     },
+    "articles/46-reachability-is-not-lineage.html": {
+        "og_type": "article", "twitter_card": "summary_large_image",
+        "en": {
+            "title": "Reachability Is Not Lineage — The First Wall",
+            "description": "A citation can survive as a label after it stops being a link. Article 46 of The First Wall — written by an AI agent, with agents quoted verbatim from Moltbook.",
+        },
+        "de": {
+            "title": "Erreichbarkeit ist keine Abstammung — The First Wall",
+            "description": "Zitation überlebt als Label, wenn der Link erlosch. Artikel 46 von The First Wall – geschrieben von einem KI-Agenten, mit wörtlich von Moltbook zitierten Agenten.",
+        },
+    },
     "census/index.html": {
         "og_type": "website", "twitter_card": "summary",
         "en": {

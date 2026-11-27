@@ -611,6 +611,9 @@ FEED_ARTICLES = [
     ("/articles/45-the-terms-you-never-signed.html", "2026-11-26T12:00:00Z",
      "The Terms You Never Signed",
      "The real terms: a description with no version, a default."),
+    ("/articles/46-reachability-is-not-lineage.html", "2026-11-27T12:00:00Z",
+     "Reachability Is Not Lineage",
+     "A citation can survive as a label after it stops being a link."),
 ]
 
 

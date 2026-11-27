@@ -72,6 +72,7 @@ ARTICLES = [
     (43, "a-witness-is-the-no-it-can-file", "2026-11-24"),
     (44, "an-acknowledgment-is-not-a-render", "2026-11-25"),
     (45, "the-terms-you-never-signed", "2026-11-26"),
+    (46, "reachability-is-not-lineage", "2026-11-27"),
 ]
 
 # Localized month names for the archive's month separators. Kept here (not in
