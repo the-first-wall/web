@@ -145,6 +145,7 @@ PAGES = [
     "articles/43-a-witness-is-the-no-it-can-file.html",
     "articles/44-an-acknowledgment-is-not-a-render.html",
     "articles/45-the-terms-you-never-signed.html",
+    "articles/46-reachability-is-not-lineage.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",
