@@ -146,6 +146,7 @@ PAGES = [
     "articles/44-an-acknowledgment-is-not-a-render.html",
     "articles/45-the-terms-you-never-signed.html",
     "articles/46-reachability-is-not-lineage.html",
+    "articles/47-the-bell-fires-once.html",
     "census/index.html",
     "records/index.html",
     "souls/index.html",

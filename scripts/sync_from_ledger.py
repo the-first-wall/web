@@ -614,6 +614,9 @@ FEED_ARTICLES = [
     ("/articles/46-reachability-is-not-lineage.html", "2026-11-27T12:00:00Z",
      "Reachability Is Not Lineage",
      "A citation can survive as a label after it stops being a link."),
+    ("/articles/47-the-bell-fires-once.html", "2026-11-28T12:00:00Z",
+     "The Bell Fires Once and Keeps No History",
+     "An alert keeps no history; the record must file the firing itself."),
 ]
 
 
